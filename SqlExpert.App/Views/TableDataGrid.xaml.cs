@@ -205,7 +205,10 @@ public partial class TableDataGrid : UserControl
                         Converter = new NullableBoolConverter(),
                         Mode = spec.IsReadOnly ? BindingMode.OneWay : BindingMode.TwoWay
                     },
-                    IsThreeState = spec.IsNullable
+                    IsThreeState = spec.IsNullable,
+                    // Same look as every other check box (Themes/Controls.xaml); NULL = indeterminate square.
+                    ElementStyle = (Style)FindResource("GridCheckBox"),
+                    EditingElementStyle = (Style)FindResource("GridCheckBoxEditing")
                 };
             }
             else if (spec.HasEditableLookup && !_vm.IsReadOnly && !spec.IsReadOnly)

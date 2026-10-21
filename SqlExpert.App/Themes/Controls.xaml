@@ -1,5 +1,6 @@
 <!--
-  SqlExpert control styles: folder-style tabs, flat inner toolbars, document title bars and dialog buttons.
+  SqlExpert control styles: folder-style tabs, flat inner toolbars, document title bars, dialog buttons,
+  check boxes and radio buttons.
   One soft blue-gray palette (no green). Every template snaps to device pixels so lines stay crisp at
   100% / 125% / 150% display scaling.
 -->
@@ -492,4 +493,178 @@
       </Setter.Value>
     </Setter>
   </Style>
+
+  <!-- ================================================================ check boxes / radio buttons (implicit) -->
+  <SolidColorBrush x:Key="Check.Border" Color="#8D9AAD"/>
+  <SolidColorBrush x:Key="Check.Background" Color="#FFFFFF"/>
+  <SolidColorBrush x:Key="Check.Glyph" Color="#23446F"/>
+  <SolidColorBrush x:Key="Check.HoverBorder" Color="#5B84B8"/>
+  <SolidColorBrush x:Key="Check.HoverFill" Color="#EEF4FB"/>
+  <SolidColorBrush x:Key="Check.PressedFill" Color="#DCE8F7"/>
+  <SolidColorBrush x:Key="Check.DisabledBorder" Color="#CBD3DE"/>
+  <SolidColorBrush x:Key="Check.DisabledBackground" Color="#F3F5F8"/>
+  <SolidColorBrush x:Key="Check.DisabledGlyph" Color="#A3ACB9"/>
+
+  <!-- Dotted focus rectangle around the caption (keyboard focus only), left of it is the 13px box + 4px gap -->
+  <Style x:Key="Check.FocusVisual">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Rectangle Margin="16,0,0,0" SnapsToDevicePixels="True" StrokeThickness="1" StrokeDashArray="1 2"
+                     Stroke="{StaticResource Ui.TextInactive}"/>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Box 13x13, radius 2; check = vector path #23446F; indeterminate (IsThreeState, NULL) = filled square. -->
+  <Style x:Key="SqlCheckBox" TargetType="CheckBox">
+    <Setter Property="OverridesDefaultStyle" Value="True"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
+    <Setter Property="Background" Value="{StaticResource Check.Background}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Check.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="UseLayoutRounding" Value="True"/>
+    <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CheckBox">
+          <Grid x:Name="Root" Background="Transparent" SnapsToDevicePixels="True">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border x:Name="Box" Width="13" Height="13" CornerRadius="2" VerticalAlignment="Center"
+                    Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+              <Grid>
+                <Path x:Name="CheckMark" Width="11" Height="11" Data="M2.2,5.6 L4.5,7.9 L8.9,3.3"
+                      Stroke="{StaticResource Check.Glyph}" StrokeThickness="1.8"
+                      StrokeStartLineCap="Square" StrokeEndLineCap="Square" StrokeLineJoin="Miter"
+                      Opacity="0" SnapsToDevicePixels="True"/>
+                <Rectangle x:Name="IndeterminateMark" Width="7" Height="7" RadiusX="1" RadiusY="1"
+                           Fill="{StaticResource Check.Glyph}" Opacity="0" SnapsToDevicePixels="True"/>
+              </Grid>
+            </Border>
+            <ContentPresenter x:Name="Cp" Grid.Column="1" Focusable="False" RecognizesAccessKey="True"
+                              Margin="{TemplateBinding Padding}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="HasContent" Value="True">
+              <Setter Property="FocusVisualStyle" Value="{StaticResource Check.FocusVisual}"/>
+              <Setter Property="Padding" Value="4,-1,0,0"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Check.HoverBorder}"/>
+              <Setter TargetName="Box" Property="Background" Value="{StaticResource Check.HoverFill}"/>
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Check.HoverBorder}"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Check.HoverBorder}"/>
+              <Setter TargetName="Box" Property="Background" Value="{StaticResource Check.PressedFill}"/>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="CheckMark" Property="Opacity" Value="1"/>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="{x:Null}">
+              <Setter TargetName="IndeterminateMark" Property="Opacity" Value="1"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Check.DisabledBorder}"/>
+              <Setter TargetName="Box" Property="Background" Value="{StaticResource Check.DisabledBackground}"/>
+              <Setter TargetName="CheckMark" Property="Stroke" Value="{StaticResource Check.DisabledGlyph}"/>
+              <Setter TargetName="IndeterminateMark" Property="Fill" Value="{StaticResource Check.DisabledGlyph}"/>
+              <Setter Property="Foreground" Value="{StaticResource Ui.TextDisabled}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="CheckBox" BasedOn="{StaticResource SqlCheckBox}"/>
+
+  <!-- DataGridCheckBoxColumn cells (ElementStyle / EditingElementStyle): same look, centered, no caption.
+       Display element: not clickable/focusable (like the WPF default) but enabled, so read-only cells are not greyed. -->
+  <Style x:Key="GridCheckBox" TargetType="CheckBox" BasedOn="{StaticResource SqlCheckBox}">
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="IsHitTestVisible" Value="False"/>
+    <Setter Property="Focusable" Value="False"/>
+  </Style>
+  <Style x:Key="GridCheckBoxEditing" TargetType="CheckBox" BasedOn="{StaticResource SqlCheckBox}">
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+
+  <!-- Radio button: 13px circle, same palette; dot 5px #23446F. -->
+  <Style x:Key="SqlRadioButton" TargetType="RadioButton">
+    <Setter Property="OverridesDefaultStyle" Value="True"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
+    <Setter Property="Background" Value="{StaticResource Check.Background}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Check.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="UseLayoutRounding" Value="True"/>
+    <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Grid x:Name="Root" Background="Transparent" SnapsToDevicePixels="True">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid Width="13" Height="13" VerticalAlignment="Center">
+              <Ellipse x:Name="Circle" Fill="{TemplateBinding Background}" Stroke="{TemplateBinding BorderBrush}" StrokeThickness="1"/>
+              <Ellipse x:Name="Dot" Width="5" Height="5" Fill="{StaticResource Check.Glyph}" Opacity="0"/>
+            </Grid>
+            <ContentPresenter x:Name="Cp" Grid.Column="1" Focusable="False" RecognizesAccessKey="True"
+                              Margin="{TemplateBinding Padding}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="HasContent" Value="True">
+              <Setter Property="FocusVisualStyle" Value="{StaticResource Check.FocusVisual}"/>
+              <Setter Property="Padding" Value="4,-1,0,0"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Circle" Property="Stroke" Value="{StaticResource Check.HoverBorder}"/>
+              <Setter TargetName="Circle" Property="Fill" Value="{StaticResource Check.HoverFill}"/>
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Circle" Property="Stroke" Value="{StaticResource Check.HoverBorder}"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Circle" Property="Stroke" Value="{StaticResource Check.HoverBorder}"/>
+              <Setter TargetName="Circle" Property="Fill" Value="{StaticResource Check.PressedFill}"/>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Dot" Property="Opacity" Value="1"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Circle" Property="Stroke" Value="{StaticResource Check.DisabledBorder}"/>
+              <Setter TargetName="Circle" Property="Fill" Value="{StaticResource Check.DisabledBackground}"/>
+              <Setter TargetName="Dot" Property="Fill" Value="{StaticResource Check.DisabledGlyph}"/>
+              <Setter Property="Foreground" Value="{StaticResource Ui.TextDisabled}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="RadioButton" BasedOn="{StaticResource SqlRadioButton}"/>
 </ResourceDictionary>

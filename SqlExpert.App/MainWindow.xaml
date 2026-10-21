@@ -66,14 +66,14 @@
                     </DataGrid.RowStyle>
                     <DataGrid.Columns>
                       <DataGridTextColumn Header="#" Binding="{Binding Ordinal, Mode=OneWay}" Width="36"/>
-                      <DataGridCheckBoxColumn Header="PK" Binding="{Binding PK, Mode=OneWay}" Width="36"/>
-                      <DataGridCheckBoxColumn Header="FK" Binding="{Binding FK, Mode=OneWay}" Width="36"/>
-                      <DataGridCheckBoxColumn Header="UNQ" Binding="{Binding UNQ, Mode=OneWay}" Width="40"/>
+                      <DataGridCheckBoxColumn Header="PK" Binding="{Binding PK, Mode=OneWay}" Width="36" ElementStyle="{StaticResource GridCheckBox}" EditingElementStyle="{StaticResource GridCheckBoxEditing}"/>
+                      <DataGridCheckBoxColumn Header="FK" Binding="{Binding FK, Mode=OneWay}" Width="36" ElementStyle="{StaticResource GridCheckBox}" EditingElementStyle="{StaticResource GridCheckBoxEditing}"/>
+                      <DataGridCheckBoxColumn Header="UNQ" Binding="{Binding UNQ, Mode=OneWay}" Width="40" ElementStyle="{StaticResource GridCheckBox}" EditingElementStyle="{StaticResource GridCheckBoxEditing}"/>
                       <DataGridTextColumn Header="Field Name" Binding="{Binding FieldName, Mode=OneWay}" Width="140"/>
                       <DataGridTextColumn Header="Field Type" Binding="{Binding FieldType, Mode=OneWay}" Width="100"/>
                       <DataGridTextColumn Header="Size" Binding="{Binding Size, Mode=OneWay}" Width="50"/>
                       <DataGridTextColumn Header="Scale" Binding="{Binding Scale, Mode=OneWay}" Width="50"/>
-                      <DataGridCheckBoxColumn Header="Null" Binding="{Binding Nullable, Mode=OneWay}" Width="40"/>
+                      <DataGridCheckBoxColumn Header="Null" Binding="{Binding Nullable, Mode=OneWay}" Width="40" ElementStyle="{StaticResource GridCheckBox}" EditingElementStyle="{StaticResource GridCheckBoxEditing}"/>
                       <DataGridTextColumn Header="Default" Binding="{Binding DefaultValue, Mode=OneWay}" Width="140"/>
                       <DataGridTextColumn Header="Collation" Binding="{Binding Collation, Mode=OneWay}" Width="160"/>
                       <DataGridTextColumn Header="Description" Binding="{Binding Notes, Mode=OneWay}" Width="*"/>

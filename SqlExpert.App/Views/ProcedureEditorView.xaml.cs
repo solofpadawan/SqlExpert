@@ -124,8 +124,8 @@ public partial class ProcedureEditorView : UserControl, IProcedureEditorHost
         ParamGrid.Columns.Add(Text("Size", nameof(ProcedureParameter.Size), 60));
         ParamGrid.Columns.Add(Text("Scale", nameof(ProcedureParameter.Scale), 50));
         ParamGrid.Columns.Add(Text("Default", nameof(ProcedureParameter.Default), 120));
-        ParamGrid.Columns.Add(new DataGridCheckBoxColumn { Header = "Output", Binding = Edit(nameof(ProcedureParameter.IsOutput), immediate: true), Width = new DataGridLength(55) });
-        ParamGrid.Columns.Add(new DataGridCheckBoxColumn { Header = "ReadOnly", Binding = Edit(nameof(ProcedureParameter.IsReadOnly), immediate: true), Width = new DataGridLength(65) });
+        ParamGrid.Columns.Add(new DataGridCheckBoxColumn { Header = "Output", Binding = Edit(nameof(ProcedureParameter.IsOutput), immediate: true), ElementStyle = GridCheckBoxStyle(), EditingElementStyle = GridCheckBoxEditingStyle(), Width = new DataGridLength(55) });
+        ParamGrid.Columns.Add(new DataGridCheckBoxColumn { Header = "ReadOnly", Binding = Edit(nameof(ProcedureParameter.IsReadOnly), immediate: true), ElementStyle = GridCheckBoxStyle(), EditingElementStyle = GridCheckBoxEditingStyle(), Width = new DataGridLength(65) });
         ParamGrid.Columns.Add(Text("Description", nameof(ProcedureParameter.Description), 0, star: true));
         ParamGrid.LoadingRow += (_, e) => e.Row.Header = (e.Row.GetIndex() + 1).ToString();
         // A check box toggles on the first click (no separate "enter edit mode" click).
@@ -138,6 +138,10 @@ public partial class ProcedureEditorView : UserControl, IProcedureEditorHost
             }
         };
     }
+
+    // Check box cells use the app-wide check box look (Themes/Controls.xaml).
+    private Style GridCheckBoxStyle() => (Style)FindResource("GridCheckBox");
+    private Style GridCheckBoxEditingStyle() => (Style)FindResource("GridCheckBoxEditing");
 
     private static T? FindParent<T>(DependencyObject? d) where T : DependencyObject
     {
