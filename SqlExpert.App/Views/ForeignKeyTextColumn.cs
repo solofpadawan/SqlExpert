@@ -57,12 +57,5 @@ internal sealed class ForeignKeyTextColumn : NullAwareTextColumn
         return panel;
     }
 
-    /// <summary>The text box inside the editing panel (the base column logic works on it).</summary>
-    internal static TextBox? EditorTextBox(FrameworkElement? element) =>
-        element as TextBox ?? (element as Panel)?.Children.OfType<TextBox>().FirstOrDefault();
-
-    // Commit/Cancel keep the base behavior on the panel: the cell's binding-group helpers look at the editing
-    // element whose Parent is the DataGridCell and handle every binding inside it (the text box included).
-    protected override object PrepareCellForEdit(FrameworkElement editingElement, RoutedEventArgs editingEventArgs) =>
-        base.PrepareCellForEdit(EditorTextBox(editingElement) ?? editingElement, editingEventArgs);
+    // EditorTextBox / PrepareCellForEdit (text box inside the panel) come from NullAwareTextColumn.
 }

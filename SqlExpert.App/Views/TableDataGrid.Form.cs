@@ -79,7 +79,7 @@ public partial class TableDataGrid
             nullBox.Click += (_, _) => ToggleNull(spec, nullBox);
             Place(nullBox, row, 2);
 
-            var editor = CreateEditor(spec, col.HasEditableLookup && !_vm.IsReadOnly ? col.Lookup : null);
+            var editor = CreateEditor(spec, col.HasEditableLookup && !_vm.IsReadOnly ? col.Lookup : null, col);
             Place(editor.Host, row, 3);
             _formEditors.Add(editor.Editor);
             row++;
@@ -93,8 +93,10 @@ public partial class TableDataGrid
         FormGrid.Children.Add(element);
     }
 
-    private (FrameworkElement Host, FormEditor Editor) CreateEditor(FormFieldSpec spec, Core.Models.ForeignKeyLookupTarget? lookup = null)
+    private (FrameworkElement Host, FormEditor Editor) CreateEditor(FormFieldSpec spec, Core.Models.ForeignKeyLookupTarget? lookup = null,
+        SqlExpert.App.ViewModels.GridColumnSpec? col = null)
     {
+        var dateKind = col is null ? DateColumnKind.None : DateValueText.KindOf(col.Info);
         if (spec.Kind == FormFieldKind.Boolean)
         {
             var cb = new CheckBox
@@ -143,7 +145,7 @@ public partial class TableDataGrid
 
         tb.SetBinding(TextBox.TextProperty, new Binding(spec.Field)
         {
-            Converter = new FormValueConverter(spec.ClrType),
+            Converter = new FormValueConverter(spec.ClrType, dateKind),
             Mode = spec.IsReadOnly ? BindingMode.OneWay : BindingMode.TwoWay,
             UpdateSourceTrigger = UpdateSourceTrigger.Explicit,
             ValidatesOnExceptions = true
@@ -193,39 +195,26 @@ public partial class TableDataGrid
             case FormFieldKind.Memo:
             {
                 var button = SideButton("...", "Editar o texto completo (memo)");
-                button.Click += (_, _) => OpenMemo(spec, tb);
+                button.Click += (_, _) => OpenFormMemo(spec, col, tb);
                 return (WithSideButton(tb, button), editor);
             }
             case FormFieldKind.Date or FormFieldKind.DateTime:
             {
                 tb.MaxWidth = 260;
-                var button = SideButton("▾", "Escolher a data no calendário");
+                // Same drop-down calendar as the Data grid "▾" (pt-BR, Today / Clear); also Alt+↓ / F4.
+                var button = SideButton("▾", "Escolher a data no calendário (Alt+↓ / F4)");
                 button.IsEnabled = !spec.IsReadOnly;
-                var calendar = new System.Windows.Controls.Calendar { DisplayMode = CalendarMode.Month };
-                var popup = new Popup
-                {
-                    Child = new Border { BorderBrush = Brushes.Gray, BorderThickness = new Thickness(1), Background = Brushes.White, Child = calendar },
-                    PlacementTarget = tb,
-                    Placement = PlacementMode.Bottom,
-                    StaysOpen = false
-                };
-                button.Click += (_, _) =>
-                {
-                    UpdateIfDirty(tb);
-                    var current = CurrentValue(spec);
-                    var shown = current switch { DateTime d => d, DateTimeOffset o => o.DateTime, _ => DateTime.Today };
-                    calendar.SelectedDate = current is DateTime or DateTimeOffset ? shown.Date : null;
-                    calendar.DisplayDate = shown.Date;
-                    popup.IsOpen = true;
-                };
-                calendar.SelectedDatesChanged += (_, _) =>
-                {
-                    if (!popup.IsOpen || calendar.SelectedDate is not { } picked) return;
-                    popup.IsOpen = false;
-                    SetValue(spec, FormFieldLayout.ReplaceDate(CurrentValue(spec), picked, spec.ClrType));
-                    Mouse.Capture(null);
-                };
                 var host = WithSideButton(tb, button);
+                button.Click += (_, _) => OpenFormCalendar(spec, dateKind, tb, host);
+                if (!spec.IsReadOnly)
+                {
+                    tb.PreviewKeyDown += (_, e) =>
+                    {
+                        if (!ForeignKeyTextColumn.IsLookupGesture(e)) return;
+                        OpenFormCalendar(spec, dateKind, tb, host);
+                        e.Handled = true;
+                    };
+                }
                 host.MaxWidth = 290;
                 host.HorizontalAlignment = HorizontalAlignment.Left;
                 host.MinWidth = 160;
@@ -323,17 +312,42 @@ public partial class TableDataGrid
         box.GetBindingExpression(ToggleButton.IsCheckedProperty)?.UpdateTarget();
     }
 
-    private void OpenMemo(FormFieldSpec spec, TextBox tb)
+    /// <summary>"..." of a memo field: the same memo window as the grid, on the current record and this column.</summary>
+    private void OpenFormMemo(FormFieldSpec spec, SqlExpert.App.ViewModels.GridColumnSpec? col, TextBox tb)
     {
         UpdateIfDirty(tb);
-        if (FormRow is null) return;
-        var value = CurrentValue(spec);
-        var text = value as string ?? (DataValueText.IsNull(value) ? "" : value?.ToString() ?? "");
-        var result = MemoEditorWindow.Edit(Window.GetWindow(this), spec.Name, text, spec.IsReadOnly);
-        if (result is null || spec.IsReadOnly) return;
-        if (result == text && !DataValueText.IsNull(value)) return;
-        SetValue(spec, result);
-        tb.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+        if (FormRow is not { } row || col is null) return;
+        OpenMemo(col, row);
+    }
+
+    /// <summary>Calendar of a date field: the pick replaces the date (time kept), Today / Clear as in the grid.</summary>
+    private void OpenFormCalendar(FormFieldSpec spec, DateColumnKind kind, TextBox tb, FrameworkElement anchor)
+    {
+        if (spec.IsReadOnly) return;
+        if (_calendar is { IsOpen: true })
+        {
+            CloseLookup();
+            return;
+        }
+        UpdateIfDirty(tb);
+        var current = CurrentValue(spec);
+        var popup = new DateCalendarPopup(DateValueText.SelectedDate(current), DateValueText.CanClear(spec.IsNullable, spec.IsReadOnly));
+        popup.Picked += result =>
+        {
+            if (ReferenceEquals(_calendar, popup)) _calendar = null;
+            var value = CalendarValue(result, current, kind == DateColumnKind.None && spec.Kind == FormFieldKind.Date ? DateColumnKind.Date : kind);
+            if (!Equals(value, current) && !(DataValueText.IsNull(value) && DataValueText.IsNull(current)))
+                SetValue(spec, value);
+            tb.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+            tb.Focus();
+        };
+        popup.Cancelled += () =>
+        {
+            if (ReferenceEquals(_calendar, popup)) _calendar = null;
+            tb.Focus();
+        };
+        _calendar = popup;
+        popup.Open(anchor);
     }
 
     private static void UpdateIfDirty(TextBox tb)

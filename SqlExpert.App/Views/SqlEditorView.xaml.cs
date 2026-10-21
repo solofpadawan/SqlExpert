@@ -10,6 +10,7 @@ using ICSharpCode.AvalonEdit.Rendering;
 using ICSharpCode.AvalonEdit.Search;
 using SqlExpert.App.Services;
 using SqlExpert.App.ViewModels;
+using SqlExpert.Core.DataForms;
 using SqlExpert.Core.SqlEditor;
 
 namespace SqlExpert.App.Views;
@@ -229,7 +230,47 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
             });
         }
         grid.ItemsSource = tab.View;
+        // Text cells: double-click or F2 opens the read-only "..." memo viewer.
+        grid.MouseDoubleClick += (_, e) =>
+        {
+            if (FindCell(e.OriginalSource as DependencyObject) is { } cell && OpenResultMemo(grid, tab, cell.Column)) e.Handled = true;
+        };
+        grid.PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.F2 && Keyboard.Modifiers == ModifierKeys.None && OpenResultMemo(grid, tab, grid.CurrentCell.Column)) e.Handled = true;
+        };
         return grid;
+    }
+
+    private MemoEditorWindow? _resultMemo;
+
+    private static DataGridCell? FindCell(DependencyObject? d)
+    {
+        while (d is not null and not DataGridCell)
+            d = d is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d);
+        return d as DataGridCell;
+    }
+
+    /// <summary>Read-only memo viewer of a text column of a result grid (char/varchar/nchar/nvarchar/text/ntext).</summary>
+    private bool OpenResultMemo(DataGrid grid, SqlResultTab tab, DataGridColumn? column)
+    {
+        if (column is null || grid.CurrentItem is null) return false;
+        var i = grid.Columns.IndexOf(column);
+        if (i < 0 || i >= tab.Columns.Count) return false;
+        var col = tab.Columns[i];
+        var isText = string.IsNullOrEmpty(col.DataTypeName) ? col.ClrType == typeof(string) : MemoEditRules.IsTextTypeName(col.DataTypeName);
+        if (!isText) return false;
+        _resultMemo?.Close();
+        try
+        {
+            _resultMemo = MemoEditorWindow.Open(Window.GetWindow(this), new ResultGridMemoSource(grid, column, "c" + i, col.Name));
+            _resultMemo.Closed += (_, _) => _resultMemo = null;
+        }
+        catch (Exception ex)
+        {
+            App.ReportError(ex);
+        }
+        return true;
     }
 
     private void Messages_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)

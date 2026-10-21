@@ -637,6 +637,30 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Memo window edit: writes <paramref name="value"/> into one cell of <paramref name="row"/> (in memory; Post/Cancel
+    /// decide). Nothing is written when the value is the same. Returns true when the row changed.
+    /// </summary>
+    public bool SetCellValue(DataRowView row, GridColumnSpec spec, object value)
+    {
+        if (IsReadOnly || spec.IsReadOnly) return false;
+        try
+        {
+            var current = row[spec.Field];
+            if (Equals(current, value) || (DataValueText.IsNull(current) && DataValueText.IsNull(value))) return false;
+            row[spec.Field] = value;
+            RaiseCounters();
+            _setStatus($"{spec.Header} alterado (pendente - Post/Cancel).");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _setStatus("Erro ao aplicar o texto: " + ex.Message);
+            App.ReportError(ex);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Explicit "set NULL" (Ctrl+0) of one cell of <paramref name="row"/>. The row only changes in memory (Post/Cancel
     /// decide); an already-NULL cell is not touched. Returns true when the value was set to NULL.
     /// </summary>

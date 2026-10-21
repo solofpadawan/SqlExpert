@@ -1,21 +1,170 @@
+using System.Data;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using SqlExpert.App.Commands;
+using SqlExpert.App.ViewModels;
+using SqlExpert.Core.DataForms;
 
 namespace SqlExpert.App.Views;
 
-/// <summary>Modal multiline editor for long text values (Form View "..." button). Built in code; opened only by the user.</summary>
-public sealed class MemoEditorWindow : Window
+/// <summary>
+/// Where the memo window reads and writes one column: the current record of a Data tab (editable, with the
+/// navigator) or a SQL Editor result grid (read-only viewer).
+/// </summary>
+internal abstract class MemoSource
 {
-    private readonly TextBox _text;
-    private bool _accepted;
+    public abstract string ColumnName { get; }
+    public abstract bool IsReadOnly { get; }
+    /// <summary>Character limit of sized columns (0 = none).</summary>
+    public virtual int MaxLength => 0;
+    /// <summary>The record shown now (null when there is none).</summary>
+    public abstract object? CurrentRow { get; }
+    public abstract object? ValueOf(object row);
+    /// <summary>Writes the edited text into <paramref name="row"/> (pending until Post/Cancel).</summary>
+    public virtual void Apply(object row, string text) { }
+    public virtual ICommand? First => null;
+    public virtual ICommand? Prior => null;
+    public virtual ICommand? Next => null;
+    public virtual ICommand? Last => null;
+    public virtual ICommand? Delete => null;
+    public virtual ICommand? Post => null;
+    public virtual ICommand? Cancel => null;
+    public virtual bool HasPendingChanges => false;
 
-    private MemoEditorWindow(string field, string text, bool readOnly)
+    /// <summary>The current record changed; true = the data was reloaded (typed text is discarded).</summary>
+    public event Action<bool>? CurrentChanged;
+    protected void RaiseCurrentChanged(bool discardPending) => CurrentChanged?.Invoke(discardPending);
+    public virtual void Detach() { }
+}
+
+/// <summary>Current record of a Data tab (grid or Form View): edits go through the normal Post/Cancel.</summary>
+internal sealed class TableMemoSource : MemoSource
+{
+    private readonly TableDataViewModel _vm;
+    private readonly GridColumnSpec _spec;
+    private readonly Action _beforeCommand;
+
+    public TableMemoSource(TableDataViewModel vm, GridColumnSpec spec, Action beforeCommand)
     {
-        Title = (readOnly ? "Memo (somente leitura): " : "Memo: ") + field;
-        Width = 680;
-        Height = 440;
+        _vm = vm;
+        _spec = spec;
+        _beforeCommand = beforeCommand;
+        _vm.PropertyChanged += OnVmPropertyChanged;
+        _vm.DataReloaded += OnReloaded;
+    }
+
+    public string Field => _spec.Field;
+    public override string ColumnName => _spec.Header;
+    public override bool IsReadOnly => _vm.IsReadOnly || _spec.IsReadOnly;
+    public override int MaxLength => MemoEditRules.MaxChars(_spec.Info);
+    public override object? CurrentRow => _vm.CurrentRowView;
+    public override object? ValueOf(object row) => row is DataRowView rv && rv.Row.RowState != DataRowState.Detached ? rv[_spec.Field] : null;
+    public override void Apply(object row, string text)
+    {
+        if (row is DataRowView rv) _vm.SetCellValue(rv, _spec, text);
+    }
+
+    private ICommand Wrap(ICommand inner) => new RelayCommand(_ => { _beforeCommand(); inner.Execute(null); }, _ => inner.CanExecute(null));
+    public override ICommand First => Wrap(_vm.FirstCommand);
+    public override ICommand Prior => Wrap(_vm.PriorCommand);
+    public override ICommand Next => Wrap(_vm.NextCommand);
+    public override ICommand Last => Wrap(_vm.LastCommand);
+    public override ICommand? Delete => IsReadOnly ? null : _vm.DeleteCommand;
+    public override ICommand? Post => IsReadOnly ? null : Wrap(_vm.PostCommand);
+    public override ICommand? Cancel => IsReadOnly ? null : _vm.CancelCommand;
+    public override bool HasPendingChanges => _vm.HasPendingChanges;
+
+    private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(TableDataViewModel.CurrentRowView)) RaiseCurrentChanged(false);
+    }
+
+    private void OnReloaded() => RaiseCurrentChanged(true);
+
+    public override void Detach()
+    {
+        _vm.PropertyChanged -= OnVmPropertyChanged;
+        _vm.DataReloaded -= OnReloaded;
+    }
+}
+
+/// <summary>Read-only viewer of one column of a SQL Editor result grid; the navigator moves the grid's current row.</summary>
+internal sealed class ResultGridMemoSource : MemoSource
+{
+    private readonly DataGrid _grid;
+    private readonly DataGridColumn _column;
+    private readonly string _field;
+    private readonly string _name;
+
+    public ResultGridMemoSource(DataGrid grid, DataGridColumn column, string field, string name)
+    {
+        _grid = grid;
+        _column = column;
+        _field = field;
+        _name = name;
+        First = new RelayCommand(_ => MoveTo(0), _ => Index > 0);
+        Prior = new RelayCommand(_ => MoveTo(Index - 1), _ => Index > 0);
+        Next = new RelayCommand(_ => MoveTo(Index + 1), _ => Index >= 0 && Index < _grid.Items.Count - 1);
+        Last = new RelayCommand(_ => MoveTo(_grid.Items.Count - 1), _ => Index >= 0 && Index < _grid.Items.Count - 1);
+        _grid.CurrentCellChanged += OnCurrentCellChanged;
+    }
+
+    public override string ColumnName => _name;
+    public override bool IsReadOnly => true;
+    public override object? CurrentRow => _grid.CurrentItem as DataRowView;
+    public override object? ValueOf(object row) => row is DataRowView rv ? rv[_field] : null;
+    public override ICommand First { get; }
+    public override ICommand Prior { get; }
+    public override ICommand Next { get; }
+    public override ICommand Last { get; }
+
+    private int Index => _grid.CurrentItem is { } item ? _grid.Items.IndexOf(item) : -1;
+
+    private void MoveTo(int index)
+    {
+        if (index < 0 || index >= _grid.Items.Count) return;
+        var item = _grid.Items[index];
+        _grid.SelectedCells.Clear();
+        var info = new DataGridCellInfo(item, _column);
+        _grid.CurrentCell = info;
+        _grid.SelectedCells.Add(info);
+        _grid.ScrollIntoView(item, _column);
+    }
+
+    private void OnCurrentCellChanged(object? sender, EventArgs e) => RaiseCurrentChanged(false);
+
+    public override void Detach() => _grid.CurrentCellChanged -= OnCurrentCellChanged;
+}
+
+/// <summary>
+/// "..." memo window of a text column (classic style): navigator, "Plain text editor" with a live "N chars"
+/// counter, [Copy to clipboard] and [Close]. Owned, not modal: the grid stays usable and moving to another record
+/// shows that record's value. A NULL value opens empty and stays NULL unless edited; edits are written to the record
+/// (pending until Post/Cancel) when leaving the window, moving, posting or closing. No separate "Unicode editor"
+/// pane: .NET strings are already Unicode, so the plain editor shows and edits every character.
+/// </summary>
+internal sealed class MemoEditorWindow : Window
+{
+    private static readonly Brush HeaderBackground = Frozen(new SolidColorBrush(Color.FromRgb(0xA0, 0xA0, 0xA0)));
+
+    private readonly MemoSource _source;
+    private readonly TextBox _text;
+    private readonly TextBlock _counter;
+    private object? _row;
+    private object? _original;
+    private bool _edited;
+    private bool _loading;
+
+    private static Brush Frozen(Brush b) { b.Freeze(); return b; }
+
+    private MemoEditorWindow(MemoSource source)
+    {
+        _source = source;
+        Title = source.ColumnName;
+        Width = 640;
+        Height = 420;
         MinWidth = 320;
         MinHeight = 200;
         ShowInTaskbar = false;
@@ -24,61 +173,184 @@ public sealed class MemoEditorWindow : Window
 
         _text = new TextBox
         {
-            Text = text,
             AcceptsReturn = true,
             AcceptsTab = true,
-            IsReadOnly = readOnly,
+            IsReadOnly = source.IsReadOnly,
             TextWrapping = TextWrapping.Wrap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-            FontFamily = new FontFamily("Consolas"),
-            FontSize = 13,
-            Margin = new Thickness(6)
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(2),
+            MaxLength = Math.Max(0, source.MaxLength)
+        };
+        _counter = new TextBlock { FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center };
+        _text.TextChanged += (_, _) =>
+        {
+            if (!_loading) _edited = true;
+            _counter.Text = MemoEditRules.CharCounter(_text.Text);
         };
 
-        var wrap = new CheckBox { Content = "Quebrar linhas", IsChecked = true, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+        // Navigator: |◀ ◀ ▶ ▶|  −  ✓ ✗   (enabled from the record state)
+        var bar = new ToolBar { Background = Brushes.Transparent };
+        ToolBarTray.SetIsLocked(bar, true);
+        bar.Items.Add(NavButton("|◀", "First", source.First, apply: true));
+        bar.Items.Add(NavButton("◀", "Prior", source.Prior, apply: true));
+        bar.Items.Add(NavButton("▶", "Next", source.Next, apply: true));
+        bar.Items.Add(NavButton("▶|", "Last", source.Last, apply: true));
+        bar.Items.Add(new Separator());
+        bar.Items.Add(NavButton("−", "Delete record", source.Delete, apply: false));
+        var post = NavButton("✓", "Post (gravar alterações pendentes)", source.Post, apply: true, needsChanges: true);
+        post.Foreground = new SolidColorBrush(Color.FromRgb(0x1E, 0x7B, 0x1E));
+        bar.Items.Add(post);
+        var cancel = NavButton("✗", "Cancel (descartar alterações pendentes)", source.Cancel, apply: false, needsChanges: true);
+        cancel.Foreground = new SolidColorBrush(Color.FromRgb(0xB2, 0x22, 0x22));
+        bar.Items.Add(cancel);
+        bar.Items.Add(new Separator());
+        var wrap = new CheckBox { Content = "Wrap", IsChecked = true, Margin = new Thickness(4, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Quebrar linhas" };
         wrap.Click += (_, _) => _text.TextWrapping = wrap.IsChecked == true ? TextWrapping.Wrap : TextWrapping.NoWrap;
-        var info = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0), Foreground = Brushes.DimGray };
-        void UpdateInfo() => info.Text = $"{_text.Text.Length:N0} caractere(s)";
-        _text.TextChanged += (_, _) => UpdateInfo();
-        UpdateInfo();
+        bar.Items.Add(wrap);
+        var mono = new CheckBox { Content = "Monospace", Margin = new Thickness(4, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Fonte de largura fixa (Consolas)" };
+        var proportional = _text.FontFamily;
+        mono.Click += (_, _) => _text.FontFamily = mono.IsChecked == true ? new FontFamily("Consolas") : proportional;
+        bar.Items.Add(mono);
+        var tray = new ToolBarTray { IsLocked = true };
+        tray.ToolBars.Add(bar);
 
-        var ok = new Button { Content = "OK", Width = 80, Margin = new Thickness(4), IsDefault = false, Visibility = readOnly ? Visibility.Collapsed : Visibility.Visible };
-        ok.Click += (_, _) => { _accepted = true; Close(); };
-        var cancel = new Button { Content = readOnly ? "Fechar" : "Cancelar", Width = 80, Margin = new Thickness(4), IsCancel = true };
+        // "Plain text editor" header bar with the live "N chars" counter at the right.
+        var header = new DockPanel { Background = HeaderBackground };
+        DockPanel.SetDock(_counter, Dock.Right);
+        _counter.Margin = new Thickness(4, 2, 6, 2);
+        header.Children.Add(_counter);
+        header.Children.Add(new TextBlock
+        {
+            Text = source.IsReadOnly ? "Plain text editor (somente leitura)" : "Plain text editor",
+            FontWeight = FontWeights.Bold,
+            Margin = new Thickness(4, 2, 4, 2)
+        });
 
-        var bottom = new DockPanel { Margin = new Thickness(4, 0, 4, 6) };
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal };
-        buttons.Children.Add(ok);
-        buttons.Children.Add(cancel);
-        DockPanel.SetDock(buttons, Dock.Right);
-        bottom.Children.Add(buttons);
-        bottom.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Children = { wrap, info } });
+        var copy = new Button { Content = "Copy to clipboard", MinWidth = 130, Margin = new Thickness(6), Padding = new Thickness(8, 2, 8, 2) };
+        copy.Click += (_, _) => CopyToClipboard();
+        var close = new Button { Content = "Close", MinWidth = 80, Margin = new Thickness(6), Padding = new Thickness(8, 2, 8, 2), IsCancel = true };
+        close.Click += (_, _) => Close();
+        var bottom = new DockPanel { Background = SystemColors.ControlBrush };
+        DockPanel.SetDock(close, Dock.Right);
+        bottom.Children.Add(close);
+        copy.HorizontalAlignment = HorizontalAlignment.Left;
+        bottom.Children.Add(copy);
 
         var root = new DockPanel();
+        DockPanel.SetDock(tray, Dock.Top);
+        DockPanel.SetDock(header, Dock.Top);
         DockPanel.SetDock(bottom, Dock.Bottom);
+        root.Children.Add(tray);
+        root.Children.Add(header);
         root.Children.Add(bottom);
-        root.Children.Add(_text);
+        root.Children.Add(new Border { BorderBrush = Brushes.Gray, BorderThickness = new Thickness(0, 1, 0, 1), Child = _text });
         Content = root;
 
-        Loaded += (_, _) => { _text.Focus(); _text.CaretIndex = 0; };
-        PreviewKeyDown += (_, e) =>
+        source.CurrentChanged += OnCurrentChanged;
+        Deactivated += (_, _) => ApplyPending();
+        Closing += (_, _) => ApplyPending();
+        Closed += (_, _) =>
         {
-            if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Control && !readOnly)
-            {
-                _accepted = true;
-                Close();
-                e.Handled = true;
-            }
+            source.CurrentChanged -= OnCurrentChanged;
+            source.Detach();
         };
+        Loaded += (_, _) => { _text.Focus(); _text.CaretIndex = 0; };
+        Load();
     }
 
-    /// <summary>Returns the edited text, or null when cancelled (always null when read-only).</summary>
-    public static string? Edit(Window? owner, string field, string text, bool readOnly)
+    /// <summary>Column the window edits (Data tab), so a second "..." on the same column reuses it.</summary>
+    public MemoSource Source => _source;
+
+    /// <summary>Opens the window owned by <paramref name="owner"/> (not modal).</summary>
+    public static MemoEditorWindow Open(Window? owner, MemoSource source)
     {
-        var w = new MemoEditorWindow(field, text, readOnly);
+        var w = new MemoEditorWindow(source);
         if (owner is not null) w.Owner = owner;
-        w.ShowDialog();
-        return w._accepted && !readOnly ? w._text.Text : null;
+        w.Show();
+        return w;
+    }
+
+    private Button NavButton(string glyph, string tip, ICommand? command, bool apply, bool needsChanges = false)
+    {
+        var button = new Button
+        {
+            Content = glyph,
+            MinWidth = 24,
+            FontFamily = new FontFamily("Segoe UI Symbol"),
+            ToolTip = tip,
+            Focusable = false
+        };
+        ToolTipService.SetShowOnDisabled(button, true);
+        if (command is null)
+        {
+            button.IsEnabled = false;
+            return button;
+        }
+        button.Command = new RelayCommand(_ =>
+        {
+            if (apply) ApplyPending();
+            else _edited = false; // Delete / Cancel drop the text typed here
+            command.Execute(null);
+            Load();
+        }, _ => command.CanExecute(null) && (!needsChanges || _edited || _source.HasPendingChanges));
+        return button;
+    }
+
+    private void OnCurrentChanged(bool discardPending)
+    {
+        if (!discardPending) ApplyPending();
+        Load();
+    }
+
+    /// <summary>Shows the value of the current record (NULL → empty).</summary>
+    private void Load()
+    {
+        _loading = true;
+        try
+        {
+            _row = _source.CurrentRow;
+            _original = _row is null ? null : _source.ValueOf(_row);
+            _text.Text = MemoEditRules.EditorText(_original);
+            _text.IsEnabled = _row is not null;
+            _edited = false;
+            _counter.Text = MemoEditRules.CharCounter(_text.Text);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    /// <summary>Writes the edited text to the record it was loaded from (nothing when unchanged or NULL left blank).</summary>
+    private void ApplyPending()
+    {
+        if (_row is null || _source.IsReadOnly || !_edited) return;
+        try
+        {
+            if (MemoEditRules.TryResolve(_original, _text.Text, _edited, out var value))
+            {
+                _source.Apply(_row, (string)value);
+                _original = value;
+            }
+            _edited = false;
+        }
+        catch (Exception ex)
+        {
+            App.ReportError(ex);
+        }
+    }
+
+    private void CopyToClipboard()
+    {
+        try
+        {
+            Clipboard.SetText(_text.SelectionLength > 0 ? _text.SelectedText : _text.Text);
+        }
+        catch (Exception ex)
+        {
+            App.ReportError(ex);
+        }
     }
 }

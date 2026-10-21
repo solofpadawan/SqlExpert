@@ -7,6 +7,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using SqlExpert.App.Services;
 using SqlExpert.App.ViewModels;
+using SqlExpert.Core.DataForms;
 
 namespace SqlExpert.App.Views;
 
@@ -27,7 +28,7 @@ public partial class TableDataGrid : UserControl
         IsVisibleChanged += (_, _) =>
         {
             if (_vm is not null) _vm.IsViewActive = IsVisible;
-            if (!IsVisible) { CancelPrintWork(); CloseLookup(); }
+            if (!IsVisible) { CancelPrintWork(); CloseLookup(); CloseMemo(); }
             else if (_mode == DataViewMode.Print) EnsurePrintPreview();
         };
 
@@ -221,11 +222,18 @@ public partial class TableDataGrid : UserControl
             else
             {
                 // NULL shows the red "<null>"; the editor starts empty and leaves NULL alone when left blank.
-                column = new NullAwareTextColumn(spec.DataType)
+                // Date columns: pt-BR text + "▾" calendar (Alt+↓ / F4); text columns: "..." memo window (Ctrl+Enter).
+                var dateKind = DateValueText.KindOf(spec.Info);
+                var isMemo = dateKind == DateColumnKind.None && IsMemoColumn(spec);
+                column = new NullAwareTextColumn(spec.DataType, dateKind)
                 {
+                    SideButtonText = dateKind != DateColumnKind.None ? "▾" : isMemo ? "..." : null,
+                    SideButtonToolTip = dateKind != DateColumnKind.None ? "Calendário (Alt+↓ / F4)" : isMemo ? "Editar o texto (Ctrl+Enter)" : null,
+                    SideGesture = dateKind != DateColumnKind.None ? ForeignKeyTextColumn.IsLookupGesture : isMemo ? IsMemoGesture : null,
+                    SideAction = dateKind != DateColumnKind.None ? OpenGridCalendar : isMemo ? OpenGridMemo : null,
                     Binding = new Binding(spec.Field)
                     {
-                        Converter = new CellValueConverter(spec.DataType),
+                        Converter = new CellValueConverter(spec.DataType, dateKind),
                         Mode = spec.IsReadOnly ? BindingMode.OneWay : BindingMode.TwoWay,
                         ValidatesOnExceptions = true
                     },
@@ -263,6 +271,118 @@ public partial class TableDataGrid : UserControl
         var popup = _lookup;
         _lookup = null;
         popup?.Close();
+        var calendar = _calendar;
+        _calendar = null;
+        calendar?.Close();
+    }
+
+    // ===== Date columns: "▾" calendar =====
+
+    private DateCalendarPopup? _calendar;
+
+    private GridColumnSpec? SpecOf(DataGridColumn? column) =>
+        column is null || _vm is null ? null : _vm.Columns.FirstOrDefault(c => c.Field == column.SortMemberPath);
+
+    /// <summary>"▾" / Alt+↓ / F4 in a date cell editor: calendar under the cell; the pick goes into the editor and is committed.</summary>
+    private void OpenGridCalendar(NullAwareTextColumn column, DataGridCell cell, TextBox tb)
+    {
+        if (_vm is null || SpecOf(column) is not { } spec) return;
+        if (_calendar is { IsOpen: true })
+        {
+            CloseLookup();
+            return;
+        }
+        var original = NullAwareTextColumn.EditorConverter(tb)?.Original;
+        object? current;
+        try { current = CellValueConverter.ParseCellText(tb.Text, column.DataType, column.DateKind); }
+        catch (Exception) { current = original; }
+
+        var popup = new DateCalendarPopup(DateValueText.SelectedDate(current),
+            DateValueText.CanClear(spec.IsNullable, column.IsReadOnly || Grid.IsReadOnly));
+        popup.Picked += result =>
+        {
+            if (ReferenceEquals(_calendar, popup)) _calendar = null;
+            var value = CalendarValue(result, current, column.DateKind);
+            tb.Text = DataValueText.IsNull(value) ? "" : DateValueText.Format(value, column.DateKind);
+            try { Grid.CommitEdit(DataGridEditingUnit.Cell, true); } catch (InvalidOperationException) { }
+            Grid.Focus();
+            cell.Focus();
+        };
+        popup.Cancelled += () =>
+        {
+            if (ReferenceEquals(_calendar, popup)) _calendar = null;
+            tb.Focus();
+        };
+        _calendar = popup;
+        popup.Open(cell);
+    }
+
+    /// <summary>Day → keeps the time part; Today → today (time kept, 00:00 for NULL); Clear → NULL.</summary>
+    internal static object CalendarValue(DateCalendarResult result, object? current, DateColumnKind kind) => result.Action switch
+    {
+        DateCalendarAction.Day => DateValueText.PickDay(current, result.Date!.Value, kind),
+        DateCalendarAction.Today => DateValueText.Today(current, kind, DateTime.Today),
+        _ => DBNull.Value
+    };
+
+    // ===== Text columns: "..." memo window =====
+
+    private MemoEditorWindow? _memo;
+
+    private static bool IsMemoColumn(GridColumnSpec spec) => spec.DataType == typeof(string) && MemoEditRules.IsTextColumn(spec.Info);
+
+    /// <summary>Ctrl+Enter: open the memo window of a text cell.</summary>
+    internal static bool IsMemoGesture(KeyEventArgs e) =>
+        e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Control;
+
+    private void OpenGridMemo(NullAwareTextColumn column, DataGridCell cell, TextBox tb)
+    {
+        if (cell.DataContext is DataRowView row && SpecOf(column) is { } spec) OpenMemo(spec, row);
+    }
+
+    /// <summary>
+    /// Opens (or brings back) the memo window for <paramref name="spec"/> on the current record. The text typed in
+    /// the grid or form is applied first; read-only tables / columns open it read-only.
+    /// </summary>
+    internal void OpenMemo(GridColumnSpec spec, DataRowView row)
+    {
+        if (_vm is not { } vm) return;
+        CommitEdit();
+        if (!ReferenceEquals(vm.CurrentRowView, row))
+        {
+            var index = vm.View?.Cast<DataRowView>().ToList().IndexOf(row) ?? -1;
+            if (index >= 0) vm.CurrentIndex = index;
+        }
+        if (_memo is { IsLoaded: true } open && open.Source is TableMemoSource s && s.Field == spec.Field)
+        {
+            open.Activate();
+            return;
+        }
+        CloseMemo();
+        try
+        {
+            _memo = MemoEditorWindow.Open(Window.GetWindow(this), new TableMemoSource(vm, spec, CommitEdit));
+            _memo.Closed += (_, _) => _memo = null;
+        }
+        catch (Exception ex)
+        {
+            App.ReportError(ex);
+        }
+    }
+
+    private void CloseMemo()
+    {
+        var w = _memo;
+        _memo = null;
+        w?.Close();
+    }
+
+    private bool TryOpenMemoFromSelection(KeyEventArgs e)
+    {
+        if (!IsMemoGesture(e) || Grid.CurrentCell.Item is not DataRowView row) return false;
+        if (SpecOf(Grid.CurrentCell.Column) is not { } spec || !IsMemoColumn(spec)) return false;
+        OpenMemo(spec, row);
+        return true;
     }
 
     /// <summary>Opens the FK popup for <paramref name="row"/> under <paramref name="anchor"/>. A second gesture closes it.</summary>
@@ -313,10 +433,22 @@ public partial class TableDataGrid : UserControl
             () => ForeignKeyTextColumn.EditorTextBox(cell.Content as FrameworkElement)?.Focus());
     }
 
-    /// <summary>F4 / Alt+↓ on a selected (not yet edited) FK cell: start editing and open the lookup.</summary>
+    /// <summary>F4 / Alt+↓ on a selected (not yet edited) FK or date cell: start editing and open the lookup / calendar.</summary>
     private bool TryOpenLookupFromSelection(KeyEventArgs e)
     {
         if (!ForeignKeyTextColumn.IsLookupGesture(e) || Grid.IsReadOnly) return false;
+        if (Grid.CurrentCell.Column is NullAwareTextColumn { DateKind: not DateColumnKind.None, IsReadOnly: false } dateColumn
+            && Grid.CurrentCell.Item is DataRowView dateItem)
+        {
+            if (!Grid.BeginEdit()) return false;
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (dateColumn.GetCellContent(dateItem) is FrameworkElement content && content.Parent is DataGridCell cell
+                    && NullAwareTextColumn.EditorTextBox(content) is { } tb)
+                    OpenGridCalendar(dateColumn, cell, tb);
+            }, System.Windows.Threading.DispatcherPriority.Background);
+            return true;
+        }
         if (Grid.CurrentCell.Column is not ForeignKeyTextColumn fk || Grid.CurrentCell.Item is not DataRowView item) return false;
         if (!Grid.BeginEdit()) return false;
         Dispatcher.BeginInvoke(() =>
@@ -387,6 +519,10 @@ public partial class TableDataGrid : UserControl
         if (IsSetNullGesture(e))
         {
             TrySetCurrentCellNull();
+            e.Handled = true;
+        }
+        else if (TryOpenMemoFromSelection(e))
+        {
             e.Handled = true;
         }
         else if (!editing && TryOpenLookupFromSelection(e))

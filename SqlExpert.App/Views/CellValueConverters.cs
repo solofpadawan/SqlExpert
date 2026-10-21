@@ -12,14 +12,29 @@ public sealed class CellValueConverter : IValueConverter
 {
     public const string NullText = DataValueText.NullText;
     private readonly Type _type;
+    private readonly DateColumnKind _dateKind;
 
-    public CellValueConverter(Type type) => _type = type;
+    /// <param name="dateKind">Date columns: pt-BR dd/MM/yyyy (+ time) text, see <see cref="DateValueText"/>.</param>
+    public CellValueConverter(Type type, DateColumnKind dateKind = DateColumnKind.None)
+    {
+        _type = type;
+        _dateKind = dateKind;
+    }
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => DataValueText.FormatCell(value, CultureInfo.CurrentCulture);
+        => _dateKind != DateColumnKind.None && !DataValueText.IsNull(value)
+            ? DateValueText.Format(value, _dateKind)
+            : DataValueText.FormatCell(value, CultureInfo.CurrentCulture);
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => DataValueText.Parse(value as string ?? value?.ToString() ?? "", _type, CultureInfo.CurrentCulture);
+        => ParseCellText(value as string ?? value?.ToString() ?? "", _type, _dateKind);
+
+    /// <summary>Typed grid text → value ("&lt;null&gt;" = NULL; date columns use the pt-BR date rules).</summary>
+    internal static object ParseCellText(string text, Type type, DateColumnKind dateKind)
+    {
+        if (dateKind == DateColumnKind.None) return DataValueText.Parse(text, type, CultureInfo.CurrentCulture);
+        return text == NullText ? DBNull.Value : DateValueText.Parse(text, dateKind, type);
+    }
 }
 
 /// <summary>
@@ -30,21 +45,31 @@ public sealed class CellValueConverter : IValueConverter
 public sealed class CellEditorValueConverter : IValueConverter
 {
     private readonly Type _type;
+    private readonly DateColumnKind _dateKind;
     private object? _original;
 
-    public CellEditorValueConverter(Type type) => _type = type;
+    public CellEditorValueConverter(Type type, DateColumnKind dateKind = DateColumnKind.None)
+    {
+        _type = type;
+        _dateKind = dateKind;
+    }
+
+    /// <summary>Value the editor started from (the date popup keeps its time part).</summary>
+    public object? Original => _original;
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         _original = value;
-        return DataValueText.EditorText(value, CultureInfo.CurrentCulture);
+        return _dateKind != DateColumnKind.None
+            ? DateValueText.Format(value, _dateKind) // full precision: nothing is lost when the text is committed
+            : DataValueText.EditorText(value, CultureInfo.CurrentCulture);
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         var text = value as string ?? value?.ToString() ?? "";
         if (DataValueText.KeepsNullWhenBlank(_original, text)) return Binding.DoNothing;
-        return DataValueText.Parse(text, _type, CultureInfo.CurrentCulture);
+        return CellValueConverter.ParseCellText(text, _type, _dateKind);
     }
 }
 
@@ -55,14 +80,27 @@ public sealed class CellEditorValueConverter : IValueConverter
 public sealed class FormValueConverter : IValueConverter
 {
     private readonly Type _type;
+    private readonly DateColumnKind _dateKind;
 
-    public FormValueConverter(Type type) => _type = type;
+    public FormValueConverter(Type type, DateColumnKind dateKind = DateColumnKind.None)
+    {
+        _type = type;
+        _dateKind = dateKind;
+    }
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => value is byte[] ? DataValueText.BinarySummary(value, CultureInfo.CurrentCulture) : DataValueText.Format(value, CultureInfo.CurrentCulture);
+    {
+        if (value is byte[]) return DataValueText.BinarySummary(value, CultureInfo.CurrentCulture);
+        if (_dateKind != DateColumnKind.None) return DateValueText.Format(value, _dateKind);
+        return DataValueText.Format(value, CultureInfo.CurrentCulture);
+    }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => DataValueText.Parse(value as string ?? value?.ToString() ?? "", _type, CultureInfo.CurrentCulture, nullMarkerAllowed: false);
+    {
+        var text = value as string ?? value?.ToString() ?? "";
+        if (_dateKind != DateColumnKind.None) return DateValueText.Parse(text, _dateKind, _type);
+        return DataValueText.Parse(text, _type, CultureInfo.CurrentCulture, nullMarkerAllowed: false);
+    }
 }
 
 /// <summary>DBNull/null → true (the Form View "null" checkbox).</summary>

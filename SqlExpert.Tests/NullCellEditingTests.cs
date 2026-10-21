@@ -187,14 +187,14 @@ public class NullCellEditingTests
     public void DataGrid_TextAndForeignKeyColumns_UseTheNullAwareEditor()
     {
         var grid = Src("TableDataGrid.xaml.cs");
-        Assert.Contains("new NullAwareTextColumn(spec.DataType)", grid);
+        Assert.Contains("new NullAwareTextColumn(spec.DataType, dateKind)", grid);
         Assert.Contains("new ForeignKeyTextColumn(spec.Lookup!, spec.DataType)", grid);
         Assert.DoesNotContain("new DataGridTextColumn", grid);
         Assert.Matches(@"class ForeignKeyTextColumn\s*:\s*NullAwareTextColumn", Src("ForeignKeyTextColumn.cs"));
 
         var column = Src("NullAwareTextColumn.cs");
         Assert.Contains("GenerateEditingElement", column);
-        Assert.Contains("new CellEditorValueConverter(dataType)", column);
+        Assert.Contains("new CellEditorValueConverter(dataType, dateKind)", column);
 
         var conv = Src("CellValueConverters.cs");
         var editor = Regex.Match(conv, @"class CellEditorValueConverter[\s\S]*?\n}\n").Value;
@@ -212,6 +212,6 @@ public class NullCellEditingTests
         Assert.Contains("e.Key == Key.Delete && Keyboard.Modifiers == ModifierKeys.Control && _vm.DeleteCommand", grid);
         var form = Src("TableDataGrid.Form.cs");
         Assert.Contains("if (IsSetNullGesture(e))", form);
-        Assert.Contains("new FormValueConverter(spec.ClrType)", form); // form keeps its empty box + null checkbox
+        Assert.Contains("new FormValueConverter(spec.ClrType, dateKind)", form); // form keeps its empty box + null checkbox
     }
 }
