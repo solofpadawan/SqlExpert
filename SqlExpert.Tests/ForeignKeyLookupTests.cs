@@ -329,7 +329,7 @@ public class ForeignKeyLookupWiringTests
     {
         var grid = File.ReadAllText(Path.Combine(AppDir(), "Views", "TableDataGrid.xaml.cs"));
         Assert.Contains("spec.HasEditableLookup && !_vm.IsReadOnly && !spec.IsReadOnly", grid);
-        Assert.Contains("new ForeignKeyTextColumn(spec.Lookup!)", grid);
+        Assert.Contains("new ForeignKeyTextColumn(spec.Lookup!, spec.DataType)", grid);
         Assert.Contains("Grid.CancelEdit(DataGridEditingUnit.Cell)", grid);
         var form = File.ReadAllText(Path.Combine(AppDir(), "Views", "TableDataGrid.Form.cs"));
         Assert.Contains("OpenFormLookup(lookup, tb, host)", form);

@@ -205,7 +205,7 @@ public partial class TableDataGrid : UserControl
             else if (spec.HasEditableLookup && !_vm.IsReadOnly && !spec.IsReadOnly)
             {
                 // Foreign key: "▾" button in edit mode opens the "Data of [table]" lookup (Alt+↓ / F4).
-                var fkColumn = new ForeignKeyTextColumn(spec.Lookup!)
+                var fkColumn = new ForeignKeyTextColumn(spec.Lookup!, spec.DataType)
                 {
                     Binding = new Binding(spec.Field)
                     {
@@ -220,7 +220,8 @@ public partial class TableDataGrid : UserControl
             }
             else
             {
-                column = new DataGridTextColumn
+                // NULL shows the red "<null>"; the editor starts empty and leaves NULL alone when left blank.
+                column = new NullAwareTextColumn(spec.DataType)
                 {
                     Binding = new Binding(spec.Field)
                     {
@@ -383,7 +384,12 @@ public partial class TableDataGrid : UserControl
     {
         if (_vm is null) return;
         var editing = Keyboard.FocusedElement is TextBox;
-        if (!editing && TryOpenLookupFromSelection(e))
+        if (IsSetNullGesture(e))
+        {
+            TrySetCurrentCellNull();
+            e.Handled = true;
+        }
+        else if (!editing && TryOpenLookupFromSelection(e))
         {
             e.Handled = true;
         }
@@ -397,6 +403,33 @@ public partial class TableDataGrid : UserControl
             _vm.DeleteCommand.Execute(null);
             e.Handled = true;
         }
+    }
+
+    /// <summary>Ctrl+0 (top row or keypad): set the current cell to NULL. Ctrl+Del deletes the record.</summary>
+    internal static bool IsSetNullGesture(KeyEventArgs e)
+    {
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var mods = Keyboard.Modifiers;
+        return Core.DataForms.CellNullEditing.IsSetNullGesture(key.ToString(),
+            (mods & ModifierKeys.Control) != 0, (mods & ModifierKeys.Shift) != 0, (mods & ModifierKeys.Alt) != 0);
+    }
+
+    /// <summary>
+    /// Ctrl+0 on a grid cell: drops the text being typed and sets the value to NULL (pending until Post/Cancel).
+    /// NOT NULL and read-only columns are left alone (the status bar says why).
+    /// </summary>
+    private void TrySetCurrentCellNull()
+    {
+        if (_vm is null || Grid.CurrentCell.Column is not { } column || Grid.CurrentCell.Item is not DataRowView row) return;
+        var spec = _vm.Columns.FirstOrDefault(c => c.Field == column.SortMemberPath);
+        if (spec is null) return;
+        try { Grid.CancelEdit(DataGridEditingUnit.Cell); } catch (InvalidOperationException) { }
+        if (_vm.SetNull(row, spec, column.IsReadOnly || Grid.IsReadOnly))
+        {
+            try { Grid.CommitEdit(DataGridEditingUnit.Row, true); } catch (InvalidOperationException) { }
+        }
+        Grid.Focus();
+        if (column.GetCellContent(row)?.Parent is DataGridCell cell) cell.Focus();
     }
 
     private void TopBox_OnKeyDown(object sender, KeyEventArgs e)

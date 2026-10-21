@@ -8,10 +8,11 @@ namespace SqlExpert.App.Views;
 /// <summary>
 /// Text column of a foreign-key field in the Data grid: in edit mode the cell shows the text box plus a "▾" button
 /// (lookup); the button, Alt+↓ or F4 open the "Data of [table]" popup. Typing a value by hand still works.
+/// A NULL key starts empty in the editor and stays NULL when left blank (<see cref="NullAwareTextColumn"/>).
 /// </summary>
-internal sealed class ForeignKeyTextColumn : DataGridTextColumn
+internal sealed class ForeignKeyTextColumn : NullAwareTextColumn
 {
-    public ForeignKeyTextColumn(ForeignKeyLookupTarget target) => Target = target;
+    public ForeignKeyTextColumn(ForeignKeyLookupTarget target, Type dataType) : base(dataType) => Target = target;
 
     public ForeignKeyLookupTarget Target { get; }
 

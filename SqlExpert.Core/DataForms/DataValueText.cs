@@ -33,6 +33,19 @@ public static class DataValueText
     /// <summary>Grid cell text: like <see cref="Format"/> but NULL is "&lt;null&gt;".</summary>
     public static string FormatCell(object? value, CultureInfo culture) => IsNull(value) ? NullText : Format(value, culture);
 
+    /// <summary>
+    /// Text put in the grid cell editor when editing starts: NULL starts EMPTY (the "&lt;null&gt;" marker is display
+    /// only); any other value is shown as in <see cref="Format"/>.
+    /// </summary>
+    public static string EditorText(object? value, CultureInfo culture) => IsNull(value) ? "" : Format(value, culture);
+
+    /// <summary>
+    /// True when a grid cell editor must leave the cell untouched: the value was NULL and the editor was left blank
+    /// (nothing typed). The NULL stays NULL (it never becomes an empty string) and the row is not modified.
+    /// </summary>
+    public static bool KeepsNullWhenBlank(object? originalValue, string? editedText) =>
+        IsNull(originalValue) && string.IsNullOrEmpty(editedText);
+
     /// <summary>"0x0102…" (first <paramref name="maxBytes"/> bytes, "..." when longer).</summary>
     public static string ToHex(byte[] bytes, int maxBytes = 32)
     {

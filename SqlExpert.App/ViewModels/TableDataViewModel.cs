@@ -636,6 +636,34 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    /// Explicit "set NULL" (Ctrl+0) of one cell of <paramref name="row"/>. The row only changes in memory (Post/Cancel
+    /// decide); an already-NULL cell is not touched. Returns true when the value was set to NULL.
+    /// </summary>
+    public bool SetNull(DataRowView row, GridColumnSpec spec, bool columnReadOnly)
+    {
+        try
+        {
+            var result = CellNullEditing.TrySetNull(row.Row, spec.Field, spec.IsNullable, columnReadOnly || spec.IsReadOnly || IsReadOnly);
+            _setStatus(result switch
+            {
+                CellNullEditing.Result.SetToNull => $"{spec.Header} = NULL (pendente - Post/Cancel).",
+                CellNullEditing.Result.AlreadyNull => $"{spec.Header} já é NULL.",
+                CellNullEditing.Result.NotNullable => $"{spec.Header} é NOT NULL: não aceita NULL.",
+                _ => $"{spec.Header} é somente leitura."
+            });
+            if (result != CellNullEditing.Result.SetToNull) return false;
+            RaiseCounters();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _setStatus("Erro ao gravar NULL: " + ex.Message);
+            App.ReportError(ex);
+            return false;
+        }
+    }
+
     private GridColumnSpec? ColumnByName(string name) =>
         _columns.FirstOrDefault(c => string.Equals(c.Header, name, StringComparison.OrdinalIgnoreCase));
 

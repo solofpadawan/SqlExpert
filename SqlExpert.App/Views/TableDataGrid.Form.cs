@@ -241,6 +241,17 @@ public partial class TableDataGrid
         }
     }
 
+    /// <summary>Ctrl+0 in the form: same as ticking the "null" checkbox of the focused field (typed text is dropped).</summary>
+    private void SetFocusedFormFieldNull()
+    {
+        if (_vm is null || FormRow is not { } row) return;
+        var editor = _formEditors.FirstOrDefault(x => x.Focus.IsKeyboardFocusWithin);
+        var col = editor is null ? null : _vm.Columns.FirstOrDefault(c => c.Field == editor.Spec.Field);
+        if (editor is null || col is null) return;
+        _vm.SetNull(row, col, editor.Spec.IsReadOnly);
+        editor.Text?.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+    }
+
     private void OpenFormLookup(Core.Models.ForeignKeyLookupTarget lookup, TextBox tb, FrameworkElement anchor)
     {
         CommitFormEdit();
@@ -360,6 +371,12 @@ public partial class TableDataGrid
     private void Form_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (_vm is null) return;
+        if (IsSetNullGesture(e))
+        {
+            SetFocusedFormFieldNull();
+            e.Handled = true;
+            return;
+        }
         System.Windows.Input.ICommand? command = null;
         if (Keyboard.Modifiers == ModifierKeys.Control)
         {

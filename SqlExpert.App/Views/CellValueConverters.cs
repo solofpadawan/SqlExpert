@@ -23,6 +23,32 @@ public sealed class CellValueConverter : IValueConverter
 }
 
 /// <summary>
+/// Text box of a Data grid cell in edit mode (one instance per editor, see <see cref="NullAwareTextColumn"/>):
+/// NULL starts EMPTY instead of "&lt;null&gt;". Leaving it blank keeps the NULL untouched (no empty string, the row
+/// is not modified); typed text is parsed as in <see cref="CellValueConverter"/> (typing "&lt;null&gt;" still means NULL).
+/// </summary>
+public sealed class CellEditorValueConverter : IValueConverter
+{
+    private readonly Type _type;
+    private object? _original;
+
+    public CellEditorValueConverter(Type type) => _type = type;
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        _original = value;
+        return DataValueText.EditorText(value, CultureInfo.CurrentCulture);
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var text = value as string ?? value?.ToString() ?? "";
+        if (DataValueText.KeepsNullWhenBlank(_original, text)) return Binding.DoNothing;
+        return DataValueText.Parse(text, _type, CultureInfo.CurrentCulture);
+    }
+}
+
+/// <summary>
 /// Form View value text: NULL is shown empty (the form has a "null" checkbox); an empty string stays an empty string
 /// for text columns, blank means NULL for the other types.
 /// </summary>
