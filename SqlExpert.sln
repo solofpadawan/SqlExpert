@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlExpert.App", "SqlExpert.App\SqlExpert.App.csproj", "{314E8248-B7F5-4064-BCB6-20D3092BC1EA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlExpert.Core", "SqlExpert.Core\SqlExpert.Core.csproj", "{AD930550-4FA9-4F2A-B504-AF2D0562B542}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlExpert.Tests", "SqlExpert.Tests\SqlExpert.Tests.csproj", "{4C89A673-2385-42F8-8F8F-9DB5CB2F96D8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{314E8248-B7F5-4064-BCB6-20D3092BC1EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{314E8248-B7F5-4064-BCB6-20D3092BC1EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{314E8248-B7F5-4064-BCB6-20D3092BC1EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{314E8248-B7F5-4064-BCB6-20D3092BC1EA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD930550-4FA9-4F2A-B504-AF2D0562B542}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD930550-4FA9-4F2A-B504-AF2D0562B542}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD930550-4FA9-4F2A-B504-AF2D0562B542}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD930550-4FA9-4F2A-B504-AF2D0562B542}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4C89A673-2385-42F8-8F8F-9DB5CB2F96D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C89A673-2385-42F8-8F8F-9DB5CB2F96D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C89A673-2385-42F8-8F8F-9DB5CB2F96D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C89A673-2385-42F8-8F8F-9DB5CB2F96D8}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,194 @@
+<UserControl x:Class="SqlExpert.App.Views.TableDataGrid"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:svc="clr-namespace:SqlExpert.App.Services">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVisLocal"/>
+    <Style x:Key="NavButton" TargetType="Button">
+      <Setter Property="MinWidth" Value="26"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="Padding" Value="4,0"/>
+      <Setter Property="Margin" Value="1,0"/>
+      <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
+      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+    </Style>
+    <!-- "<null>" in red (NullValueBrush, Resources/Branding.xaml), classic style -->
+    <Style x:Key="CellText" TargetType="TextBlock" BasedOn="{StaticResource NullAwareCellText}">
+      <Setter Property="Padding" Value="2,0"/>
+    </Style>
+    <Style x:Key="CellTextRight" TargetType="TextBlock" BasedOn="{StaticResource CellText}">
+      <Setter Property="TextAlignment" Value="Right"/>
+    </Style>
+    <Style x:Key="ViewTabItem" TargetType="TabItem">
+      <Setter Property="Padding" Value="8,2"/>
+      <Setter Property="MinWidth" Value="64"/>
+    </Style>
+    <Style x:Key="PrintButton" TargetType="Button">
+      <Setter Property="MinWidth" Value="26"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="Padding" Value="4,0"/>
+      <Setter Property="Margin" Value="1,0"/>
+      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+    </Style>
+    <!-- Preview without DocumentViewer's own toolbar/search box: the Print Data toolbar drives it. -->
+    <Style x:Key="PlainDocumentViewer" TargetType="DocumentViewer">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="DocumentViewer">
+            <Border Background="#8C8C8C" BorderBrush="#A0A0A0" BorderThickness="1">
+              <ScrollViewer x:Name="PART_ContentHost" CanContentScroll="True"
+                            HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <!-- Navigator -->
+    <ToolBarTray DockPanel.Dock="Top" IsLocked="True">
+      <ToolBar ToolBarTray.IsLocked="True">
+        <Button Style="{StaticResource NavButton}" Content="|◀" ToolTip="First" Command="{Binding FirstCommand}"/>
+        <Button Style="{StaticResource NavButton}" Content="◀" ToolTip="Prior" Command="{Binding PriorCommand}"/>
+        <Button Style="{StaticResource NavButton}" Content="▶" ToolTip="Next" Command="{Binding NextCommand}"/>
+        <Button Style="{StaticResource NavButton}" Content="▶|" ToolTip="Last" Command="{Binding LastCommand}"/>
+        <Separator/>
+        <Button Style="{StaticResource NavButton}" Content="+" FontWeight="Bold" ToolTip="Insert record (Ins)" Command="{Binding InsertCommand}"/>
+        <Button Style="{StaticResource NavButton}" Content="−" FontWeight="Bold" ToolTip="Delete record (Ctrl+Del)" Command="{Binding DeleteCommand}"/>
+        <Button Style="{StaticResource NavButton}" Content="✎" ToolTip="Edit record (F2)" Command="{Binding EditCommand}"/>
+        <Button Style="{StaticResource NavButton}" Content="✓" Foreground="#1E7B1E" FontWeight="Bold" ToolTip="Post (gravar alterações pendentes)" Command="{Binding PostCommand}"/>
+        <Button Style="{StaticResource NavButton}" Content="✗" Foreground="#B22222" FontWeight="Bold" ToolTip="Cancel (descartar alterações pendentes)" Command="{Binding CancelCommand}"/>
+        <Separator/>
+        <Button Style="{StaticResource NavButton}" Content="↻" ToolTip="Refresh (recarregar do servidor)" Command="{Binding RefreshCommand}"/>
+        <Separator/>
+        <TextBlock Text="Rows (TOP):" VerticalAlignment="Center" Margin="4,0,2,0"/>
+        <TextBox x:Name="TopBox" Width="64" VerticalContentAlignment="Center" HorizontalContentAlignment="Right"
+                 ToolTip="Quantidade de registros lidos (SELECT TOP n). Enter recarrega."
+                 Text="{Binding TopRows, UpdateSourceTrigger=LostFocus, ValidatesOnExceptions=True}"
+                 KeyDown="TopBox_OnKeyDown"/>
+        <Separator/>
+        <TextBlock Text="{Binding RecordText}" VerticalAlignment="Center" Margin="6,0"/>
+        <Separator/>
+        <!-- Font size spin box (shared setting for every Data grid) -->
+        <TextBlock Text="Font size:" VerticalAlignment="Center" Margin="4,0,3,0"/>
+        <Grid VerticalAlignment="Center" Height="22">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="34"/>
+            <ColumnDefinition Width="15"/>
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition/>
+          </Grid.RowDefinitions>
+          <TextBox x:Name="FontSizeBox" Grid.RowSpan="2" VerticalContentAlignment="Center" HorizontalContentAlignment="Right"
+                   MaxLength="2" ToolTip="Tamanho da fonte do grid (6–32). Enter aplica; roda do mouse altera."
+                   KeyDown="FontSizeBox_OnKeyDown" LostKeyboardFocus="FontSizeBox_OnLostKeyboardFocus"
+                   PreviewMouseWheel="FontSize_OnPreviewMouseWheel"/>
+          <RepeatButton Grid.Column="1" Grid.Row="0" Padding="0" FontSize="6" Content="▲" Focusable="False"
+                        ToolTip="Aumentar fonte" Click="FontSizeUp_OnClick" PreviewMouseWheel="FontSize_OnPreviewMouseWheel"/>
+          <RepeatButton Grid.Column="1" Grid.Row="1" Padding="0" FontSize="6" Content="▼" Focusable="False"
+                        ToolTip="Diminuir fonte" Click="FontSizeDown_OnClick" PreviewMouseWheel="FontSize_OnPreviewMouseWheel"/>
+        </Grid>
+        <TextBlock Text="{Binding Info}" VerticalAlignment="Center" Margin="6,0" Foreground="#B25F00" FontWeight="SemiBold"/>
+        <TextBlock Text="carregando..." VerticalAlignment="Center" Margin="6,0" Foreground="#606060"
+                   Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisLocal}}"/>
+      </ToolBar>
+    </ToolBarTray>
+
+    <!-- Bottom view tabs (classic style): the strip only; the three views live in ViewHost above it. -->
+    <TabControl x:Name="ViewTabs" DockPanel.Dock="Bottom" TabStripPlacement="Bottom" Height="26"
+                Padding="0" BorderThickness="0,1,0,0" Background="Transparent"
+                SelectionChanged="ViewTabs_OnSelectionChanged">
+      <TabItem Header="Grid View" Style="{StaticResource ViewTabItem}" ToolTip="Grade de registros"/>
+      <TabItem Header="Form View" Style="{StaticResource ViewTabItem}" ToolTip="Registro atual em formulário (Ctrl+↑ / Ctrl+↓ navegam)"/>
+      <TabItem Header="Print Data" Style="{StaticResource ViewTabItem}" ToolTip="Pré-visualização de impressão dos registros lidos"/>
+    </TabControl>
+
+    <Grid x:Name="ViewHost">
+      <DataGrid x:Name="Grid"
+                FontSize="{Binding Source={x:Static svc:UiSettings.Instance}, Path=DataGridFontSizePx}"
+                ItemsSource="{Binding View}"
+                SelectedIndex="{Binding CurrentIndex, Mode=TwoWay}"
+                AutoGenerateColumns="False"
+                CanUserAddRows="False"
+                CanUserDeleteRows="False"
+                SelectionMode="Single"
+                SelectionUnit="FullRow"
+                HeadersVisibility="All"
+                RowHeaderWidth="16"
+                GridLinesVisibility="All"
+                EnableRowVirtualization="True"
+                EnableColumnVirtualization="True"
+                SelectionChanged="Grid_OnSelectionChanged"
+                PreviewKeyDown="Grid_OnPreviewKeyDown"/>
+
+      <!-- Form View: one row per column (name | type | null | value), bound to the current record. -->
+      <ScrollViewer x:Name="FormHost" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                    Background="White" PreviewKeyDown="Form_OnPreviewKeyDown"
+                    FontSize="{Binding Source={x:Static svc:UiSettings.Instance}, Path=DataGridFontSizePx}">
+        <Grid x:Name="FormGrid" Margin="6,6,10,6" HorizontalAlignment="Stretch" MaxWidth="1100" DataContext="{Binding CurrentRowView, Mode=OneWay}"/>
+      </ScrollViewer>
+
+      <!-- Print Data: toolbar + preview + progress overlay. -->
+      <DockPanel x:Name="PrintHost" Visibility="Collapsed">
+        <ToolBarTray DockPanel.Dock="Top" IsLocked="True">
+          <ToolBar ToolBarTray.IsLocked="True">
+            <Button Style="{StaticResource PrintButton}" x:Name="PrintSaveButton" Click="PrintSave_OnClick"
+                    ToolTip="Salvar em arquivo (PDF ou XPS)">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="💾" FontFamily="Segoe UI Symbol" VerticalAlignment="Center"/>
+                <TextBlock Text=" Save" VerticalAlignment="Center"/>
+              </StackPanel>
+            </Button>
+            <Button Style="{StaticResource PrintButton}" x:Name="PrintPrintButton" Click="PrintPrint_OnClick"
+                    ToolTip="Imprimir (escolher impressora)">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="⎙" FontFamily="Segoe UI Symbol" VerticalAlignment="Center"/>
+                <TextBlock Text=" Print" VerticalAlignment="Center"/>
+              </StackPanel>
+            </Button>
+            <Button Style="{StaticResource PrintButton}" Content="↻" FontFamily="Segoe UI Symbol" Click="PrintRefresh_OnClick"
+                    ToolTip="Gerar a pré-visualização novamente"/>
+            <Separator/>
+            <TextBlock Text="Scale:" VerticalAlignment="Center" Margin="4,0,3,0"/>
+            <ComboBox x:Name="ScaleBox" Width="96" SelectedIndex="2" SelectionChanged="ScaleBox_OnSelectionChanged">
+              <ComboBoxItem Content="50%"/>
+              <ComboBoxItem Content="75%"/>
+              <ComboBoxItem Content="100%"/>
+              <ComboBoxItem Content="125%"/>
+              <ComboBoxItem Content="150%"/>
+              <ComboBoxItem Content="200%"/>
+              <ComboBoxItem Content="Page width"/>
+              <ComboBoxItem Content="Whole page"/>
+            </ComboBox>
+            <Separator/>
+            <TextBlock Text="Title:" VerticalAlignment="Center" Margin="4,0,3,0"/>
+            <TextBox x:Name="PrintTitleBox" Width="200" VerticalContentAlignment="Center"
+                     ToolTip="Título impresso no topo de cada página. Enter aplica."
+                     KeyDown="PrintTitleBox_OnKeyDown" LostKeyboardFocus="PrintTitleBox_OnLostKeyboardFocus"/>
+            <Separator/>
+            <CheckBox x:Name="PrintBlobsBox" Content="Print BLOB and MEMO values" VerticalAlignment="Center" Margin="4,0"
+                      ToolTip="Desmarcado: textos longos e binários saem como (MEMO) / (BLOB)"
+                      Click="PrintOption_OnClick"/>
+            <CheckBox x:Name="PrintLandscapeBox" Content="Landscape" VerticalAlignment="Center" Margin="4,0"
+                      ToolTip="Página A4 deitada" Click="PrintOption_OnClick"/>
+            <Separator/>
+            <TextBlock x:Name="PrintInfoText" VerticalAlignment="Center" Margin="6,0" Foreground="#505050"/>
+          </ToolBar>
+        </ToolBarTray>
+        <Grid>
+          <DocumentViewer x:Name="Viewer" Style="{StaticResource PlainDocumentViewer}"/>
+          <Border x:Name="PrintProgress" Visibility="Collapsed" Background="#F4F4F4" BorderBrush="#808080" BorderThickness="1"
+                  HorizontalAlignment="Center" VerticalAlignment="Center" Padding="18,12" MinWidth="260">
+            <StackPanel>
+              <TextBlock x:Name="PrintProgressText" Text="Preparando..." HorizontalAlignment="Center" Margin="0,0,0,8"/>
+              <ProgressBar x:Name="PrintProgressBar" Height="12" Minimum="0" Maximum="100" Margin="0,0,0,10"/>
+              <Button Content="Cancel" Width="80" HorizontalAlignment="Center" Click="PrintCancel_OnClick"/>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</UserControl>

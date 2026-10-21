@@ -1,0 +1,66 @@
+<!--
+  SqlExpert identity used by the splash screen and Help > About (Views/SplashBanner.xaml).
+  Change colors, tagline and footer text here only. The logo is an original vector drawing
+  (database cylinder + "SQL" / "Expert"); no third-party artwork.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+  <!-- Logo: cylinder body, cylinder top (lighter) and the white rings on the cylinder. -->
+  <SolidColorBrush x:Key="BrandAccentBrush" Color="#CC2927"/>
+  <SolidColorBrush x:Key="BrandAccentLightBrush" Color="#E5534B"/>
+  <SolidColorBrush x:Key="BrandAccentRingBrush" Color="#FFFFFF"/>
+  <!-- "SQL" word and the "Expert" badge. -->
+  <SolidColorBrush x:Key="BrandWordBrush" Color="#1F2D3D"/>
+  <SolidColorBrush x:Key="BrandBadgeBrush" Color="#1E5AA8"/>
+  <SolidColorBrush x:Key="BrandBadgeTextBrush" Color="#FFFFFF"/>
+  <!-- Banner. -->
+  <SolidColorBrush x:Key="BrandBannerBackground" Color="#FFFFFF"/>
+  <SolidColorBrush x:Key="BrandBannerBorderBrush" Color="#A0A0A0"/>
+  <SolidColorBrush x:Key="BrandTaglineBrush" Color="#8A8A8A"/>
+  <SolidColorBrush x:Key="BrandSmallTextBrush" Color="#202020"/>
+  <SolidColorBrush x:Key="BrandFooterBrush" Color="#606060"/>
+
+  <!-- DB Explorer: object count after a folder name, " (505)" (classic blue). -->
+  <SolidColorBrush x:Key="ExplorerCountBrush" Color="#1F3FD0"/>
+
+  <!-- Grids (classic-style): light gray cell lines instead of the WPF default black. Applies to every DataGrid
+       through the implicit style below; grids that need their own style must use BasedOn="{StaticResource {x:Type DataGrid}}". -->
+  <SolidColorBrush x:Key="GridLineBrush" Color="#DCDCDC"/>
+  <SolidColorBrush x:Key="GridBorderBrush" Color="#C8C8C8"/>
+  <SolidColorBrush x:Key="GridHeaderSeparatorBrush" Color="#D0D0D0"/>
+  <Style TargetType="DataGrid">
+    <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource GridLineBrush}"/>
+    <Setter Property="VerticalGridLinesBrush" Value="{StaticResource GridLineBrush}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource GridBorderBrush}"/>
+  </Style>
+  <Style TargetType="DataGridColumnHeader">
+    <Setter Property="SeparatorBrush" Value="{StaticResource GridHeaderSeparatorBrush}"/>
+  </Style>
+
+  <!-- Grid cells: NULL is shown as "<null>" in red, not italic (classic-style). Every cell TextBlock style of the
+       Data grid, the SQL Editor results and the FK lookup popup is BasedOn="{StaticResource NullAwareCellText}".
+       In a selected cell the text takes the cell's own selection foreground (white on the blue highlight,
+       black on the gray inactive highlight), so it stays readable. -->
+  <SolidColorBrush x:Key="NullValueBrush" Color="#E00000"/>
+  <Style x:Key="NullAwareCellText" TargetType="TextBlock">
+    <Style.Triggers>
+      <Trigger Property="Text" Value="&lt;null&gt;">
+        <Setter Property="Foreground" Value="{StaticResource NullValueBrush}"/>
+        <Setter Property="FontStyle" Value="Normal"/>
+      </Trigger>
+      <MultiDataTrigger>
+        <MultiDataTrigger.Conditions>
+          <Condition Binding="{Binding Text, RelativeSource={RelativeSource Self}, Mode=OneWay}" Value="&lt;null&gt;"/>
+          <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridCell}, Mode=OneWay}" Value="True"/>
+        </MultiDataTrigger.Conditions>
+        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridCell}, Mode=OneWay}"/>
+      </MultiDataTrigger>
+    </Style.Triggers>
+  </Style>
+
+  <sys:String x:Key="BrandTagline">the SQL Server experts</sys:String>
+  <!-- No product website exists yet: neutral text instead of a link. -->
+  <sys:String x:Key="BrandFooter">Microsoft SQL Server client</sys:String>
+  <FontFamily x:Key="BrandTaglineFont">Segoe UI Light, Segoe UI</FontFamily>
+</ResourceDictionary>

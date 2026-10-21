@@ -1,0 +1,780 @@
+<Window x:Class="SqlExpert.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:SqlExpert.App.Views"
+        xmlns:vm="clr-namespace:SqlExpert.App.ViewModels"
+        Title="{Binding WindowTitle}"
+        PreviewKeyDown="Window_OnPreviewKeyDown"
+        Height="800" Width="1280" MinWidth="640" MinHeight="400"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Normal">
+  <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    <!-- Empty MDI-like document area (mid gray) -->
+    <SolidColorBrush x:Key="MdiBg" Color="#ABABAB"/>
+    <SolidColorBrush x:Key="PanelHeaderBg" Color="#D6DBE9"/>
+    <SolidColorBrush x:Key="PanelHeaderBorder" Color="#A0A8B8"/>
+
+    <!-- Small original database icon (cylinder), drawn in XAML. Green when connected. -->
+    <ControlTemplate x:Key="DbIconTemplate" TargetType="ContentControl">
+      <Viewbox Width="16" Height="16">
+        <Canvas Width="16" Height="16">
+          <Path x:Name="Body" Fill="#E3B341" Stroke="#7A5A10" StrokeThickness="0.8"
+                Data="M2.5,4 L2.5,12.5 A5.5,2 0 0 0 13.5,12.5 L13.5,4 Z"/>
+          <Path Stroke="#7A5A10" StrokeThickness="0.6" Data="M2.5,8.2 A5.5,2 0 0 0 13.5,8.2"/>
+          <Ellipse x:Name="Top" Canvas.Left="2.5" Canvas.Top="2" Width="11" Height="4"
+                   Fill="#F8DC80" Stroke="#7A5A10" StrokeThickness="0.8"/>
+        </Canvas>
+      </Viewbox>
+      <ControlTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsActive}" Value="True">
+          <Setter TargetName="Body" Property="Fill" Value="#5DB548"/>
+          <Setter TargetName="Top" Property="Fill" Value="#A6E08F"/>
+        </DataTrigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <Style x:Key="PanelCloseButton" TargetType="Button">
+      <Setter Property="Width" Value="18"/>
+      <Setter Property="Height" Value="16"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="2,1"/>
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <!-- Table editor document (one instance per opened table; state is kept while hidden) -->
+    <DataTemplate DataType="{x:Type vm:TableDocumentViewModel}">
+      <Border Margin="2" BorderBrush="#6E6E6E" BorderThickness="1" Background="White">
+        <DockPanel>
+          <!-- Color Mark of the registration (Database Registration Info > Color Mark) -->
+          <Border DockPanel.Dock="Top" Height="4"
+                  Background="{Binding ColorMark, Converter={StaticResource ColorMarkBrush}}"
+                  Visibility="{Binding ColorMark, Converter={StaticResource ColorMarkVisibility}}"/>
+          <Border DockPanel.Dock="Top" Background="{StaticResource PanelHeaderBg}"
+                  BorderBrush="{StaticResource PanelHeaderBorder}" BorderThickness="0,0,0,1">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="✕" ToolTip="Fechar (Ctrl+F4)"
+                      Style="{StaticResource PanelCloseButton}"
+                      Command="{Binding Shell.CloseDocumentCommand}" CommandParameter="{Binding}"/>
+              <TextBlock Margin="8,3" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Title}"/>
+            </DockPanel>
+          </Border>
+            <TabControl Margin="4" SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
+              <TabItem Header="Fields">
+                <DockPanel>
+                  <ToolBar DockPanel.Dock="Top">
+                    <ItemsControl ItemsSource="{Binding Shell.FieldsMenuItems}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Button Margin="1,0" Padding="6,2"
+                                  Content="{Binding Caption}"
+                                  ToolTip="{Binding ToolTip}"
+                                  Command="{Binding Command}"
+                                  >
+                            <Button.Style>
+                              <Style TargetType="Button">
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding IsSeparator}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                  </DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </Button.Style>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ToolBar>
+                  <TabControl DockPanel.Dock="Bottom" Height="100">
+                    <TabItem Header="Field description">
+                      <TextBox IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                               Background="#FAFAFA"
+                               ToolTip="MS_Description do campo selecionado. Para alterar use Edit field (ou duplo clique no campo)."
+                               Text="{Binding SelectedField.Notes, Mode=OneWay}"/>
+                    </TabItem>
+                    <TabItem Header="Field dependencies">
+                      <TextBlock Margin="4" Text="Dependências do campo (stub)"/>
+                    </TabItem>
+                  </TabControl>
+                  <DataGrid ItemsSource="{Binding SampleColumns}" AutoGenerateColumns="False"
+                            SelectedItem="{Binding SelectedField, Mode=TwoWay}" SelectionMode="Single" SelectionUnit="FullRow"
+                            CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False" IsReadOnly="True" HeadersVisibility="Column">
+                    <DataGrid.RowStyle>
+                      <Style TargetType="DataGridRow">
+                        <EventSetter Event="MouseDoubleClick" Handler="FieldRow_OnMouseDoubleClick"/>
+                      </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="#" Binding="{Binding Ordinal, Mode=OneWay}" Width="36"/>
+                      <DataGridCheckBoxColumn Header="PK" Binding="{Binding PK, Mode=OneWay}" Width="36"/>
+                      <DataGridCheckBoxColumn Header="FK" Binding="{Binding FK, Mode=OneWay}" Width="36"/>
+                      <DataGridCheckBoxColumn Header="UNQ" Binding="{Binding UNQ, Mode=OneWay}" Width="40"/>
+                      <DataGridTextColumn Header="Field Name" Binding="{Binding FieldName, Mode=OneWay}" Width="140"/>
+                      <DataGridTextColumn Header="Field Type" Binding="{Binding FieldType, Mode=OneWay}" Width="100"/>
+                      <DataGridTextColumn Header="Size" Binding="{Binding Size, Mode=OneWay}" Width="50"/>
+                      <DataGridTextColumn Header="Scale" Binding="{Binding Scale, Mode=OneWay}" Width="50"/>
+                      <DataGridCheckBoxColumn Header="Null" Binding="{Binding Nullable, Mode=OneWay}" Width="40"/>
+                      <DataGridTextColumn Header="Default" Binding="{Binding DefaultValue, Mode=OneWay}" Width="140"/>
+                      <DataGridTextColumn Header="Collation" Binding="{Binding Collation, Mode=OneWay}" Width="160"/>
+                      <DataGridTextColumn Header="Description" Binding="{Binding Notes, Mode=OneWay}" Width="*"/>
+                    </DataGrid.Columns>
+                  </DataGrid>
+                </DockPanel>
+              </TabItem>
+              <TabItem Header="Constraints">
+                <DockPanel>
+                  <ToolBar DockPanel.Dock="Top">
+                    <ItemsControl ItemsSource="{Binding Shell.ConstraintsMenuItems}">
+                      <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Button Margin="1,0" Padding="6,2" Content="{Binding Caption}" ToolTip="{Binding ToolTip}" Command="{Binding Command}">
+                            <Button.Style>
+                              <Style TargetType="Button">
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding IsSeparator}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </Button.Style>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ToolBar>
+                  <TextBlock Margin="8" Text="Constraints (PK/FK/CHECK/UNIQUE) — stub"/>
+                </DockPanel>
+              </TabItem>
+              <TabItem Header="Indices">
+                <DockPanel>
+                  <ToolBar DockPanel.Dock="Top">
+                    <ItemsControl ItemsSource="{Binding Shell.IndicesMenuItems}">
+                      <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Button Margin="1,0" Padding="6,2" Content="{Binding Caption}" ToolTip="{Binding ToolTip}" Command="{Binding Command}">
+                            <Button.Style>
+                              <Style TargetType="Button">
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding IsSeparator}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </Button.Style>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ToolBar>
+                  <TextBlock Margin="8" Text="Indices — stub"/>
+                </DockPanel>
+              </TabItem>
+              <TabItem Header="Dependencies">
+                <DockPanel>
+                  <ToolBar DockPanel.Dock="Top">
+                    <ItemsControl ItemsSource="{Binding Shell.DependenciesMenuItems}">
+                      <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Button Margin="1,0" Padding="6,2" Content="{Binding Caption}" ToolTip="{Binding ToolTip}" Command="{Binding Command}">
+                            <Button.Style>
+                              <Style TargetType="Button">
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding IsSeparator}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </Button.Style>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ToolBar>
+                  <TextBlock Margin="8" Text="Dependencies — stub"/>
+                </DockPanel>
+              </TabItem>
+              <TabItem Header="Triggers"><TextBlock Margin="8" Text="Triggers — stub"/></TabItem>
+              <TabItem Header="Data">
+                <views:TableDataGrid DataContext="{Binding TableData}"/>
+              </TabItem>
+              <TabItem Header="Master/Detail View"><TextBlock Margin="8" Text="Master/Detail — stub"/></TabItem>
+              <TabItem Header="Description"><TextBlock Margin="8" Text="Extended property MS_Description — stub"/></TabItem>
+              <TabItem Header="DDL"><TextBox FontFamily="Consolas" AcceptsReturn="True" IsReadOnly="True" Text="{Binding Ddl, Mode=OneWay}" TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/></TabItem>
+              <TabItem Header="Grants">
+                <DockPanel>
+                  <ToolBar DockPanel.Dock="Top">
+                    <ItemsControl ItemsSource="{Binding Shell.GrantsMenuItems}">
+                      <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Button Margin="1,0" Padding="6,2" Content="{Binding Caption}" ToolTip="{Binding ToolTip}" Command="{Binding Command}">
+                            <Button.Style>
+                              <Style TargetType="Button">
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding IsSeparator}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </Button.Style>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ToolBar>
+                  <TextBlock Margin="8" Text="Grants (sys.database_permissions) — stub"/>
+                </DockPanel>
+              </TabItem>
+              <TabItem Header="Logging"><TextBlock Margin="8" Text="Change log — stub"/></TabItem>
+              <TabItem Header="Comparison"><TextBlock Margin="8" Text="Comparison — v2"/></TabItem>
+              <TabItem Header="To-do"><TextBlock Margin="8" Text="To-do — stub"/></TabItem>
+            </TabControl>
+        </DockPanel>
+      </Border>
+    </DataTemplate>
+
+    <!-- SQL Editor document (F12 / Shift+F12): one instance per editor, state kept while hidden -->
+    <DataTemplate DataType="{x:Type vm:SqlEditorDocumentViewModel}">
+      <Border Margin="2" BorderBrush="#6E6E6E" BorderThickness="1" Background="White">
+        <DockPanel>
+          <!-- Color Mark of the registration (Database Registration Info > Color Mark) -->
+          <Border DockPanel.Dock="Top" Height="4"
+                  Background="{Binding ColorMark, Converter={StaticResource ColorMarkBrush}}"
+                  Visibility="{Binding ColorMark, Converter={StaticResource ColorMarkVisibility}}"/>
+          <Border DockPanel.Dock="Top" Background="{StaticResource PanelHeaderBg}"
+                  BorderBrush="{StaticResource PanelHeaderBorder}" BorderThickness="0,0,0,1">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="✕" ToolTip="Fechar (Ctrl+F4)"
+                      Style="{StaticResource PanelCloseButton}"
+                      Command="{Binding Shell.CloseDocumentCommand}" CommandParameter="{Binding}"/>
+              <TextBlock Margin="8,3" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Title, Mode=OneWay}"/>
+            </DockPanel>
+          </Border>
+          <views:SqlEditorView/>
+        </DockPanel>
+      </Border>
+    </DataTemplate>
+
+    <!-- Windows bar tab: active document looks pressed/highlighted -->
+    <Style x:Key="WindowsBarTab" TargetType="Button">
+      <Setter Property="MinWidth" Value="110"/>
+      <Setter Property="MaxWidth" Value="240"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="Margin" Value="1,1"/>
+      <Setter Property="Padding" Value="8,0"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Background" Value="#E4E4E4"/>
+      <Setter Property="BorderBrush" Value="#A0A0A0"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+              <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="#EEF3FA"/>
+              </Trigger>
+              <DataTrigger Binding="{Binding IsActive}" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="#FFFFFF"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="#3C7FB1"/>
+                <Setter TargetName="Bd" Property="BorderThickness" Value="2,2,1,1"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+              </DataTrigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+  <Window.InputBindings>
+    <KeyBinding Key="R" Modifiers="Shift+Alt" Command="{Binding Stub}" CommandParameter="Register Database"/>
+    <KeyBinding Key="U" Modifiers="Shift+Alt" Command="{Binding Stub}" CommandParameter="Unregister Database"/>
+    <KeyBinding Key="C" Modifiers="Shift+Control" Command="{Binding Stub}" CommandParameter="Connect to Database"/>
+    <KeyBinding Key="F12" Command="{Binding Stub}" CommandParameter="SQL Editor"/>
+    <KeyBinding Key="F12" Modifiers="Shift" Command="{Binding Stub}" CommandParameter="New SQL Editor"/>
+    <KeyBinding Key="F12" Modifiers="Control" Command="{Binding StubRequiresConnection}" CommandParameter="Script Executive"/>
+    <KeyBinding Key="F11" Command="{Binding ToggleExplorerCommand}"/>
+    <KeyBinding Key="M" Modifiers="Control" Command="{Binding StubRequiresConnection}" CommandParameter="SQL Monitor"/>
+    <KeyBinding Key="F4" Modifiers="Alt" Command="{Binding ExitCommand}"/>
+  </Window.InputBindings>
+
+  <DockPanel>
+    <!-- ===== MENU BAR (classic order) ===== -->
+    <Menu DockPanel.Dock="Top">
+      <!-- Database -->
+      <MenuItem Header="_Database">
+        <MenuItem Header="Database Registration Info..." Command="{Binding Stub}" CommandParameter="Database Registration Info..."/>
+        <Separator/>
+        <MenuItem Header="Register Database" InputGestureText="Shift+Alt+R" Command="{Binding Stub}" CommandParameter="Register Database"/>
+        <MenuItem Header="Unregister Database" InputGestureText="Shift+Alt+U" Command="{Binding Stub}" CommandParameter="Unregister Database"/>
+        <Separator/>
+        <MenuItem Header="Connect to Database" InputGestureText="Shift+Ctrl+C" Command="{Binding Stub}" CommandParameter="Connect to Database"/>
+        <MenuItem Header="Reconnect" Command="{Binding StubRequiresConnection}" CommandParameter="Reconnect"/>
+        <MenuItem Header="Disconnect from Database" Command="{Binding StubRequiresConnection}" CommandParameter="Disconnect from Database"/>
+        <Separator/>
+        <MenuItem Header="Create Database..." Command="{Binding Stub}" CommandParameter="Create Database..."/>
+        <MenuItem Header="Drop Database" Command="{Binding StubRequiresConnection}" CommandParameter="Drop Database"/>
+        <MenuItem Header="Recreate database" Command="{Binding StubRequiresConnection}" CommandParameter="Recreate database"/>
+        <Separator/>
+        <MenuItem Header="Recompute selectivity of all indices"
+                  ToolTip="SQL Server: UPDATE STATISTICS / sp_updatestats"
+                  Command="{Binding StubRequiresConnection}" CommandParameter="Recompute selectivity of all indices"/>
+        <MenuItem Header="Recompile all stored procedures"
+                  ToolTip="SQL Server: sp_recompile / ALTER PROCEDURE"
+                  Command="{Binding StubRequiresConnection}" CommandParameter="Recompile all stored procedures"/>
+        <MenuItem Header="Recompile All Triggers"
+                  ToolTip="SQL Server: sp_recompile on tables / ALTER TRIGGER"
+                  Command="{Binding StubRequiresConnection}" CommandParameter="Recompile All Triggers"/>
+        <Separator/>
+        <MenuItem Header="New Domain" ToolTip="SQL Server: User-Defined Type (CREATE TYPE)" Command="{Binding StubRequiresConnection}" CommandParameter="New Domain"/>
+        <MenuItem Header="New Table" Command="{Binding StubRequiresConnection}" CommandParameter="New Table"/>
+        <MenuItem Header="New View" Command="{Binding StubRequiresConnection}" CommandParameter="New View"/>
+        <MenuItem Header="New Procedure" Command="{Binding StubRequiresConnection}" CommandParameter="New Procedure"/>
+        <MenuItem Header="New Trigger" Command="{Binding StubRequiresConnection}" CommandParameter="New Trigger"/>
+        <MenuItem Header="New Generator" ToolTip="SQL Server: SEQUENCE" Command="{Binding StubRequiresConnection}" CommandParameter="New Generator"/>
+        <MenuItem Header="New Exception" ToolTip="SQL Server: sp_addmessage / THROW" Command="{Binding StubRequiresConnection}" CommandParameter="New Exception"/>
+        <MenuItem Header="New UDF" ToolTip="SQL Server: Function (scalar/TVF)" Command="{Binding StubRequiresConnection}" CommandParameter="New UDF"/>
+        <MenuItem Header="New Role" Command="{Binding StubRequiresConnection}" CommandParameter="New Role"/>
+        <Separator/>
+        <MenuItem Header="Exit" InputGestureText="Alt+F4" Command="{Binding ExitCommand}"/>
+      </MenuItem>
+
+      <!-- Edit -->
+      <MenuItem Header="_Edit">
+        <MenuItem Header="Load from File" InputGestureText="Ctrl+O" Command="{Binding Stub}" CommandParameter="Load from File">
+          <MenuItem Header="SQL Script..." Command="{Binding Stub}" CommandParameter="Load from File: SQL Script"/>
+          <MenuItem Header="Text..." Command="{Binding Stub}" CommandParameter="Load from File: Text"/>
+        </MenuItem>
+        <MenuItem Header="Save to File" InputGestureText="Ctrl+S" Command="{Binding Stub}" CommandParameter="Save to File">
+          <MenuItem Header="SQL Script..." Command="{Binding Stub}" CommandParameter="Save to File: SQL Script"/>
+          <MenuItem Header="Text..." Command="{Binding Stub}" CommandParameter="Save to File: Text"/>
+        </MenuItem>
+        <MenuItem Header="Save as..." Command="{Binding Stub}" CommandParameter="Save as..."/>
+        <Separator/>
+        <MenuItem Header="Cut" InputGestureText="Ctrl+X" Command="ApplicationCommands.Cut"/>
+        <MenuItem Header="Copy" InputGestureText="Ctrl+C" Command="ApplicationCommands.Copy"/>
+        <MenuItem Header="Paste" InputGestureText="Ctrl+V" Command="ApplicationCommands.Paste"/>
+        <MenuItem Header="Select All" InputGestureText="Ctrl+A" Command="ApplicationCommands.SelectAll"/>
+        <Separator/>
+        <MenuItem Header="Find" InputGestureText="Ctrl+F" Command="{Binding Stub}" CommandParameter="Find"/>
+        <MenuItem Header="Search Again" InputGestureText="F3" Command="{Binding Stub}" CommandParameter="Search Again"/>
+        <MenuItem Header="Replace" InputGestureText="Ctrl+R / Ctrl+H" Command="{Binding Stub}" CommandParameter="Replace"/>
+        <MenuItem Header="Incremental Search" Command="{Binding Stub}" CommandParameter="Incremental Search"/>
+        <MenuItem Header="Go to..." InputGestureText="Ctrl+G" Command="{Binding Stub}" CommandParameter="Go to..."/>
+        <Separator/>
+        <MenuItem Header="Print preview" Command="{Binding Stub}" CommandParameter="Print preview"/>
+        <MenuItem Header="Print" Command="{Binding Stub}" CommandParameter="Print"/>
+        <MenuItem Header="Page setup" Command="{Binding Stub}" CommandParameter="Page setup"/>
+      </MenuItem>
+
+      <!-- Grid -->
+      <MenuItem Header="_Grid">
+        <MenuItem Header="Apply best fit" InputGestureText="Ctrl+NUM +" Command="{Binding Stub}" CommandParameter="Apply best fit"/>
+        <MenuItem Header="Save grid data as..." InputGestureText="Shift+Ctrl+S" Command="{Binding Stub}" CommandParameter="Save grid data as..."/>
+        <Separator/>
+        <MenuItem Header="Copy current record to clipboard" Command="{Binding Stub}" CommandParameter="Copy current record to clipboard"/>
+        <MenuItem Header="Copy all to clipboard" Command="{Binding Stub}" CommandParameter="Copy all to clipboard"/>
+      </MenuItem>
+
+      <!-- View -->
+      <MenuItem Header="_View">
+        <MenuItem Header="DB Explorer" InputGestureText="F11" IsCheckable="True" IsChecked="{Binding ShowExplorer}" Command="{Binding ToggleExplorerCommand}"/>
+        <MenuItem Header="Status bar" IsCheckable="True" IsChecked="{Binding ShowStatusBar}" Command="{Binding ToggleStatusBarCommand}"/>
+        <MenuItem Header="Windows Bar" IsCheckable="True" IsChecked="{Binding ShowWindowsBar}" Command="{Binding ToggleWindowsBarCommand}"/>
+        <Separator/>
+        <MenuItem Header="Toolbars">
+          <MenuItem Header="Main toolbar" IsCheckable="True" IsChecked="True" Command="{Binding Stub}" CommandParameter="Toolbars: Main"/>
+          <MenuItem Header="Edit toolbar" IsCheckable="True" IsChecked="True" Command="{Binding Stub}" CommandParameter="Toolbars: Edit"/>
+          <MenuItem Header="Objects toolbar" IsCheckable="True" IsChecked="True" Command="{Binding Stub}" CommandParameter="Toolbars: Objects"/>
+        </MenuItem>
+        <Separator/>
+        <MenuItem Header="Autohide DB Explorer" Command="{Binding Stub}" CommandParameter="Autohide DB Explorer"/>
+      </MenuItem>
+
+      <!-- Options -->
+      <MenuItem Header="_Options">
+        <MenuItem Header="Environment Options..." Command="{Binding Stub}" CommandParameter="Environment Options..."/>
+        <MenuItem Header="Editor Options..." Command="{Binding Stub}" CommandParameter="Editor Options..."/>
+        <MenuItem Header="Visual Options..." Command="{Binding Stub}" CommandParameter="Visual Options..."/>
+        <Separator/>
+        <MenuItem Header="Keyboard Templates..." Command="{Binding Stub}" CommandParameter="Keyboard Templates..."/>
+        <MenuItem Header="General templates..." Command="{Binding Stub}" CommandParameter="General templates..."/>
+        <Separator/>
+        <MenuItem Header="Object Editor Options..." Command="{Binding Stub}" CommandParameter="Object Editor Options..."/>
+        <Separator/>
+        <MenuItem Header="Code formatting options..." Command="{Binding Stub}" CommandParameter="Code formatting options..."/>
+      </MenuItem>
+
+      <!-- Tools -->
+      <MenuItem Header="_Tools">
+        <MenuItem Header="SQL Editor" InputGestureText="F12" Command="{Binding Stub}" CommandParameter="SQL Editor"/>
+        <MenuItem Header="New SQL Editor" InputGestureText="Shift+F12" Command="{Binding Stub}" CommandParameter="New SQL Editor"/>
+        <MenuItem Header="Query builder" Command="{Binding StubRequiresConnection}" CommandParameter="Query builder"/>
+        <Separator/>
+        <MenuItem Header="Data Analysis / OLAP" Command="{Binding StubRequiresConnection}" CommandParameter="Data Analysis / OLAP"/>
+        <Separator/>
+        <MenuItem Header="Script Executive" InputGestureText="Ctrl+F12" Command="{Binding StubRequiresConnection}" CommandParameter="Script Executive"/>
+        <MenuItem Header="Copy database object" Command="{Binding StubRequiresConnection}" CommandParameter="Copy database object"/>
+        <Separator/>
+        <MenuItem Header="SQL Monitor" InputGestureText="Ctrl+M" ToolTip="SQL Server: Extended Events / Profiler-like" Command="{Binding StubRequiresConnection}" CommandParameter="SQL Monitor"/>
+        <MenuItem Header="Dependencies Viewer" Command="{Binding StubRequiresConnection}" CommandParameter="Dependencies Viewer"/>
+        <MenuItem Header="SP/Triggers/Views Analyzer" Command="{Binding StubRequiresConnection}" CommandParameter="SP/Triggers/Views Analyzer"/>
+        <MenuItem Header="Database Comparer" Command="{Binding StubRequiresConnection}" CommandParameter="Database Comparer"/>
+        <MenuItem Header="Table Data Comparer" Command="{Binding StubRequiresConnection}" CommandParameter="Table Data Comparer"/>
+        <Separator/>
+        <MenuItem Header="Log Manager" Command="{Binding Stub}" CommandParameter="Log Manager"/>
+        <MenuItem Header="Import data" Command="{Binding StubRequiresConnection}" CommandParameter="Import data"/>
+        <Separator/>
+        <MenuItem Header="Search in Metadata" InputGestureText="Shift+Alt+F" Command="{Binding StubRequiresConnection}" CommandParameter="Search in Metadata"/>
+        <MenuItem Header="Extract Metadata" Command="{Binding StubRequiresConnection}" CommandParameter="Extract Metadata"/>
+        <MenuItem Header="Print Metadata" Command="{Binding StubRequiresConnection}" CommandParameter="Print Metadata"/>
+        <MenuItem Header="Generate HTML Documentation" Command="{Binding StubRequiresConnection}" CommandParameter="Generate HTML Documentation"/>
+        <Separator/>
+        <MenuItem Header="User Manager" ToolTip="SQL Server: logins / database users" Command="{Binding StubRequiresConnection}" CommandParameter="User Manager"/>
+        <MenuItem Header="Grant Manager" ToolTip="SQL Server: roles / GRANT / DENY" Command="{Binding StubRequiresConnection}" CommandParameter="Grant Manager"/>
+        <MenuItem Header="Secondary Files Manager" ToolTip="SQL Server: database files / filegroups" Command="{Binding StubRequiresConnection}" CommandParameter="Secondary Files Manager"/>
+        <Separator/>
+        <MenuItem Header="To-do list" Command="{Binding Stub}" CommandParameter="To-do list"/>
+        <Separator/>
+        <MenuItem Header="Localize SQL Server Messages" Command="{Binding Stub}" CommandParameter="Localize SQL Server Messages"/>
+        <MenuItem Header="Localize SqlExpert" Command="{Binding Stub}" CommandParameter="Localize SqlExpert"/>
+        <Separator/>
+        <MenuItem Header="Report Manager" Command="{Binding Stub}" CommandParameter="Report Manager"/>
+        <MenuItem Header="Blob Viewer/Editor" IsEnabled="False" Command="{Binding Stub}" CommandParameter="Blob Viewer/Editor"/>
+        <Separator/>
+        <MenuItem Header="Database designer" Command="{Binding StubRequiresConnection}" CommandParameter="Database designer"/>
+        <MenuItem Header="Test data generator" Command="{Binding StubRequiresConnection}" CommandParameter="Test data generator"/>
+        <Separator/>
+        <MenuItem Header="ODBC Viewer" Command="{Binding Stub}" CommandParameter="ODBC Viewer"/>
+        <Separator/>
+        <MenuItem Header="Database Inside" Command="{Binding StubRequiresConnection}" CommandParameter="Database Inside"/>
+      </MenuItem>
+
+      <!-- Services -->
+      <MenuItem Header="_Services">
+        <MenuItem Header="Database Monitoring" ToolTip="SQL Server: DMVs / Activity Monitor" Command="{Binding StubRequiresConnection}" CommandParameter="Database Monitoring"/>
+        <MenuItem Header="Backup Database" ToolTip="BACKUP DATABASE" Command="{Binding StubRequiresConnection}" CommandParameter="Backup Database"/>
+        <MenuItem Header="Restore Database" ToolTip="RESTORE DATABASE" Command="{Binding StubRequiresConnection}" CommandParameter="Restore Database"/>
+        <Separator/>
+        <MenuItem Header="Server Properties/Log" Command="{Binding StubRequiresConnection}" CommandParameter="Server Properties/Log"/>
+        <MenuItem Header="Trace and audit" ToolTip="Extended Events / SQL Audit" Command="{Binding StubRequiresConnection}" CommandParameter="Trace and audit"/>
+        <Separator/>
+        <MenuItem Header="Database Validation" ToolTip="DBCC CHECKDB" Command="{Binding StubRequiresConnection}" CommandParameter="Database Validation"/>
+        <MenuItem Header="Database Statistics" ToolTip="sys.dm_db_index_physical_stats / UPDATE STATISTICS" Command="{Binding StubRequiresConnection}" CommandParameter="Database Statistics"/>
+        <MenuItem Header="Database Properties" Command="{Binding StubRequiresConnection}" CommandParameter="Database Properties"/>
+        <MenuItem Header="Database Shutdown" ToolTip="ALTER DATABASE SET OFFLINE" Command="{Binding StubRequiresConnection}" CommandParameter="Database Shutdown"/>
+        <MenuItem Header="Database Online" ToolTip="ALTER DATABASE SET ONLINE" Command="{Binding StubRequiresConnection}" CommandParameter="Database Online"/>
+        <Separator/>
+        <MenuItem Header="Communication Diagnostics" Command="{Binding Stub}" CommandParameter="Communication Diagnostics"/>
+        <Separator/>
+        <MenuItem Header="Benchmark" Command="{Binding StubRequiresConnection}" CommandParameter="Benchmark"/>
+        <Separator/>
+        <MenuItem Header="SqlExpert Services Control Center" Command="{Binding Stub}" CommandParameter="SqlExpert Services Control Center"/>
+      </MenuItem>
+
+
+      <!-- Plugins -->
+      <MenuItem Header="_Plugins">
+        <MenuItem Header="(nenhum plugin carregado)" IsEnabled="False"/>
+        <Separator/>
+        <MenuItem Header="Plugin Manager..." Command="{Binding Stub}" CommandParameter="Plugin Manager..."/>
+      </MenuItem>
+
+      <!-- Windows -->
+      <MenuItem x:Name="WindowsMenu" Header="_Windows" SubmenuOpened="WindowsMenu_OnSubmenuOpened">
+        <MenuItem Header="Windows Manager" InputGestureText="Alt+0" Command="{Binding Stub}" CommandParameter="Windows Manager"/>
+        <MenuItem Header="Close All" Command="{Binding CloseAllDocumentsCommand}"/>
+        <Separator/>
+        <MenuItem Header="Cascade" Command="{Binding Stub}" CommandParameter="Cascade"/>
+        <MenuItem Header="Tile Horizontally" Command="{Binding Stub}" CommandParameter="Tile Horizontally"/>
+        <MenuItem Header="Tile Vertically" Command="{Binding Stub}" CommandParameter="Tile Vertically"/>
+        <MenuItem Header="Minimize All" Command="{Binding Stub}" CommandParameter="Minimize All"/>
+        <MenuItem Header="Arrange" Command="{Binding Stub}" CommandParameter="Arrange"/>
+        <!-- open documents are appended here at runtime (WindowsMenu_OnSubmenuOpened) -->
+      </MenuItem>
+
+      <!-- Help -->
+      <MenuItem Header="_Help">
+        <MenuItem Header="What's new?" Command="{Binding Stub}" CommandParameter="What's new?"/>
+        <MenuItem Header="Online documentation" Command="{Binding Stub}" CommandParameter="Online documentation"/>
+        <MenuItem Header="Learning Center" Command="{Binding Stub}" CommandParameter="Learning Center"/>
+        <Separator/>
+        <MenuItem Header="Additional Help Files">
+          <MenuItem Header="SQL Server T-SQL reference" Command="{Binding Stub}" CommandParameter="Help: T-SQL"/>
+          <MenuItem Header="SqlExpert shortcuts" Command="{Binding Stub}" CommandParameter="Help: shortcuts"/>
+        </MenuItem>
+        <Separator/>
+        <MenuItem Header="Product Home Page" Command="{Binding Stub}" CommandParameter="Product Home Page"/>
+        <MenuItem Header="Send bug reports to" Command="{Binding Stub}" CommandParameter="Send bug reports to"/>
+        <MenuItem Header="Support" Command="{Binding Stub}" CommandParameter="Support"/>
+        <Separator/>
+        <MenuItem Header="About" Command="{Binding Stub}" CommandParameter="About"/>
+        <Separator/>
+        <MenuItem Header="SqlExpert Direct..." Command="{Binding Stub}" CommandParameter="SqlExpert Direct..."/>
+        <MenuItem Header="Download SQL Server tools" Command="{Binding Stub}" CommandParameter="Download SQL Server tools"/>
+      </MenuItem>
+    </Menu>
+
+    <!-- ===== TOOLBAR (classic-style groups) ===== -->
+    <ToolBarTray DockPanel.Dock="Top" Background="{StaticResource ToolbarBg}">
+      <ToolBar Band="0" BandIndex="0" ToolTip="Database">
+        <Button Content="＋DB" ToolTip="Register Database" Command="{Binding Stub}" CommandParameter="Register Database"/>
+        <Button Content="－DB" ToolTip="Unregister Database" Command="{Binding Stub}" CommandParameter="Unregister Database"/>
+        <Separator/>
+        <Button Content="⚡" ToolTip="Connect to Database" Command="{Binding Stub}" CommandParameter="Connect to Database"/>
+        <Button Content="⏏" ToolTip="Disconnect from Database" Command="{Binding StubRequiresConnection}" CommandParameter="Disconnect from Database"/>
+        <Button Content="↻" ToolTip="Reconnect" Command="{Binding StubRequiresConnection}" CommandParameter="Reconnect"/>
+        <Separator/>
+        <Button Content="ℹ" ToolTip="Database Registration Info..." Command="{Binding Stub}" CommandParameter="Database Registration Info..."/>
+        <Button Content="🚪" ToolTip="Exit" Command="{Binding ExitCommand}"/>
+      </ToolBar>
+      <ToolBar Band="0" BandIndex="1" ToolTip="SQL / Scripts">
+        <Button Content="SQL" ToolTip="SQL Editor" Command="{Binding Stub}" CommandParameter="SQL Editor"/>
+        <Button Content="SQL+" ToolTip="New SQL Editor" Command="{Binding Stub}" CommandParameter="New SQL Editor"/>
+        <Button Content="QB" ToolTip="Query builder" Command="{Binding StubRequiresConnection}" CommandParameter="Query builder"/>
+        <Separator/>
+        <Button Content="Scr" ToolTip="Script Executive" Command="{Binding StubRequiresConnection}" CommandParameter="Script Executive"/>
+        <Separator/>
+        <Button Content="Mon" ToolTip="SQL Monitor" Command="{Binding StubRequiresConnection}" CommandParameter="SQL Monitor"/>
+        <Button Content="Ext" ToolTip="Extract Metadata" Command="{Binding StubRequiresConnection}" CommandParameter="Extract Metadata"/>
+        <Button Content="Prn" ToolTip="Print Metadata" Command="{Binding StubRequiresConnection}" CommandParameter="Print Metadata"/>
+      </ToolBar>
+      <ToolBar Band="0" BandIndex="2" ToolTip="Security">
+        <Button Content="Usr" ToolTip="User Manager" Command="{Binding StubRequiresConnection}" CommandParameter="User Manager"/>
+        <Button Content="Grnt" ToolTip="Grant Manager" Command="{Binding StubRequiresConnection}" CommandParameter="Grant Manager"/>
+        <Separator/>
+        <Button Content="Rpt" ToolTip="Report Manager" Command="{Binding Stub}" CommandParameter="Report Manager"/>
+        <Button Content="Blob" ToolTip="Blob Viewer/Editor" IsEnabled="False"/>
+      </ToolBar>
+      <ToolBar Band="0" BandIndex="3" ToolTip="Edit">
+        <Button Content="📂" ToolTip="Load from File" Command="{Binding Stub}" CommandParameter="Load from File"/>
+        <Button Content="💾" ToolTip="Save to File" Command="{Binding Stub}" CommandParameter="Save to File"/>
+        <Button Content="Save" ToolTip="Save" Command="{Binding Stub}" CommandParameter="Save to File"/>
+        <Separator/>
+        <Button Content="✂" ToolTip="Cut" Command="ApplicationCommands.Cut"/>
+        <Button Content="📋" ToolTip="Copy" Command="ApplicationCommands.Copy"/>
+        <Button Content="📄" ToolTip="Paste" Command="ApplicationCommands.Paste"/>
+        <Separator/>
+        <Button Content="🔍" ToolTip="Find" Command="{Binding Stub}" CommandParameter="Find"/>
+        <Button Content="F3" ToolTip="Search Again" Command="{Binding Stub}" CommandParameter="Search Again"/>
+        <Button Content="↔" ToolTip="Replace" Command="{Binding Stub}" CommandParameter="Replace"/>
+      </ToolBar>
+      <ToolBar Band="0" BandIndex="4" ToolTip="New objects">
+        <Button Content="Dom" ToolTip="New Domain (UDT)" Command="{Binding StubRequiresConnection}" CommandParameter="New Domain"/>
+        <Button Content="Tbl" ToolTip="New Table" Command="{Binding StubRequiresConnection}" CommandParameter="New Table"/>
+        <Button Content="Vw" ToolTip="New View" Command="{Binding StubRequiresConnection}" CommandParameter="New View"/>
+        <Button Content="Proc" ToolTip="New Procedure" Command="{Binding StubRequiresConnection}" CommandParameter="New Procedure"/>
+        <Button Content="Trg" ToolTip="New Trigger" Command="{Binding StubRequiresConnection}" CommandParameter="New Trigger"/>
+        <Button Content="Gen" ToolTip="New Generator (Sequence)" Command="{Binding StubRequiresConnection}" CommandParameter="New Generator"/>
+        <Button Content="Exc" ToolTip="New Exception" Command="{Binding StubRequiresConnection}" CommandParameter="New Exception"/>
+        <Button Content="UDF" ToolTip="New UDF (Function)" Command="{Binding StubRequiresConnection}" CommandParameter="New UDF"/>
+        <Button Content="Role" ToolTip="New Role" Command="{Binding StubRequiresConnection}" CommandParameter="New Role"/>
+      </ToolBar>
+    </ToolBarTray>
+
+    <!-- Status bar -->
+    <StatusBar DockPanel.Dock="Bottom" Visibility="{Binding ShowStatusBar, Converter={StaticResource BoolToVis}}">
+      <StatusBarItem>
+        <Border BorderBrush="#A0A0A0" BorderThickness="1" Padding="0,0,6,0" MinWidth="240">
+          <StackPanel Orientation="Horizontal">
+            <!-- Color Mark of the connected registration -->
+            <Border Width="6" Margin="0,0,0,0"
+                    Background="{Binding ActiveColorMark, Converter={StaticResource ColorMarkBrush}}"
+                    Visibility="{Binding ActiveColorMark, Converter={StaticResource ColorMarkVisibility}}"/>
+            <TextBlock Margin="6,0,0,0" Text="{Binding ConnectionStatusText}"/>
+          </StackPanel>
+        </Border>
+      </StatusBarItem>
+      <Separator/>
+      <StatusBarItem>
+        <TextBlock Text="{Binding StatusText}" TextTrimming="CharacterEllipsis"/>
+      </StatusBarItem>
+    </StatusBar>
+
+    <!-- Windows bar -->
+    <Border DockPanel.Dock="Bottom" Background="#D4D4D4" BorderBrush="#A0A0A0" BorderThickness="0,1,0,0"
+            Padding="2,1" MinHeight="26"
+            Visibility="{Binding ShowWindowsBar, Converter={StaticResource BoolToVis}}">
+      <ItemsControl ItemsSource="{Binding Documents}" Focusable="False">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Orientation="Horizontal"/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button Style="{StaticResource WindowsBarTab}" ToolTip="{Binding ToolTip}"
+                    Command="{Binding Shell.ActivateDocumentCommand}" CommandParameter="{Binding}"
+                    MouseUp="WindowsBarTab_OnMouseUp">
+              <TextBlock Text="{Binding ShortName}" TextTrimming="CharacterEllipsis"/>
+              <Button.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Close" InputGestureText="Ctrl+F4"
+                            Command="{Binding Shell.CloseDocumentCommand}" CommandParameter="{Binding}"/>
+                  <MenuItem Header="Close all" Command="{Binding Shell.CloseAllDocumentsCommand}"/>
+                  <MenuItem Header="Close others"
+                            Command="{Binding Shell.CloseOtherDocumentsCommand}" CommandParameter="{Binding}"/>
+                </ContextMenu>
+              </Button.ContextMenu>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
+
+    <!-- Main body: Database Explorer | MDI-like document area -->
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition x:Name="ExplorerColumn" Width="280" MinWidth="160"/>
+        <ColumnDefinition x:Name="SplitterColumn" Width="4"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Database Explorer (docked panel) -->
+      <DockPanel Grid.Column="0" Background="{StaticResource ExplorerBg}"
+                 Visibility="{Binding ShowExplorer, Converter={StaticResource BoolToVis}}">
+        <!-- Header strip with close button -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource PanelHeaderBg}"
+                BorderBrush="{StaticResource PanelHeaderBorder}" BorderThickness="0,0,0,1">
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Content="✕" ToolTip="Fechar Database Explorer (F11 reabre)"
+                    Style="{StaticResource PanelCloseButton}" Command="{Binding CloseExplorerCommand}"/>
+            <TextBlock Margin="6,2" VerticalAlignment="Center" FontSize="11" Text="Database Explorer"/>
+          </DockPanel>
+        </Border>
+
+        <TabControl Padding="0" Margin="0,2,0,0" BorderThickness="0,1,0,0" Background="{StaticResource ExplorerBg}">
+          <TabItem Header="Databases" IsSelected="True">
+            <DockPanel>
+              <!-- Filter (editable combo with placeholder) -->
+              <Grid DockPanel.Dock="Top" Margin="2,3,2,3">
+                <ComboBox x:Name="FilterCombo" IsEditable="True" IsTextSearchEnabled="False"
+                          PreviewKeyDown="FilterCombo_OnPreviewKeyDown"
+                          ItemsSource="{Binding ProfileNames}"
+                          Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                          ToolTip="Filtra todos os níveis: databases registrados, databases e objetos (tabelas, views, procedures...).&#x0a;Sem maiúsculas/acentos; &quot;cli&quot; procura no nome, &quot;dbo.cli&quot; inclui o schema. Esc limpa."/>
+                <TextBlock Text="Enter filter string" Foreground="#909090" Margin="6,0,24,0"
+                           VerticalAlignment="Center" IsHitTestVisible="False">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Visibility" Value="Collapsed"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding FilterText}" Value="">
+                          <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding FilterText}" Value="{x:Null}">
+                          <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Grid>
+
+              <!-- Virtualized + recycled containers: big folders (500+ tables/triggers) stay cheap to show and filter.
+                   ScrollUnit stays Pixel: Item-scrolling a TreeView jumps over whole expanded folders. -->
+              <TreeView x:Name="ExplorerTree" ItemsSource="{Binding ExplorerRoots}" BorderThickness="0" Background="White"
+                        VirtualizingPanel.IsVirtualizing="True"
+                        VirtualizingPanel.VirtualizationMode="Recycling"
+                        VirtualizingPanel.ScrollUnit="Pixel"
+                        SelectedItemChanged="Explorer_OnSelectedItemChanged"
+                        PreviewMouseRightButtonDown="Explorer_OnPreviewMouseRightButtonDown"
+                        MouseDoubleClick="Explorer_OnMouseDoubleClick"
+                        KeyDown="Explorer_OnKeyDown"
+                        ContextMenuOpening="Explorer_OnContextMenuOpening">
+                <!-- Registered database: classic-style database popup; other nodes: object popup (PrepareExplorerContextMenu) -->
+                <TreeView.ContextMenu>
+                  <ContextMenu ItemsSource="{Binding ExplorerMenuItems}" ItemContainerStyle="{StaticResource CommandMenuItemStyle}"/>
+                </TreeView.ContextMenu>
+                <TreeView.ItemContainerStyle>
+                  <Style TargetType="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                    <EventSetter Event="Expanded" Handler="ExplorerItem_OnExpanded"/>
+                    <EventSetter Event="Selected" Handler="ExplorerItem_OnSelected"/>
+                  </Style>
+                </TreeView.ItemContainerStyle>
+                <TreeView.ItemTemplate>
+                  <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                    <StackPanel Orientation="Horizontal" Margin="0,1" ToolTip="{Binding Description, Mode=OneWay}">
+                      <!-- Color Mark of the registration -->
+                      <Border Width="4" Height="14" Margin="0,0,3,0" VerticalAlignment="Center"
+                              Background="{Binding ColorMark, Converter={StaticResource ColorMarkBrush}}"
+                              Visibility="{Binding ColorMark, Converter={StaticResource ColorMarkVisibility}}"/>
+                      <ContentControl x:Name="DbIcon" Width="16" Height="16" Margin="0,0,4,0" Focusable="False"
+                                      Visibility="Collapsed" Template="{StaticResource DbIconTemplate}"/>
+                      <!-- Name with the filter match in bold (prefix / match / suffix runs; no whitespace between runs) -->
+                      <TextBlock x:Name="NodeLabel" VerticalAlignment="Center"><Run Text="{Binding NamePrefix, Mode=OneWay}"/><Run Text="{Binding NameMatch, Mode=OneWay}" FontWeight="Bold"/><Run Text="{Binding NameSuffix, Mode=OneWay}"/></TextBlock>
+                      <!-- Object count " (505)" in blue; selection foreground on the focused highlight -->
+                      <TextBlock x:Name="NodeCount" Text="{Binding CountText, Mode=OneWay}" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                          <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{DynamicResource ExplorerCountBrush}"/>
+                            <Style.Triggers>
+                              <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                  <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TreeViewItem}}" Value="True"/>
+                                  <Condition Binding="{Binding (Selector.IsSelectionActive), RelativeSource={RelativeSource AncestorType=TreeViewItem}}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}"/>
+                              </MultiDataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </TextBlock.Style>
+                      </TextBlock>
+                      <TextBlock Text="{Binding DescriptionSuffix, Mode=OneWay}" Foreground="#808080" VerticalAlignment="Center"
+                                 MaxWidth="400" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <HierarchicalDataTemplate.Triggers>
+                      <DataTrigger Binding="{Binding NodeKind}" Value="Profile">
+                        <Setter TargetName="DbIcon" Property="Visibility" Value="Visible"/>
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding NodeKind}" Value="Database">
+                        <Setter TargetName="DbIcon" Property="Visibility" Value="Visible"/>
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding IsActive}" Value="True">
+                        <Setter TargetName="NodeLabel" Property="FontWeight" Value="Bold"/>
+                      </DataTrigger>
+                    </HierarchicalDataTemplate.Triggers>
+                  </HierarchicalDataTemplate>
+                </TreeView.ItemTemplate>
+              </TreeView>
+            </DockPanel>
+          </TabItem>
+          <TabItem Header="Project"><Border Background="White"/></TabItem>
+          <TabItem Header="Windows"><Border Background="White"/></TabItem>
+          <TabItem Header="Recent"><Border Background="White"/></TabItem>
+        </TabControl>
+      </DockPanel>
+
+      <GridSplitter x:Name="ExplorerSplitter" Grid.Column="1" Width="4" HorizontalAlignment="Stretch"/>
+
+      <!-- MDI-like document area: empty gray when no document is open; one editor per opened table -->
+      <Border Grid.Column="2" Background="{StaticResource MdiBg}">
+        <ItemsControl ItemsSource="{Binding Documents}" Focusable="False">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <Grid/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemContainerStyle>
+            <Style TargetType="ContentPresenter">
+              <Setter Property="Visibility" Value="Collapsed"/>
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                  <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </ItemsControl.ItemContainerStyle>
+        </ItemsControl>
+      </Border>
+    </Grid>
+  </DockPanel>
+</Window>

@@ -1,0 +1,61 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rm64/
+publish/
+artifacts/
+out/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# Tests / coverage
+TestResults/
+[Tt]est[Rr]esult*/
+coverage*.xml
+*.coverage
+*.trx
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Archives and backups
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+*.bak
+
+# Local settings and secrets (never commit)
+appsettings.*.local.json
+connections.json
+settings.json
+secrets/
+history/
+*.pfx
+*.snk
+.env
+*.env
+
+# Reference material that must not be published
+docs/ibexpert-ref/
+private-docs/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store

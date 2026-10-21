@@ -1,0 +1,410 @@
+using System.Data;
+using System.Windows.Controls.Primitives;
+using SqlExpert.Core.Models;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Input;
+using SqlExpert.App.Services;
+using SqlExpert.App.ViewModels;
+
+namespace SqlExpert.App.Views;
+
+/// <summary>Data tab: navigator + editable grid bound to <see cref="TableDataViewModel"/>.</summary>
+public partial class TableDataGrid : UserControl
+{
+    private TableDataViewModel? _vm;
+
+    private enum DataViewMode { Grid, Form, Print }
+    private DataViewMode _mode = DataViewMode.Grid;
+
+    public TableDataGrid()
+    {
+        InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+        FormGrid.DataContextChanged += (_, _) => FormGrid.IsEnabled = FormGrid.DataContext is System.Data.DataRowView;
+        FormGrid.IsEnabled = false;
+        IsVisibleChanged += (_, _) =>
+        {
+            if (_vm is not null) _vm.IsViewActive = IsVisible;
+            if (!IsVisible) { CancelPrintWork(); CloseLookup(); }
+            else if (_mode == DataViewMode.Print) EnsurePrintPreview();
+        };
+
+        // Font size spin box mirrors the shared setting (changed here or in another grid).
+        ShowFontSize();
+        UiSettings.Instance.PropertyChanged += OnUiSettingsChanged;
+        Unloaded += (_, _) => UiSettings.Instance.PropertyChanged -= OnUiSettingsChanged;
+        Loaded += (_, _) =>
+        {
+            UiSettings.Instance.PropertyChanged -= OnUiSettingsChanged;
+            UiSettings.Instance.PropertyChanged += OnUiSettingsChanged;
+            ShowFontSize();
+        };
+    }
+
+    // ===== Font size spin box =====
+
+    private void OnUiSettingsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(UiSettings.DataGridFontSize) && !FontSizeBox.IsKeyboardFocusWithin)
+            ShowFontSize();
+    }
+
+    private void ShowFontSize() => FontSizeBox.Text = UiSettings.Instance.DataGridFontSize.ToString();
+
+    private void StepFontSize(int delta)
+    {
+        UiSettings.Instance.DataGridFontSize += delta;
+        ShowFontSize();
+    }
+
+    /// <summary>Applies the typed value; invalid or out-of-range input reverts to the current size.</summary>
+    private void ApplyTypedFontSize()
+    {
+        var text = FontSizeBox.Text.Trim();
+        if (int.TryParse(text, out var v)
+            && v >= Core.Models.UserSettings.MinDataGridFontSize
+            && v <= Core.Models.UserSettings.MaxDataGridFontSize)
+        {
+            UiSettings.Instance.DataGridFontSize = v;
+        }
+
+        ShowFontSize();
+    }
+
+    private void FontSizeBox_OnKeyDown(object sender, KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Enter:
+                ApplyTypedFontSize();
+                FontSizeBox.SelectAll();
+                e.Handled = true;
+                break;
+            case Key.Escape:
+                ShowFontSize();
+                e.Handled = true;
+                break;
+            case Key.Up:
+                StepFontSize(1);
+                e.Handled = true;
+                break;
+            case Key.Down:
+                StepFontSize(-1);
+                e.Handled = true;
+                break;
+        }
+    }
+
+    private void FontSizeBox_OnLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) => ApplyTypedFontSize();
+
+    private void FontSize_OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        StepFontSize(e.Delta > 0 ? 1 : -1);
+        e.Handled = true;
+    }
+
+    private void FontSizeUp_OnClick(object sender, RoutedEventArgs e) => StepFontSize(1);
+
+    private void FontSizeDown_OnClick(object sender, RoutedEventArgs e) => StepFontSize(-1);
+
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        CancelPrintWork();
+        if (_vm is not null)
+        {
+            _vm.DataReloaded -= OnDataReloaded;
+            _vm.DataChanged -= OnDataChanged;
+            _vm.CommitEditRequested -= CommitEdit;
+            _vm.CancelEditRequested -= CancelEdit;
+            _vm.EditRequested -= BeginEditCurrent;
+        }
+
+        _vm = DataContext as TableDataViewModel;
+        if (_vm is null) return;
+        _vm.DataReloaded += OnDataReloaded;
+        _vm.DataChanged += OnDataChanged;
+        _vm.CommitEditRequested += CommitEdit;
+        _vm.CancelEditRequested += CancelEdit;
+        _vm.EditRequested += BeginEditCurrent;
+        OnDataReloaded();
+        _vm.IsViewActive = IsVisible;
+    }
+
+    private static bool IsNumeric(Type t) => Core.DataForms.FormFieldLayout.IsNumericType(t);
+
+    private void OnDataReloaded()
+    {
+        CloseLookup();
+        RebuildColumns();
+        RebuildForm();
+        MarkPrintStale();
+    }
+
+    private void OnDataChanged() => MarkPrintStale();
+
+    // ===== Bottom view tabs =====
+
+    private void ViewTabs_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.OriginalSource, ViewTabs)) return;
+        var mode = ViewTabs.SelectedIndex switch { 1 => DataViewMode.Form, 2 => DataViewMode.Print, _ => DataViewMode.Grid };
+        if (mode == _mode) return;
+
+        // Leaving a view: push any in-progress edit into the DataTable (stays pending until Post).
+        CloseLookup();
+        CommitGridEdit();
+        CommitFormEdit();
+        _mode = mode;
+
+        Grid.Visibility = mode == DataViewMode.Grid ? Visibility.Visible : Visibility.Collapsed;
+        FormHost.Visibility = mode == DataViewMode.Form ? Visibility.Visible : Visibility.Collapsed;
+        PrintHost.Visibility = mode == DataViewMode.Print ? Visibility.Visible : Visibility.Collapsed;
+        if (mode != DataViewMode.Print) CancelPrintWork();
+
+        switch (mode)
+        {
+            case DataViewMode.Grid:
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (Grid.SelectedItem is not null) Grid.ScrollIntoView(Grid.SelectedItem);
+                }, System.Windows.Threading.DispatcherPriority.Background);
+                break;
+            case DataViewMode.Form:
+                Dispatcher.BeginInvoke(() => FocusFirstFormEditor(editableOnly: false), System.Windows.Threading.DispatcherPriority.Background);
+                break;
+            case DataViewMode.Print:
+                EnsurePrintPreview();
+                break;
+        }
+    }
+
+    private void RebuildColumns()
+    {
+        Grid.Columns.Clear();
+        if (_vm is null) return;
+        Grid.IsReadOnly = _vm.IsReadOnly;
+
+        foreach (var spec in _vm.Columns)
+        {
+            var header = spec.Info.IsPrimaryKey ? "🔑 " + spec.Header : spec.Header;
+            DataGridColumn column;
+            if (spec.DataType == typeof(bool))
+            {
+                column = new DataGridCheckBoxColumn
+                {
+                    Binding = new Binding(spec.Field)
+                    {
+                        Converter = new NullableBoolConverter(),
+                        Mode = spec.IsReadOnly ? BindingMode.OneWay : BindingMode.TwoWay
+                    },
+                    IsThreeState = spec.IsNullable
+                };
+            }
+            else if (spec.HasEditableLookup && !_vm.IsReadOnly && !spec.IsReadOnly)
+            {
+                // Foreign key: "▾" button in edit mode opens the "Data of [table]" lookup (Alt+↓ / F4).
+                var fkColumn = new ForeignKeyTextColumn(spec.Lookup!)
+                {
+                    Binding = new Binding(spec.Field)
+                    {
+                        Converter = new CellValueConverter(spec.DataType),
+                        Mode = BindingMode.TwoWay,
+                        ValidatesOnExceptions = true
+                    },
+                    ElementStyle = (Style)FindResource(IsNumeric(spec.DataType) ? "CellTextRight" : "CellText"),
+                    OpenLookup = OpenGridLookup
+                };
+                column = fkColumn;
+            }
+            else
+            {
+                column = new DataGridTextColumn
+                {
+                    Binding = new Binding(spec.Field)
+                    {
+                        Converter = new CellValueConverter(spec.DataType),
+                        Mode = spec.IsReadOnly ? BindingMode.OneWay : BindingMode.TwoWay,
+                        ValidatesOnExceptions = true
+                    },
+                    ElementStyle = (Style)FindResource(IsNumeric(spec.DataType) ? "CellTextRight" : "CellText")
+                };
+            }
+
+            if (spec.Lookup is { } lookup)
+            {
+                if (lookup.IsEnabled && !_vm.IsReadOnly) header += " ▾";
+                column.HeaderStyle = HeaderWithToolTip(lookup.ToolTip);
+            }
+            column.Header = header;
+            column.IsReadOnly = spec.IsReadOnly || _vm.IsReadOnly;
+            column.SortMemberPath = spec.Field;
+            column.MinWidth = 40;
+            column.MaxWidth = 420;
+            Grid.Columns.Add(column);
+        }
+    }
+
+    private Style HeaderWithToolTip(string tip)
+    {
+        var style = new Style(typeof(DataGridColumnHeader), TryFindResource(typeof(DataGridColumnHeader)) as Style);
+        style.Setters.Add(new Setter(ToolTipProperty, tip));
+        return style;
+    }
+
+    // ===== Foreign-key lookup (grid + form) =====
+
+    private ForeignKeyLookupPopup? _lookup;
+
+    private void CloseLookup()
+    {
+        var popup = _lookup;
+        _lookup = null;
+        popup?.Close();
+    }
+
+    /// <summary>Opens the FK popup for <paramref name="row"/> under <paramref name="anchor"/>. A second gesture closes it.</summary>
+    private void OpenLookup(ForeignKeyLookupTarget target, DataRowView row, UIElement anchor,
+        Action<IReadOnlyList<object?>?> onPick, Action onCancel)
+    {
+        if (_vm is not { } vm) return;
+        if (_lookup is { IsOpen: true })
+        {
+            CloseLookup();
+            return;
+        }
+        var current = vm.CurrentLookupKey(row, target);
+        var popup = new ForeignKeyLookupPopup(target, current,
+            (fetchAll, refresh, ct) => vm.GetLookupDataAsync(target, fetchAll, refresh, current, ct), onPick);
+        popup.Closed += picked =>
+        {
+            if (ReferenceEquals(_lookup, popup)) _lookup = null;
+            if (!picked) onCancel();
+        };
+        _lookup = popup;
+        try
+        {
+            popup.Open(anchor);
+        }
+        catch (Exception ex)
+        {
+            _lookup = null;
+            App.ReportError(ex);
+        }
+    }
+
+    private void OpenGridLookup(ForeignKeyTextColumn column, DataGridCell cell)
+    {
+        if (_vm is null || cell.DataContext is not DataRowView row) return;
+        OpenLookup(column.Target, row, cell,
+            picked =>
+            {
+                // The picked key replaces whatever was typed in the cell; the row stays pending until Post/Cancel.
+                try { Grid.CancelEdit(DataGridEditingUnit.Cell); } catch (InvalidOperationException) { }
+                if (_vm?.ApplyLookup(row, column.Target, picked) == true)
+                {
+                    try { Grid.CommitEdit(DataGridEditingUnit.Row, true); } catch (InvalidOperationException) { }
+                }
+                Grid.Focus();
+                cell.Focus();
+            },
+            () => ForeignKeyTextColumn.EditorTextBox(cell.Content as FrameworkElement)?.Focus());
+    }
+
+    /// <summary>F4 / Alt+↓ on a selected (not yet edited) FK cell: start editing and open the lookup.</summary>
+    private bool TryOpenLookupFromSelection(KeyEventArgs e)
+    {
+        if (!ForeignKeyTextColumn.IsLookupGesture(e) || Grid.IsReadOnly) return false;
+        if (Grid.CurrentCell.Column is not ForeignKeyTextColumn fk || Grid.CurrentCell.Item is not DataRowView item) return false;
+        if (!Grid.BeginEdit()) return false;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (fk.GetCellContent(item)?.Parent is DataGridCell cell) OpenGridLookup(fk, cell);
+        }, System.Windows.Threading.DispatcherPriority.Background);
+        return true;
+    }
+
+    private void CommitEdit()
+    {
+        CommitFormEdit();
+        CommitGridEdit();
+    }
+
+    private void CommitGridEdit()
+    {
+        try
+        {
+            Grid.CommitEdit(DataGridEditingUnit.Cell, true);
+            Grid.CommitEdit(DataGridEditingUnit.Row, true);
+        }
+        catch (InvalidOperationException) { /* nothing being edited */ }
+    }
+
+    private void CancelEdit()
+    {
+        CancelFormEdit();
+        try
+        {
+            Grid.CancelEdit(DataGridEditingUnit.Cell);
+            Grid.CancelEdit(DataGridEditingUnit.Row);
+        }
+        catch (InvalidOperationException) { }
+    }
+
+    private void BeginEditCurrent()
+    {
+        if (_mode == DataViewMode.Form)
+        {
+            Dispatcher.BeginInvoke(() => FocusFirstFormEditor(editableOnly: true), System.Windows.Threading.DispatcherPriority.Background);
+            return;
+        }
+        if (_mode != DataViewMode.Grid) return;
+        if (_vm?.CurrentRowView is not { } item) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            Grid.SelectedItem = item;
+            Grid.ScrollIntoView(item);
+            var col = Grid.Columns.FirstOrDefault(c => !c.IsReadOnly);
+            if (col is null) return;
+            Grid.Focus();
+            Grid.CurrentCell = new DataGridCellInfo(item, col);
+            Grid.BeginEdit();
+        }, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private void Grid_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (Grid.SelectedItem is not null)
+            Grid.ScrollIntoView(Grid.SelectedItem);
+    }
+
+    private void Grid_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (_vm is null) return;
+        var editing = Keyboard.FocusedElement is TextBox;
+        if (!editing && TryOpenLookupFromSelection(e))
+        {
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Insert && !editing && _vm.InsertCommand.CanExecute(null))
+        {
+            _vm.InsertCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Delete && Keyboard.Modifiers == ModifierKeys.Control && _vm.DeleteCommand.CanExecute(null))
+        {
+            _vm.DeleteCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    private void TopBox_OnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _vm is null) return;
+        TopBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+        if (_vm.RefreshCommand.CanExecute(null))
+            _vm.RefreshCommand.Execute(null);
+        e.Handled = true;
+    }
+}

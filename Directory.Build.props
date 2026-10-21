@@ -1,0 +1,7 @@
+<Project>
+  <!-- Release builds map local source paths to /_/ (no user or machine paths inside the .exe/.pdb). -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,10 @@
+<Window x:Class="SqlExpert.App.Views.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:SqlExpert.App.Views"
+        Title="SqlExpert"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False" SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterScreen" Topmost="True" ShowActivated="False">
+  <v:SplashBanner/>
+</Window>

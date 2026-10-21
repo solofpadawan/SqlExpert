@@ -1,0 +1,28 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:svc="clr-namespace:SqlExpert.App.Services">
+  <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+  <!-- ItemsControl of CommandMenuItem → Menu (context or submenu). Children become a submenu with the same style. -->
+  <Style x:Key="CommandMenuItemStyle" TargetType="MenuItem">
+    <Setter Property="Header" Value="{Binding Caption}"/>
+    <Setter Property="Command" Value="{Binding Command}"/>
+    <Setter Property="CommandParameter" Value="{Binding CommandParameter}"/>
+    <Setter Property="InputGestureText" Value="{Binding Shortcut}"/>
+    <Setter Property="ToolTip" Value="{Binding ToolTip}"/>
+    <Setter Property="IsChecked" Value="{Binding IsChecked, Mode=OneWay}"/>
+    <Setter Property="ItemsSource" Value="{Binding Children}"/>
+    <Setter Property="ItemContainerStyle" Value="{DynamicResource CommandMenuItemStyle}"/>
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding IsSeparator}" Value="True">
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="MenuItem">
+              <Separator/>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
+</ResourceDictionary>

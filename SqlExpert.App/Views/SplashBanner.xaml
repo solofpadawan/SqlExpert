@@ -1,0 +1,66 @@
+<!-- 590x110 white banner (classic-style layout, own identity). DataContext: SplashViewModel. Colors/texts: Resources/Branding.xaml -->
+<UserControl x:Class="SqlExpert.App.Views.SplashBanner"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="590" Height="110"
+             SnapsToDevicePixels="True" UseLayoutRounding="True"
+             TextOptions.TextFormattingMode="Display">
+  <Border Background="{DynamicResource BrandBannerBackground}"
+          BorderBrush="{DynamicResource BrandBannerBorderBrush}" BorderThickness="1">
+    <Grid Margin="8,4,8,4">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="124"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <!-- Logo: original vector drawing (database cylinder + "SQL" + "Expert" badge). -->
+      <Canvas Grid.Column="0" Grid.RowSpan="3" Width="118" Height="88"
+              HorizontalAlignment="Left" VerticalAlignment="Center" ClipToBounds="False">
+        <!-- cylinder -->
+        <Path Fill="{DynamicResource BrandAccentBrush}"
+              Data="M 2,16 L 2,70 A 19,7 0 0 0 40,70 L 40,16 Z"/>
+        <Ellipse Canvas.Left="2" Canvas.Top="9" Width="38" Height="14" Fill="{DynamicResource BrandAccentLightBrush}"/>
+        <Path Stroke="{DynamicResource BrandAccentRingBrush}" StrokeThickness="2"
+              Data="M 2,34 A 19,7 0 0 0 40,34"/>
+        <Path Stroke="{DynamicResource BrandAccentRingBrush}" StrokeThickness="2"
+              Data="M 2,52 A 19,7 0 0 0 40,52"/>
+        <!-- "SQL" -->
+        <TextBlock Canvas.Left="45" Canvas.Top="2" Text="SQL" FontFamily="Segoe UI" FontWeight="Bold"
+                   FontSize="36" Foreground="{DynamicResource BrandWordBrush}"/>
+        <!-- "Expert" badge -->
+        <Border Canvas.Left="46" Canvas.Top="54" Width="70" Height="24" CornerRadius="2"
+                Background="{DynamicResource BrandBadgeBrush}">
+          <TextBlock Text="Expert" FontFamily="Segoe UI" FontWeight="SemiBold" FontSize="15"
+                     Foreground="{DynamicResource BrandBadgeTextBrush}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Border>
+      </Canvas>
+
+      <!-- Version (top right) -->
+      <TextBlock Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" HorizontalAlignment="Right"
+                 Text="{Binding VersionText, Mode=OneWay}" FontSize="11"
+                 Foreground="{DynamicResource BrandSmallTextBrush}"/>
+
+      <!-- Tagline -->
+      <Viewbox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" StretchDirection="DownOnly"
+               HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,-6,0,0">
+        <TextBlock Text="{DynamicResource BrandTagline}" FontFamily="{DynamicResource BrandTaglineFont}"
+                   FontSize="40" Foreground="{DynamicResource BrandTaglineBrush}"/>
+      </Viewbox>
+
+      <!-- Status (bottom left, changes during startup) -->
+      <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding StatusText, Mode=OneWay}" FontSize="11"
+                 Foreground="{DynamicResource BrandSmallTextBrush}" TextTrimming="CharacterEllipsis"/>
+
+      <!-- Footer (bottom right): neutral text, no website yet -->
+      <TextBlock Grid.Row="2" Grid.Column="2" Text="{DynamicResource BrandFooter}" FontSize="11"
+                 Foreground="{DynamicResource BrandFooterBrush}" Margin="12,0,0,0"/>
+    </Grid>
+  </Border>
+</UserControl>

@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RootNamespace>SqlExpert.App</RootNamespace>
+    <AssemblyName>SqlExpert</AssemblyName>
+    <ApplicationTitle>SqlExpert</ApplicationTitle>
+    <!-- Product version shown on the splash screen and in Help > About (read back via ProductVersionInfo). -->
+    <Version>1.0.0</Version>
+    <Product>SqlExpert</Product>
+    <Copyright>Copyright (c) 2026 Saulo Padovan</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Description>Microsoft SQL Server client</Description>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- Build timestamp (UTC, ISO 8601). Override with -p:SqlExpertBuildDate=... for reproducible builds. -->
+    <SqlExpertBuildDate Condition="'$(SqlExpertBuildDate)' == ''">$([System.DateTime]::UtcNow.ToString('o'))</SqlExpertBuildDate>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="BuildDate" Value="$(SqlExpertBuildDate)" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\TSql.xshd" LogicalName="SqlExpert.App.Resources.TSql.xshd" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SqlExpert.Core\SqlExpert.Core.csproj" />
+  </ItemGroup>
+</Project>

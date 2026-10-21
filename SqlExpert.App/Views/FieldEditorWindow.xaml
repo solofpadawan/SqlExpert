@@ -1,0 +1,107 @@
+<Window x:Class="SqlExpert.App.Views.FieldEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Field"
+        Height="640" Width="620" MinHeight="520" MinWidth="520"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        ResizeMode="CanResizeWithGrip">
+  <Window.Resources>
+    <Style TargetType="TextBlock" x:Key="Lbl">
+      <Setter Property="Margin" Value="0,4,8,4"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style TargetType="TextBox">
+      <Setter Property="Margin" Value="0,3"/>
+      <Setter Property="Padding" Value="2,1"/>
+    </Style>
+    <Style TargetType="CheckBox">
+      <Setter Property="Margin" Value="0,4"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+  </Window.Resources>
+  <Grid Margin="12">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0" x:Name="HeaderText" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="110"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="90"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource Lbl}" Text="Field name"/>
+      <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" x:Name="NameBox" TextChanged="AnyChanged"/>
+
+      <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource Lbl}" Text="Data type"/>
+      <ComboBox Grid.Row="1" Grid.Column="1" x:Name="TypeBox" Margin="0,3" SelectionChanged="TypeChanged"/>
+      <TextBlock Grid.Row="1" Grid.Column="2" Style="{StaticResource Lbl}" Margin="12,4,8,4" Text="Size / length"/>
+      <DockPanel Grid.Row="1" Grid.Column="3">
+        <CheckBox DockPanel.Dock="Right" x:Name="MaxBox" Content="max" Margin="8,4,0,4" Checked="AnyChanged" Unchecked="AnyChanged"/>
+        <TextBox x:Name="SizeBox" TextChanged="AnyChanged"/>
+      </DockPanel>
+
+      <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource Lbl}" Text="Precision"/>
+      <TextBox Grid.Row="2" Grid.Column="1" x:Name="PrecisionBox" TextChanged="AnyChanged"/>
+      <TextBlock Grid.Row="2" Grid.Column="2" Style="{StaticResource Lbl}" Margin="12,4,8,4" Text="Scale"/>
+      <TextBox Grid.Row="2" Grid.Column="3" x:Name="ScaleBox" TextChanged="AnyChanged"/>
+
+      <TextBlock Grid.Row="3" Grid.Column="0" Style="{StaticResource Lbl}" Text="Nullable"/>
+      <CheckBox Grid.Row="3" Grid.Column="1" x:Name="NullableBox" Content="Permite NULL" Checked="AnyChanged" Unchecked="AnyChanged"/>
+
+      <TextBlock Grid.Row="4" Grid.Column="0" Style="{StaticResource Lbl}" Text="Default"/>
+      <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" x:Name="DefaultBox" FontFamily="Consolas" TextChanged="AnyChanged"
+               ToolTip="Expressão T-SQL. Exemplos: 0   'ABERTO'   N'texto'   sysdatetime()   newid()"/>
+
+      <TextBlock Grid.Row="5" Grid.Column="0" Style="{StaticResource Lbl}" Text="Collation"/>
+      <ComboBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="3" x:Name="CollationBox" Margin="0,3" IsEditable="True"
+                ToolTip="Vazio = collation padrão do banco"
+                TextBoxBase.TextChanged="AnyChanged" SelectionChanged="AnyChanged">
+        <ComboBox.ItemsPanel>
+          <ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate>
+        </ComboBox.ItemsPanel>
+      </ComboBox>
+
+      <TextBlock Grid.Row="6" Grid.Column="0" Style="{StaticResource Lbl}" Text="Identity"/>
+      <StackPanel Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="3" Orientation="Horizontal">
+        <CheckBox x:Name="IdentityBox" Content="IDENTITY" Checked="AnyChanged" Unchecked="AnyChanged"/>
+        <TextBlock Style="{StaticResource Lbl}" Margin="16,4,4,4" Text="Seed"/>
+        <TextBox x:Name="SeedBox" Width="70" Text="1" TextChanged="AnyChanged"/>
+        <TextBlock Style="{StaticResource Lbl}" Margin="12,4,4,4" Text="Increment"/>
+        <TextBox x:Name="IncrementBox" Width="70" Text="1" TextChanged="AnyChanged"/>
+      </StackPanel>
+
+      <TextBlock Grid.Row="7" Grid.Column="0" Style="{StaticResource Lbl}" VerticalAlignment="Top" Text="Description"/>
+      <TextBox Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="3" x:Name="DescriptionBox" Height="54"
+               AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" TextChanged="AnyChanged"
+               ToolTip="Gravado como extended property MS_Description"/>
+    </Grid>
+
+    <DockPanel Grid.Row="2" Margin="0,8,0,0">
+      <TextBlock DockPanel.Dock="Top" Text="SQL que será executado (em uma transação):" Margin="0,0,0,2"/>
+      <TextBox x:Name="PreviewBox" IsReadOnly="True" FontFamily="Consolas" Background="#F4F4F4"
+               TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/>
+    </DockPanel>
+
+    <TextBlock Grid.Row="3" x:Name="ErrorText" Foreground="DarkRed" TextWrapping="Wrap" Margin="0,6,0,0"/>
+
+    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+      <Button x:Name="OkButton" Content="OK" Width="80" Margin="0,0,8,0" IsDefault="True" Click="Ok_Click"/>
+      <Button x:Name="CancelButton" Content="Cancel" Width="80" IsCancel="True"/>
+    </StackPanel>
+  </Grid>
+</Window>

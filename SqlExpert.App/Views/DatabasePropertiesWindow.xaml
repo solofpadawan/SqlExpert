@@ -1,0 +1,291 @@
+<Window x:Class="SqlExpert.App.Views.DatabasePropertiesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Database Properties"
+        Width="820" Height="530" MinWidth="700" MinHeight="460"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        ShowInTaskbar="False"
+        Background="#F0F0F0">
+  <!-- Original layout modelled on a classic "Database Properties" dialog, adapted to SQL Server. -->
+  <Window.Resources>
+    <Style x:Key="Caption" TargetType="TextBlock">
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Margin" Value="0,0,0,2"/>
+    </Style>
+    <Style x:Key="FieldLabel" TargetType="TextBlock">
+      <Setter Property="HorizontalAlignment" Value="Right"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="0,3,6,3"/>
+    </Style>
+    <Style x:Key="Hint" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="#666666"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Margin" Value="0,4,0,0"/>
+    </Style>
+    <Style x:Key="PageTitle" TargetType="TextBlock">
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Margin" Value="0,0,0,8"/>
+    </Style>
+    <Style x:Key="ScriptBox" TargetType="TextBox">
+      <Setter Property="FontFamily" Value="Consolas"/>
+      <Setter Property="AcceptsReturn" Value="True"/>
+      <Setter Property="AcceptsTab" Value="True"/>
+      <Setter Property="TextWrapping" Value="NoWrap"/>
+      <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+      <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+    </Style>
+    <Style TargetType="TreeViewItem">
+      <Setter Property="IsExpanded" Value="True"/>
+      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+      <Style.Triggers>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter Property="Foreground" Value="#A0A0A0"/>
+          <Setter Property="ToolTip" Value="Not implemented yet"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+  </Window.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="170"/>
+      <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+
+    <!-- ===== Navigation tree ===== -->
+    <TreeView x:Name="NavTree" Grid.Row="0" Grid.Column="0" Margin="6,6,0,6" Background="White"
+              SelectedItemChanged="NavTree_OnSelectedItemChanged">
+      <TreeViewItem Header="General" Tag="General" FontWeight="Bold" IsSelected="True"/>
+      <TreeViewItem Header="Additional" Tag="DbExplorer" FontWeight="Bold">
+        <TreeViewItem Header="DB Explorer" Tag="DbExplorer" FontWeight="Normal"/>
+        <TreeViewItem Header="SQL Editor" Tag="SqlEditor" FontWeight="Normal"/>
+        <TreeViewItem Header="Extract Metadata" FontWeight="Normal" IsEnabled="False"/>
+      </TreeViewItem>
+      <TreeViewItem Header="Log Files" FontWeight="Bold" IsEnabled="False">
+        <TreeViewItem Header="Metadata Changes" FontWeight="Normal"/>
+        <TreeViewItem Header="SQL Editor" FontWeight="Normal"/>
+        <TreeViewItem Header="Script Executive" FontWeight="Normal"/>
+      </TreeViewItem>
+      <TreeViewItem Header="Backup/Restore" FontWeight="Bold" IsEnabled="False">
+        <TreeViewItem Header="Files" FontWeight="Normal"/>
+        <TreeViewItem Header="Backup Options" FontWeight="Normal"/>
+        <TreeViewItem Header="Restore Options" FontWeight="Normal"/>
+      </TreeViewItem>
+      <TreeViewItem Header="Default paths" FontWeight="Bold" IsEnabled="False"/>
+      <TreeViewItem Header="Explorer Filters" FontWeight="Bold" IsEnabled="False"/>
+      <TreeViewItem Header="Scripts" Tag="AfterConnect" FontWeight="Bold">
+        <TreeViewItem Header="Before Connect" FontWeight="Normal" IsEnabled="False"/>
+        <TreeViewItem Header="After Connect" Tag="AfterConnect" FontWeight="Normal"/>
+        <TreeViewItem Header="Before Disconnect" Tag="BeforeDisconnect" FontWeight="Normal"/>
+        <TreeViewItem Header="After Disconnect" FontWeight="Normal" IsEnabled="False"/>
+        <TreeViewItem Header="After DDL Executed" FontWeight="Normal" IsEnabled="False"/>
+      </TreeViewItem>
+      <TreeViewItem Header="Transactions" FontWeight="Bold" IsEnabled="False"/>
+      <TreeViewItem Header="Comparative DB" FontWeight="Bold" IsEnabled="False"/>
+      <TreeViewItem Header="Color Mark" Tag="ColorMark" FontWeight="Bold"/>
+    </TreeView>
+
+    <!-- ===== Pages ===== -->
+    <Border Grid.Row="0" Grid.Column="1" Margin="6" BorderBrush="#B8B8B8" BorderThickness="1" Background="#F7F7F7">
+      <Grid>
+
+        <!-- General -->
+        <Grid x:Name="PageGeneral" Margin="8,6,8,8">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="95"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="125"/>
+            <ColumnDefinition Width="200"/>
+          </Grid.ColumnDefinitions>
+
+          <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource Caption}" Text="Server"/>
+          <TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource Caption}" Text="Server name" Margin="6,0,0,2"/>
+          <TextBlock Grid.Row="0" Grid.Column="2" Style="{StaticResource Caption}" Text="Protocol" Margin="6,0,0,2"/>
+          <TextBlock Grid.Row="0" Grid.Column="3" Style="{StaticResource Caption}" Text="Server Version" Margin="6,0,0,2"/>
+
+          <ComboBox Grid.Row="1" Grid.Column="0" SelectedIndex="{Binding LocationIndex, Mode=TwoWay}"
+                    ToolTip="Local: SQL Server nesta máquina (permite Shared Memory). Remote: outro computador da rede.">
+            <ComboBoxItem Content="Local"/>
+            <ComboBoxItem Content="Remote"/>
+          </ComboBox>
+          <ComboBox x:Name="ServerNameCombo" Grid.Row="1" Grid.Column="1" Margin="6,0,0,0" IsEditable="True" IsTextSearchEnabled="False"
+                    ItemsSource="{Binding RecentServers}"
+                    Text="{Binding ServerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    ToolTip="host, host\INSTANCIA ou host,porta — ex.: localhost\SQLEXPRESS, 192.168.0.10,1433"/>
+          <ComboBox Grid.Row="1" Grid.Column="2" Margin="6,0,0,0" SelectedIndex="{Binding ProtocolIndex, Mode=TwoWay}"
+                    ToolTip="Default: o cliente escolhe. TCP/IP = tcp:, Named Pipes = np:, Shared Memory = lpc: (só local)">
+            <ComboBoxItem Content="Default"/>
+            <ComboBoxItem Content="TCP/IP"/>
+            <ComboBoxItem Content="Named Pipes"/>
+            <ComboBoxItem Content="Shared Memory"/>
+          </ComboBox>
+          <TextBox Grid.Row="1" Grid.Column="3" Margin="6,0,0,0" IsReadOnly="True" Background="#EFEFEF"
+                   Text="{Binding ServerVersion, Mode=OneWay}"
+                   ToolTip="Preenchido pelo Test Connect (ou ao listar os databases / conectar)"/>
+
+          <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Style="{StaticResource Caption}" Margin="0,8,0,2" Text="Database"/>
+          <ComboBox x:Name="DatabaseCombo" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="4" IsEditable="True" IsTextSearchEnabled="False"
+                    ItemsSource="{Binding Databases}"
+                    Text="{Binding Database, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    DropDownOpened="DatabaseCombo_OnDropDownOpened"
+                    ToolTip="Database inicial. Abra a lista para ler os databases do servidor."/>
+
+          <Separator Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,10,0,4"/>
+
+          <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4">
+            <TextBlock Text="Database Alias" Margin="0,0,0,2"/>
+            <TextBox x:Name="AliasBox" Text="{Binding Alias, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Nome mostrado no Database Explorer"/>
+          </StackPanel>
+
+          <Grid Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="100"/>
+              <ColumnDefinition Width="200"/>
+              <ColumnDefinition Width="16"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Authentication"/>
+            <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,2" SelectedIndex="{Binding AuthIndex, Mode=TwoWay}">
+              <ComboBoxItem Content="Windows Authentication" ToolTip="Usa o usuário do Windows (equivale ao Trusted authentication)"/>
+              <ComboBoxItem Content="SQL Server Authentication"/>
+              <ComboBoxItem Content="Microsoft Entra (interactive)"/>
+            </ComboBox>
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="User Name"/>
+            <TextBox Grid.Row="1" Grid.Column="1" Margin="0,2" IsEnabled="{Binding IsUserEnabled, Mode=OneWay}"
+                     Text="{Binding UserName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Password"/>
+            <PasswordBox x:Name="PasswordBox" Grid.Row="2" Grid.Column="1" Margin="0,2" IsEnabled="{Binding IsSqlLogin, Mode=OneWay}"
+                         PasswordChanged="PasswordBox_OnPasswordChanged"
+                         ToolTip="Gravada com DPAPI (%AppData%\SqlExpert\secrets), nunca em connections.json"/>
+            <TextBlock x:Name="PasswordHint" Grid.Row="3" Grid.Column="1" FontSize="11" Foreground="#777" Margin="0,0,0,2"
+                       Text="senha salva — deixe em branco para manter" Visibility="Collapsed"/>
+
+            <TextBlock Grid.Row="4" Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Timeout (s)"/>
+            <TextBox Grid.Row="4" Grid.Column="1" Margin="0,2" Width="60" HorizontalAlignment="Left"
+                     Text="{Binding ConnectTimeout, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Connect timeout em segundos (1–600)"/>
+
+            <CheckBox Grid.Row="5" Grid.Column="1" Margin="0,4,0,2" Content="Encrypt" IsChecked="{Binding Encrypt, Mode=TwoWay}"
+                      ToolTip="Criptografa a conexão (TLS)"/>
+            <CheckBox Grid.Row="6" Grid.Column="1" Margin="0,2" Content="Trust server certificate" IsChecked="{Binding TrustServerCertificate, Mode=TwoWay}"
+                      ToolTip="Aceita o certificado autoassinado do servidor (comum no SQL Express local)"/>
+
+            <TextBlock Grid.Row="0" Grid.Column="3" Text="Additional connect parameters" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
+            <TextBox Grid.Row="1" Grid.RowSpan="6" Grid.Column="3" MinHeight="110" FontFamily="Consolas"
+                     AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                     Text="{Binding AdditionalParameters, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+              <TextBox.ToolTip>
+                <TextBlock>Uma opção por linha (chave=valor), ex.:<LineBreak/>Application Intent=ReadOnly<LineBreak/>MultiSubnetFailover=True<LineBreak/>Workstation ID=PDV01<LineBreak/>Servidor, database, usuário, senha, Encrypt e timeout têm campo próprio.</TextBlock>
+              </TextBox.ToolTip>
+            </TextBox>
+          </Grid>
+        </Grid>
+
+        <!-- Additional > DB Explorer -->
+        <StackPanel x:Name="PageDbExplorer" Margin="10,8" Visibility="Collapsed">
+          <TextBlock Style="{StaticResource PageTitle}" Text="DB Explorer"/>
+          <CheckBox Content="Show system databases (master, model, msdb, tempdb)" IsChecked="{Binding ShowSystemDatabases, Mode=TwoWay}"/>
+          <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+            <TextBlock Text="Default tab when opening a table" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox Width="120" SelectedIndex="{Binding DefaultTableTabIndex, Mode=TwoWay}">
+              <ComboBoxItem Content="Fields"/>
+              <ComboBoxItem Content="Data"/>
+              <ComboBoxItem Content="DDL"/>
+            </ComboBox>
+          </StackPanel>
+          <TextBlock Style="{StaticResource Hint}" Margin="0,12,0,0" Text="Opções deste registro. Ao mudar 'Show system databases' com o banco conectado, use Refresh (F5) no Database Explorer."/>
+        </StackPanel>
+
+        <!-- Additional > SQL Editor -->
+        <StackPanel x:Name="PageSqlEditor" Margin="10,8" Visibility="Collapsed">
+          <TextBlock Style="{StaticResource PageTitle}" Text="SQL Editor"/>
+          <CheckBox Content="Autocommit (new SQL Editors start with Autocommit on)" IsChecked="{Binding SqlEditorAutocommit, Mode=TwoWay}"/>
+          <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+            <TextBlock Text="Records to fetch (first N rows)" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox Width="90" Text="{Binding SqlEditorFetchRows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+          </StackPanel>
+          <TextBlock x:Name="FetchRowsHint" Style="{StaticResource Hint}" Text="Vazio = padrão global."/>
+          <TextBlock Style="{StaticResource Hint}" Margin="0,12,0,0" Text="Valem para os SQL Editors abertos a partir de agora neste registro."/>
+        </StackPanel>
+
+        <!-- Scripts > After Connect -->
+        <DockPanel x:Name="PageAfterConnect" Margin="10,8" Visibility="Collapsed">
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource PageTitle}" Text="After Connect"/>
+          <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}"
+                     Text="Executado logo depois de conectar (lotes separados por GO), numa conexão própria. Se der erro, a mensagem aparece e a conexão continua."/>
+          <TextBox Style="{StaticResource ScriptBox}" Text="{Binding AfterConnectScript, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+        </DockPanel>
+
+        <!-- Scripts > Before Disconnect -->
+        <DockPanel x:Name="PageBeforeDisconnect" Margin="10,8" Visibility="Collapsed">
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource PageTitle}" Text="Before Disconnect"/>
+          <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}"
+                     Text="Executado antes de desconectar (Disconnect, Reconnect, Unregister ou ao conectar em outro banco). Se der erro, a mensagem aparece e a desconexão continua."/>
+          <TextBox Style="{StaticResource ScriptBox}" Text="{Binding BeforeDisconnectScript, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+        </DockPanel>
+
+        <!-- Color Mark -->
+        <StackPanel x:Name="PageColorMark" Margin="10,8" Visibility="Collapsed">
+          <TextBlock Style="{StaticResource PageTitle}" Text="Color Mark"/>
+          <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
+                     Text="A cor marca este banco no Database Explorer, numa faixa no topo das janelas dele e na barra de status (ex.: vermelho para produção)."/>
+          <WrapPanel x:Name="SwatchPanel" Margin="0,0,0,8" MaxWidth="420" HorizontalAlignment="Left"/>
+          <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+            <TextBlock Text="Color (#RRGGBB)" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox Width="90" Text="{Binding ColorMark, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            <Button Content="No color" Margin="8,0,0,0" Padding="10,1" Click="NoColor_Click"/>
+          </StackPanel>
+          <Border Margin="0,14,0,0" Width="300" HorizontalAlignment="Left" BorderBrush="#A0A0A0" BorderThickness="1" Background="White">
+            <StackPanel>
+              <Border Height="4" Background="{Binding ColorMark, Converter={StaticResource ColorMarkBrush}}"/>
+              <StackPanel Orientation="Horizontal" Margin="6,4">
+                <Border Width="4" Height="14" Margin="0,0,6,0" Background="{Binding ColorMark, Converter={StaticResource ColorMarkBrush}}"/>
+                <TextBlock Text="{Binding Alias, Mode=OneWay}" FontWeight="SemiBold"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- ===== Bottom bar ===== -->
+    <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" BorderBrush="#C8C8C8" BorderThickness="0,1,0,0" Padding="6,6,14,8">
+      <DockPanel LastChildFill="True">
+        <Button x:Name="TestButton" DockPanel.Dock="Left" Content="Test Connect" MinWidth="95" Padding="8,2" Click="Test_Click"/>
+        <Button x:Name="CopyButton" DockPanel.Dock="Left" Content="Copy Registration Data..." Margin="6,0,0,0" Padding="8,2" Click="CopyRegistration_Click"/>
+        <Button DockPanel.Dock="Right" Content="Cancel" MinWidth="75" Margin="6,0,0,0" IsCancel="True" Click="Cancel_Click"/>
+        <Button DockPanel.Dock="Right" Content="OK" MinWidth="75" IsDefault="True" Click="Ok_Click"/>
+        <TextBlock x:Name="StatusText" Margin="10,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+      </DockPanel>
+    </Border>
+  </Grid>
+</Window>
