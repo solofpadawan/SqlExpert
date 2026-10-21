@@ -78,8 +78,6 @@
     <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
     <Setter Property="UseLayoutRounding" Value="True"/>
-    <Setter Property="HorizontalContentAlignment" Value="Center"/>
-    <Setter Property="VerticalContentAlignment" Value="Center"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TabControl">
@@ -122,8 +120,9 @@
     <Setter Property="Padding" Value="10,0"/>
     <Setter Property="SnapsToDevicePixels" Value="True"/>
     <Setter Property="UseLayoutRounding" Value="True"/>
-    <Setter Property="HorizontalContentAlignment" Value="Center"/>
-    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <!-- TabControl copies these to the selected page's host: the page fills the panel. -->
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="VerticalContentAlignment" Value="Stretch"/>
     <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
     <Setter Property="Template">
       <Setter.Value>
@@ -133,7 +132,7 @@
                     BorderBrush="{StaticResource Ui.Border}" Background="{StaticResource Tab.InactiveBackground}"
                     Padding="{TemplateBinding Padding}">
               <ContentPresenter x:Name="Cp" ContentSource="Header" RecognizesAccessKey="True"
-                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                 SnapsToDevicePixels="True"/>
             </Border>
             <!-- 2px accent line inside the active tab -->
@@ -167,13 +166,15 @@
               </MultiTrigger.Conditions>
               <Setter TargetName="Bd" Property="Background" Value="{StaticResource Tab.HoverBackgroundDown}"/>
             </MultiTrigger>
-            <!-- Active: white, 3px taller, joined to the content panel (overlaps its border by 1px) -->
+            <!-- Active: white, 3px taller, 1px wider on each side (over its neighbours, so widths never jump),
+                 joined to the content panel (overlaps its border by 1px) -->
             <Trigger Property="IsSelected" Value="True">
               <Setter Property="Panel.ZIndex" Value="1"/>
               <Setter TargetName="Root" Property="Height" Value="25"/>
               <Setter TargetName="Root" Property="Margin" Value="0,0,2,-1"/>
               <Setter TargetName="Bd" Property="Background" Value="#FFFFFF"/>
-              <Setter TargetName="Bd" Property="Padding" Value="11,0"/>
+              <Setter TargetName="Bd" Property="Margin" Value="-1,0,-1,0"/>
+              <Setter TargetName="Accent" Property="Margin" Value="0,1,0,0"/>
               <Setter TargetName="Accent" Property="Visibility" Value="Visible"/>
               <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
             </Trigger>
@@ -183,6 +184,7 @@
                 <Condition Property="TabStripPlacement" Value="Bottom"/>
               </MultiTrigger.Conditions>
               <Setter TargetName="Root" Property="Margin" Value="0,-1,2,0"/>
+              <Setter TargetName="Accent" Property="Margin" Value="0,0,0,1"/>
             </MultiTrigger>
             <Trigger Property="IsEnabled" Value="False">
               <Setter TargetName="Bd" Property="Background" Value="{StaticResource Tab.DisabledBackground}"/>

@@ -601,6 +601,12 @@
         </Border>
 
         <TabControl Padding="0" Margin="0,2,0,0" BorderThickness="0,1,0,0" Background="{StaticResource ExplorerBg}">
+          <TabControl.Resources>
+            <!-- Narrow docked panel: compact tabs so Databases / Project / Windows / Recent stay on one row -->
+            <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+              <Setter Property="Padding" Value="6,0"/>
+            </Style>
+          </TabControl.Resources>
           <TabItem Header="Databases" IsSelected="True">
             <DockPanel>
               <!-- Filter (editable combo with placeholder) -->

@@ -72,6 +72,10 @@ public class UiStyleAuditTests
         Assert.Contains("Height=\"2\"", tabItem);
         Assert.Contains("Property=\"IsEnabled\" Value=\"False\"", tabItem);
         Assert.Contains("Tab.HoverBackground", tabItem);
+        // The page fills the panel (TabControl copies the selected TabItem's content alignment to its host).
+        Assert.Contains("Property=\"HorizontalContentAlignment\" Value=\"Stretch\"", tabItem);
+        Assert.Contains("Property=\"VerticalContentAlignment\" Value=\"Stretch\"", tabItem);
+        Assert.DoesNotContain("HorizontalContentAlignment", tabControl);
 
         string Color(string key) => (string)doc.Descendants().Single(e => Key(e) == key).Attribute("Color")!;
         Assert.Equal("#5B84B8", Color("Ui.Accent"));
