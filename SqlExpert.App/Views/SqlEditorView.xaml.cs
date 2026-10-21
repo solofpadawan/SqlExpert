@@ -161,7 +161,7 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
         if (_vm is not null)
         {
             foreach (var tab in _vm.Results)
-                ResultTabs.Items.Add(new TabItem { Header = new TextBlock { Text = tab.Header }, Content = BuildGrid(tab), Tag = tab });
+                ResultTabs.Items.Add(new TabItem { Header = new TextBlock { Text = tab.Header }, Content = BuildResultGrid(this, tab), Tag = tab });
         }
         var hasErrors = _vm?.Messages.Any(m => m.Kind == SqlMessageKind.Error) == true;
         var header = new TextBlock { Text = "Messages" };
@@ -187,7 +187,11 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
     /// <summary>DataView sorting needs IComparable values (byte[] / UDT / sql_variant columns are not sortable).</summary>
     private static bool IsSortable(Type t) => t != typeof(object) && t != typeof(byte[]) && typeof(IComparable).IsAssignableFrom(t);
 
-    private DataGrid BuildGrid(SqlResultTab tab)
+    /// <summary>
+    /// Read-only grid of one result set (also used by the procedure editor's Execute results).
+    /// <paramref name="owner"/> provides the SqlCellText / SqlCellTextRight styles.
+    /// </summary>
+    internal static DataGrid BuildResultGrid(FrameworkElement owner, SqlResultTab tab)
     {
         var grid = new DataGrid
         {
@@ -211,8 +215,8 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
         grid.SetResourceReference(DataGrid.HorizontalGridLinesBrushProperty, "GridLineBrush");
         grid.SetResourceReference(DataGrid.VerticalGridLinesBrushProperty, "GridLineBrush");
         grid.SetBinding(FontSizeProperty, new Binding(nameof(UiSettings.DataGridFontSizePx)) { Source = UiSettings.Instance, Mode = BindingMode.OneWay });
-        var plain = (Style)FindResource("SqlCellText");
-        var right = (Style)FindResource("SqlCellTextRight");
+        var plain = (Style)owner.FindResource("SqlCellText");
+        var right = (Style)owner.FindResource("SqlCellTextRight");
         for (var i = 0; i < tab.Columns.Count; i++)
         {
             var col = tab.Columns[i];
@@ -233,16 +237,16 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
         // Text cells: double-click or F2 opens the read-only "..." memo viewer.
         grid.MouseDoubleClick += (_, e) =>
         {
-            if (FindCell(e.OriginalSource as DependencyObject) is { } cell && OpenResultMemo(grid, tab, cell.Column)) e.Handled = true;
+            if (FindCell(e.OriginalSource as DependencyObject) is { } cell && OpenResultMemo(owner, grid, tab, cell.Column)) e.Handled = true;
         };
         grid.PreviewKeyDown += (_, e) =>
         {
-            if (e.Key == Key.F2 && Keyboard.Modifiers == ModifierKeys.None && OpenResultMemo(grid, tab, grid.CurrentCell.Column)) e.Handled = true;
+            if (e.Key == Key.F2 && Keyboard.Modifiers == ModifierKeys.None && OpenResultMemo(owner, grid, tab, grid.CurrentCell.Column)) e.Handled = true;
         };
         return grid;
     }
 
-    private MemoEditorWindow? _resultMemo;
+    private static MemoEditorWindow? _resultMemo;
 
     private static DataGridCell? FindCell(DependencyObject? d)
     {
@@ -252,7 +256,7 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
     }
 
     /// <summary>Read-only memo viewer of a text column of a result grid (char/varchar/nchar/nvarchar/text/ntext).</summary>
-    private bool OpenResultMemo(DataGrid grid, SqlResultTab tab, DataGridColumn? column)
+    private static bool OpenResultMemo(FrameworkElement owner, DataGrid grid, SqlResultTab tab, DataGridColumn? column)
     {
         if (column is null || grid.CurrentItem is null) return false;
         var i = grid.Columns.IndexOf(column);
@@ -263,7 +267,7 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
         _resultMemo?.Close();
         try
         {
-            _resultMemo = MemoEditorWindow.Open(Window.GetWindow(this), new ResultGridMemoSource(grid, column, "c" + i, col.Name));
+            _resultMemo = MemoEditorWindow.Open(Window.GetWindow(owner), new ResultGridMemoSource(grid, column, "c" + i, col.Name));
             _resultMemo.Closed += (_, _) => _resultMemo = null;
         }
         catch (Exception ex)

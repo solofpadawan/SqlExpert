@@ -258,6 +258,27 @@
       </Border>
     </DataTemplate>
 
+    <!-- Procedure editor document (double-click on a procedure, Edit Procedure, New Procedure) -->
+    <DataTemplate DataType="{x:Type vm:ProcedureDocumentViewModel}">
+      <Border Margin="2" BorderBrush="#6E6E6E" BorderThickness="1" Background="White">
+        <DockPanel>
+          <Border DockPanel.Dock="Top" Height="4"
+                  Background="{Binding ColorMark, Converter={StaticResource ColorMarkBrush}}"
+                  Visibility="{Binding ColorMark, Converter={StaticResource ColorMarkVisibility}}"/>
+          <Border DockPanel.Dock="Top" Background="{StaticResource PanelHeaderBg}"
+                  BorderBrush="{StaticResource PanelHeaderBorder}" BorderThickness="0,0,0,1">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="✕" ToolTip="Fechar (Ctrl+F4)"
+                      Style="{StaticResource PanelCloseButton}"
+                      Command="{Binding Shell.CloseDocumentCommand}" CommandParameter="{Binding}"/>
+              <TextBlock Margin="8,3" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Title, Mode=OneWay}"/>
+            </DockPanel>
+          </Border>
+          <views:ProcedureEditorView/>
+        </DockPanel>
+      </Border>
+    </DataTemplate>
+
     <!-- Windows bar tab: active document looks pressed/highlighted -->
     <Style x:Key="WindowsBarTab" TargetType="Button">
       <Setter Property="MinWidth" Value="110"/>
@@ -323,13 +344,13 @@
         <MenuItem Header="Recreate database" Command="{Binding StubRequiresConnection}" CommandParameter="Recreate database"/>
         <Separator/>
         <MenuItem Header="Recompute selectivity of all indices"
-                  ToolTip="SQL Server: UPDATE STATISTICS / sp_updatestats"
+                  ToolTip="SQL Server: UPDATE STATISTICS em cada tabela de usuário (com confirmação)"
                   Command="{Binding StubRequiresConnection}" CommandParameter="Recompute selectivity of all indices"/>
         <MenuItem Header="Recompile all stored procedures"
-                  ToolTip="SQL Server: sp_recompile / ALTER PROCEDURE"
+                  ToolTip="SQL Server: sp_refreshsqlmodule em cada stored procedure (lista as que falharem)"
                   Command="{Binding StubRequiresConnection}" CommandParameter="Recompile all stored procedures"/>
         <MenuItem Header="Recompile All Triggers"
-                  ToolTip="SQL Server: sp_recompile on tables / ALTER TRIGGER"
+                  ToolTip="SQL Server: sp_refreshsqlmodule em cada trigger (DML e DDL de database)"
                   Command="{Binding StubRequiresConnection}" CommandParameter="Recompile All Triggers"/>
         <Separator/>
         <MenuItem Header="New Domain" ToolTip="SQL Server: User-Defined Type (CREATE TYPE)" Command="{Binding StubRequiresConnection}" CommandParameter="New Domain"/>

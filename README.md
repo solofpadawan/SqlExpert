@@ -26,6 +26,13 @@ Licença: [MIT](./LICENSE).
   - Realce de T-SQL (AvalonEdit), execução de tudo ou da seleção, lotes com `GO` e vários result sets.
   - Aba de mensagens, tempo de execução e linhas afetadas, além de controle de transação (autocommit, commit, rollback).
   - Histórico de consultas e localizar/substituir.
+- **Editor de procedure**
+  - Duplo clique numa procedure, **Edit Procedure** ou **New Procedure** (Ctrl+N na pasta Procedures).
+  - Grade de parâmetros (tipo, tamanho, default, OUTPUT, READONLY, descrição) com o cabeçalho gerado a partir dela, e o corpo no editor; **Edit full text** alterna para o texto completo do `CREATE`.
+  - **Compile** (Ctrl+F9) com `CREATE OR ALTER` (ALTER/CREATE antes do SQL Server 2016 SP1); com Autocommit desligado o compile fica numa transação aberta até Commit/Rollback. Erros vão para Messages com a linha do corpo.
+  - **Execute** (F9) pede os valores dos parâmetros e mostra os result sets, Messages, os OUTPUT e o RETURN.
+  - Abas Description (MS_Description), Dependencies, DDL, Grants e **Version History** local de cada compile.
+  - Menu da pasta Procedures: Recompile all stored procedures / Recompile All Triggers (`sp_refreshsqlmodule`, com relatório das falhas) e Recompute selectivity of all indices (`UPDATE STATISTICS`).
 - Splash screen e **Help > About** com versão e data do build lidas do próprio executável.
 
 Comandos ainda não implementados aparecem desabilitados (cinza) nos menus e barras.
@@ -56,6 +63,7 @@ Tudo fica em `%AppData%\SqlExpert` (por exemplo `C:\Users\<você>\AppData\Roamin
 | Senhas de login SQL, criptografadas com **Windows DPAPI** (só o seu usuário do Windows consegue ler) | `secrets\*.bin` |
 | Preferências da interface (janela, fonte da grade etc.) | `settings.json` |
 | Histórico do SQL Editor | `history\` |
+| Versões compiladas de procedures (Version History) | `history\objects\` |
 
 Para começar do zero, feche o programa e apague essa pasta.
 

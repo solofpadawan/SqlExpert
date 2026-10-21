@@ -31,11 +31,11 @@ public interface ISqlEditorHost
 /// <summary>One result-set tab: a read-only DataView with columns c0..cN and the real column names.</summary>
 public sealed class SqlResultTab
 {
-    public SqlResultTab(int index, SqlResultSet set)
+    public SqlResultTab(int index, SqlResultSet set, string? header = null)
     {
         Index = index;
         Set = set;
-        Header = SqlEditorStatus.ResultHeader(index, set);
+        Header = header ?? SqlEditorStatus.ResultHeader(index, set);
         var table = new DataTable($"Result{index}");
         for (var i = 0; i < set.Columns.Count; i++)
         {

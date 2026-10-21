@@ -22,7 +22,8 @@ public abstract class DocumentViewModel : INotifyPropertyChanged
 
     /// <summary>Main window VM (menus/commands shared by every document).</summary>
     public MainViewModel Shell { get; }
-    public string Key { get; }
+    /// <summary>Document identity (a new object editor takes the object's key after its first compile).</summary>
+    public string Key { get; protected set; }
     public string ProfileId { get; }
     public string Database { get; }
 

@@ -207,8 +207,15 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.F5 && DataContext is MainViewModel refreshVm)
         {
-            refreshVm.RefreshExplorerShortcut();
+            // On the Procedures folder / a procedure only that folder is reloaded.
+            if (!refreshVm.RefreshProceduresShortcut())
+                refreshVm.RefreshExplorerShortcut();
             e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.N && Keyboard.Modifiers == ModifierKeys.Control && DataContext is MainViewModel newVm)
+        {
+            if (newVm.NewProcedureShortcut()) e.Handled = true;
             return;
         }
         if (e.Key != Key.Enter || DataContext is not MainViewModel vm) return;

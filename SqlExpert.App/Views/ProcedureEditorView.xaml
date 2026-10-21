@@ -1,0 +1,353 @@
+<UserControl x:Class="SqlExpert.App.Views.ProcedureEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ae="http://icsharpcode.net/sharpdevelop/avalonedit"
+             xmlns:svc="clr-namespace:SqlExpert.App.Services"
+             PreviewKeyDown="OnPreviewKeyDown">
+  <!-- Procedure editor, classic layout: toolbar with "Procedure ▾", parameter grid over the body editor,
+       object tabs (Description, Dependencies, DDL, Grants, Version History). Features that are not
+       implemented are shown disabled, never hidden. -->
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="ProcBoolToVis"/>
+    <Style x:Key="ProcTbButton" TargetType="Button">
+      <Setter Property="MinWidth" Value="26"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="Padding" Value="5,0"/>
+      <Setter Property="Margin" Value="1,0"/>
+      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+    </Style>
+    <Style x:Key="ProcSideButton" TargetType="Button">
+      <Setter Property="Width" Value="24"/>
+      <Setter Property="Height" Value="22"/>
+      <Setter Property="Margin" Value="1"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+    </Style>
+    <Style x:Key="ProcDisabledTab" TargetType="TabItem">
+      <Setter Property="IsEnabled" Value="False"/>
+      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+    </Style>
+    <!-- Execute results: same cell styles as the SQL Editor ("<null>" from NullValueBrush) -->
+    <Style x:Key="SqlCellText" TargetType="TextBlock" BasedOn="{StaticResource NullAwareCellText}">
+      <Setter Property="Padding" Value="2,0"/>
+      <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+    <Style x:Key="SqlCellTextRight" TargetType="TextBlock" BasedOn="{StaticResource SqlCellText}">
+      <Setter Property="TextAlignment" Value="Right"/>
+    </Style>
+    <DataTemplate x:Key="SqlMessageTemplate">
+      <TextBlock x:Name="Msg" Text="{Binding Text, Mode=OneWay}" TextWrapping="Wrap" Margin="2,1" FontFamily="Consolas"/>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="Error">
+          <Setter TargetName="Msg" Property="Foreground" Value="#B00000"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="RowsAffected">
+          <Setter TargetName="Msg" Property="Foreground" Value="#606060"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="Status">
+          <Setter TargetName="Msg" Property="Foreground" Value="#1F4E8C"/>
+          <Setter TargetName="Msg" Property="FontStyle" Value="Italic"/>
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <!-- Toolbar + object name box on the right -->
+    <Grid DockPanel.Dock="Top" Background="{StaticResource ToolbarBg}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <ToolBarTray IsLocked="True" Background="Transparent">
+        <ToolBar ToolBarTray.IsLocked="True">
+          <Button x:Name="ProcedureMenuButton" Style="{StaticResource ProcTbButton}" Content="Procedure ▾" FontWeight="SemiBold"
+                  ToolTip="Menu da procedure" Click="ProcedureMenuButton_OnClick">
+            <Button.ContextMenu>
+              <ContextMenu ItemsSource="{Binding MenuItems, Mode=OneWay}" ItemContainerStyle="{StaticResource CommandMenuItemStyle}"/>
+            </Button.ContextMenu>
+          </Button>
+          <Separator/>
+          <Button Style="{StaticResource ProcTbButton}" Content="⚡ Compile" Foreground="#9A6A00" FontWeight="Bold"
+                  ToolTip="Compile (Ctrl+F9): CREATE OR ALTER PROCEDURE (ALTER/CREATE antes do SQL Server 2016 SP1)" Command="{Binding CompileCommand}"/>
+          <Button Style="{StaticResource ProcTbButton}" Content="▶ Execute" Foreground="#1E7B1E" FontWeight="Bold"
+                  ToolTip="Execute (F9): pede os valores dos parâmetros e executa EXEC" Command="{Binding ExecuteCommand}"/>
+          <Button Style="{StaticResource ProcTbButton}" Content="■ Stop" Foreground="#B22222"
+                  ToolTip="Cancelar (Ctrl+Break)" Command="{Binding CancelCommand}"/>
+          <Separator/>
+          <CheckBox Content="Autocommit" VerticalAlignment="Center" Margin="4,0"
+                    ToolTip="Ligado: o Compile confirma sozinho. Desligado: o Compile fica dentro de uma transação aberta até Commit/Rollback."
+                    IsChecked="{Binding Autocommit, Mode=TwoWay}" IsEnabled="{Binding IsIdle, Mode=OneWay}"/>
+          <Button Style="{StaticResource ProcTbButton}" Content="Commit" ToolTip="COMMIT da transação aberta" Command="{Binding CommitCommand}"/>
+          <Button Style="{StaticResource ProcTbButton}" Content="Rollback" ToolTip="ROLLBACK da transação aberta" Command="{Binding RollbackCommand}"/>
+          <Separator/>
+          <Button Content="Edit full text" ToolTip="Alterna entre grade de parâmetros + corpo e o texto completo do CREATE"
+                  Command="{Binding ToggleFullTextCommand}">
+            <Button.Style>
+              <Style TargetType="Button" BasedOn="{StaticResource ProcTbButton}">
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding IsFullTextMode, Mode=OneWay}" Value="True">
+                    <Setter Property="FontWeight" Value="Bold"/>
+                    <Setter Property="Background" Value="#CFE3FF"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Button.Style>
+          </Button>
+          <Button Style="{StaticResource ProcTbButton}" Content="↻" ToolTip="Recarregar do servidor" Command="{Binding ReloadCommand}"/>
+          <Separator/>
+          <Button Style="{StaticResource ProcTbButton}" Content="🔍" ToolTip="Find (Ctrl+F)" Click="Find_OnClick"/>
+          <Button Style="{StaticResource ProcTbButton}" Content="🖨" ToolTip="Print — ainda não implementado" Command="{Binding DisabledCommand}"/>
+          <TextBlock Text="executando..." VerticalAlignment="Center" Margin="8,0" Foreground="#B25F00" FontWeight="SemiBold"
+                     Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource ProcBoolToVis}}"/>
+        </ToolBar>
+      </ToolBarTray>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,6,0">
+        <TextBlock Text="{Binding Schema, Mode=OneWay, StringFormat={}{0}.}" VerticalAlignment="Center" Foreground="#606060" Margin="0,0,2,0"/>
+        <TextBox x:Name="NameBox" Width="240" Height="22" VerticalContentAlignment="Center" FontWeight="SemiBold"
+                 ToolTip="Nome da procedure (schema.nome também é aceito). Enter aplica. No modo texto completo o nome vem do texto."
+                 Text="{Binding ObjectName, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                 IsReadOnly="{Binding IsFullTextMode, Mode=OneWay}" KeyDown="NameBox_OnKeyDown"/>
+      </StackPanel>
+    </Grid>
+
+    <StatusBar DockPanel.Dock="Bottom">
+      <StatusBar.Style>
+        <Style TargetType="StatusBar">
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding InTransaction, Mode=OneWay}" Value="True">
+              <Setter Property="Background" Value="#F4B6B6"/>
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </StatusBar.Style>
+      <StatusBarItem>
+        <TextBlock Text="{Binding CaretText, Mode=OneWay}" MinWidth="70"/>
+      </StatusBarItem>
+      <Separator/>
+      <StatusBarItem>
+        <TextBlock Text="{Binding TransactionText, Mode=OneWay}">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock">
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding InTransaction, Mode=OneWay}" Value="True">
+                  <Setter Property="Foreground" Value="#8B0000"/>
+                  <Setter Property="FontWeight" Value="Bold"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+        </TextBlock>
+      </StatusBarItem>
+      <Separator/>
+      <StatusBarItem>
+        <TextBlock Text="{Binding Database, Mode=OneWay}"/>
+      </StatusBarItem>
+      <Separator/>
+      <StatusBarItem>
+        <TextBlock Text="{Binding StatusLine, Mode=OneWay}" TextTrimming="CharacterEllipsis"/>
+      </StatusBarItem>
+    </StatusBar>
+
+    <TabControl SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}" Margin="2">
+      <!-- ===== Edit ===== -->
+      <TabItem Header="{Binding EditHeader, Mode=OneWay}">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="170" MinHeight="70"/>
+            <RowDefinition Height="5"/>
+            <RowDefinition Height="*" MinHeight="80"/>
+            <RowDefinition Height="5"/>
+            <RowDefinition Height="170" MinHeight="50"/>
+          </Grid.RowDefinitions>
+
+          <DockPanel Grid.Row="0">
+            <StackPanel DockPanel.Dock="Left" Orientation="Vertical" Margin="0,0,2,0">
+              <Button Style="{StaticResource ProcSideButton}" Content="+" ToolTip="Adicionar parâmetro no fim" Command="{Binding AddParameterCommand}"/>
+              <Button Style="{StaticResource ProcSideButton}" Content="⤵" ToolTip="Inserir parâmetro antes do selecionado" Command="{Binding InsertParameterCommand}"/>
+              <Button Style="{StaticResource ProcSideButton}" Content="−" ToolTip="Remover parâmetro" Command="{Binding DeleteParameterCommand}"/>
+              <Button Style="{StaticResource ProcSideButton}" Content="↑" ToolTip="Mover para cima" Command="{Binding MoveParameterUpCommand}"/>
+              <Button Style="{StaticResource ProcSideButton}" Content="↓" ToolTip="Mover para baixo" Command="{Binding MoveParameterDownCommand}"/>
+            </StackPanel>
+            <TabControl TabStripPlacement="Bottom" SelectedIndex="{Binding SelectedSubTab, Mode=TwoWay}">
+              <TabItem Header="Input Parameters">
+                <Grid>
+                  <DataGrid x:Name="ParamGrid" ItemsSource="{Binding Parameters, Mode=OneWay}"
+                            SelectedItem="{Binding SelectedParameter, Mode=TwoWay}"
+                            AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False"
+                            CanUserReorderColumns="False" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="All"
+                            IsEnabled="{Binding IsSplitMode, Mode=OneWay}"/>
+                  <TextBlock Text="Modo texto completo: os parâmetros estão no texto do CREATE (clique em &quot;Edit full text&quot; para voltar à grade)."
+                             TextWrapping="Wrap" Margin="12" Foreground="#606060" VerticalAlignment="Center" HorizontalAlignment="Center"
+                             Visibility="{Binding IsFullTextMode, Mode=OneWay, Converter={StaticResource ProcBoolToVis}}"/>
+                </Grid>
+              </TabItem>
+              <TabItem Header="Output Parameters">
+                <DataGrid ItemsSource="{Binding OutputParameters, Mode=OneWay}" AutoGenerateColumns="False" IsReadOnly="True"
+                          CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="170"/>
+                    <DataGridTextColumn Header="Type" Binding="{Binding FullType, Mode=OneWay}" Width="160"/>
+                    <DataGridTextColumn Header="Default" Binding="{Binding Default, Mode=OneWay}" Width="120"/>
+                    <DataGridTextColumn Header="Description" Binding="{Binding Description, Mode=OneWay}" Width="*"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+              </TabItem>
+              <TabItem Header="Variables">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Bottom" Text="{Binding DeclarationsNote, Mode=OneWay}" Foreground="#606060" Margin="2"/>
+                  <DataGrid ItemsSource="{Binding Variables, Mode=OneWay}" AutoGenerateColumns="False" IsReadOnly="True"
+                            CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" MouseDoubleClick="Declarations_OnMouseDoubleClick">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="170"/>
+                      <DataGridTextColumn Header="Type" Binding="{Binding Type, Mode=OneWay}" Width="180"/>
+                      <DataGridTextColumn Header="Initial value" Binding="{Binding Value, Mode=OneWay}" Width="*"/>
+                      <DataGridTextColumn Header="Line" Binding="{Binding Line, Mode=OneWay}" Width="60"/>
+                    </DataGrid.Columns>
+                  </DataGrid>
+                </DockPanel>
+              </TabItem>
+              <TabItem Header="Cursors">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Bottom" Text="{Binding DeclarationsNote, Mode=OneWay}" Foreground="#606060" Margin="2"/>
+                  <DataGrid ItemsSource="{Binding Cursors, Mode=OneWay}" AutoGenerateColumns="False" IsReadOnly="True"
+                            CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" MouseDoubleClick="Declarations_OnMouseDoubleClick">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="170"/>
+                      <DataGridTextColumn Header="Options" Binding="{Binding Type, Mode=OneWay}" Width="160"/>
+                      <DataGridTextColumn Header="SELECT" Binding="{Binding Value, Mode=OneWay}" Width="*"/>
+                      <DataGridTextColumn Header="Line" Binding="{Binding Line, Mode=OneWay}" Width="60"/>
+                    </DataGrid.Columns>
+                  </DataGrid>
+                </DockPanel>
+              </TabItem>
+            </TabControl>
+          </DockPanel>
+
+          <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" ResizeDirection="Rows" Background="#D4D4D4"/>
+
+          <DockPanel Grid.Row="2">
+            <TextBox DockPanel.Dock="Top" IsReadOnly="True" FontFamily="Consolas" Background="#F2F2F2" Foreground="#505050"
+                     BorderThickness="0,0,0,1" MaxHeight="130" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                     ToolTip="Cabeçalho gerado a partir da grade de parâmetros (somente leitura)"
+                     FontSize="{Binding Source={x:Static svc:UiSettings.Instance}, Path=SqlEditorFontSizePx, Mode=OneWay}"
+                     Text="{Binding HeaderText, Mode=OneWay}"
+                     Visibility="{Binding IsSplitMode, Mode=OneWay, Converter={StaticResource ProcBoolToVis}}"/>
+            <ae:TextEditor x:Name="Editor"
+                           FontFamily="Consolas"
+                           FontSize="{Binding Source={x:Static svc:UiSettings.Instance}, Path=SqlEditorFontSizePx, Mode=OneWay}"
+                           ShowLineNumbers="True" WordWrap="False"
+                           HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                           PreviewMouseWheel="Editor_OnPreviewMouseWheel"/>
+          </DockPanel>
+
+          <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" ResizeDirection="Rows" Background="#D4D4D4"/>
+          <TabControl x:Name="ResultTabs" Grid.Row="4" SelectionChanged="ResultTabs_OnSelectionChanged"/>
+        </Grid>
+      </TabItem>
+
+      <!-- ===== Description ===== -->
+      <TabItem Header="Description">
+        <DockPanel>
+          <ToolBar DockPanel.Dock="Top">
+            <Button Style="{StaticResource ProcTbButton}" Content="💾 Gravar descrição" ToolTip="Grava MS_Description da procedure"
+                    Command="{Binding SaveDescriptionCommand}"/>
+            <TextBlock VerticalAlignment="Center" Margin="8,0" Foreground="#606060"
+                       Text="Extended property MS_Description. A descrição dos parâmetros fica na grade (gravada no Compile)."/>
+          </ToolBar>
+          <TextBox AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                   Text="{Binding Description, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                   IsEnabled="{Binding Exists, Mode=OneWay}"/>
+        </DockPanel>
+      </TabItem>
+
+      <!-- ===== Dependencies ===== -->
+      <TabItem Header="Dependencies">
+        <DockPanel>
+          <ToolBar DockPanel.Dock="Top">
+            <Button Style="{StaticResource ProcTbButton}" Content="↻ Atualizar" Command="{Binding RefreshDependenciesCommand}"/>
+            <TextBlock VerticalAlignment="Center" Margin="8,0" Foreground="#606060"
+                       Text="Usa = objetos referenciados pela procedure · Usado por = objetos que referenciam a procedure"/>
+          </ToolBar>
+          <DataGrid ItemsSource="{Binding Dependencies, Mode=OneWay}" AutoGenerateColumns="False" IsReadOnly="True"
+                    CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Direção" Binding="{Binding Direction, Mode=OneWay}" Width="90"/>
+              <DataGridTextColumn Header="Schema" Binding="{Binding Schema, Mode=OneWay}" Width="100"/>
+              <DataGridTextColumn Header="Objeto" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
+              <DataGridTextColumn Header="Tipo" Binding="{Binding Type, Mode=OneWay}" Width="180"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </TabItem>
+
+      <TabItem Header="Operations/Index Using" Style="{StaticResource ProcDisabledTab}" ToolTip="Ainda não implementado">
+        <TextBlock Text="Ainda não implementado." Margin="10"/>
+      </TabItem>
+      <TabItem Header="Plan Analyzer" Style="{StaticResource ProcDisabledTab}" ToolTip="Ainda não implementado">
+        <TextBlock Text="Ainda não implementado." Margin="10"/>
+      </TabItem>
+
+      <!-- ===== DDL ===== -->
+      <TabItem Header="DDL">
+        <ae:TextEditor x:Name="DdlEditor" IsReadOnly="True" FontFamily="Consolas" ShowLineNumbers="True"
+                       FontSize="{Binding Source={x:Static svc:UiSettings.Instance}, Path=SqlEditorFontSizePx, Mode=OneWay}"
+                       HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/>
+      </TabItem>
+
+      <!-- ===== Grants ===== -->
+      <TabItem Header="Grants">
+        <DataGrid ItemsSource="{Binding Grants, Mode=OneWay}" AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Estado" Binding="{Binding State, Mode=OneWay}" Width="110"/>
+            <DataGridTextColumn Header="Permissão" Binding="{Binding Permission, Mode=OneWay}" Width="120"/>
+            <DataGridTextColumn Header="Usuário / role" Binding="{Binding Grantee, Mode=OneWay}" Width="*"/>
+            <DataGridTextColumn Header="Tipo" Binding="{Binding GranteeType, Mode=OneWay}" Width="150"/>
+            <DataGridTextColumn Header="Concedido por" Binding="{Binding Grantor, Mode=OneWay}" Width="140"/>
+          </DataGrid.Columns>
+        </DataGrid>
+      </TabItem>
+
+      <!-- ===== Version History (local) ===== -->
+      <TabItem Header="Version History">
+        <DockPanel>
+          <ToolBar DockPanel.Dock="Top">
+            <Button Style="{StaticResource ProcTbButton}" Content="Restaurar no editor" ToolTip="Coloca esta versão no editor (compile para aplicar)"
+                    Command="{Binding RestoreHistoryCommand}"/>
+            <Button Style="{StaticResource ProcTbButton}" Content="↻" ToolTip="Atualizar lista" Command="{Binding RefreshHistoryCommand}"/>
+            <TextBlock VerticalAlignment="Center" Margin="8,0" Foreground="#606060" TextTrimming="CharacterEllipsis"
+                       Text="{Binding HistoryFolder, Mode=OneWay, StringFormat='Histórico local de compiles: {0}'}"/>
+          </ToolBar>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="320" MinWidth="150"/>
+              <ColumnDefinition Width="5"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <DataGrid ItemsSource="{Binding HistoryEntries, Mode=OneWay}" SelectedItem="{Binding SelectedHistory, Mode=TwoWay}"
+                      AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False"
+                      SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Data / hora" Binding="{Binding TimestampText, Mode=OneWay}" Width="130"/>
+                <DataGridTextColumn Header="Versão" Binding="{Binding KindText, Mode=OneWay}" Width="110"/>
+                <DataGridTextColumn Header="Bytes" Binding="{Binding Size, Mode=OneWay}" Width="*"/>
+              </DataGrid.Columns>
+            </DataGrid>
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" ResizeDirection="Columns" Background="#D4D4D4"/>
+            <ae:TextEditor x:Name="HistoryEditor" Grid.Column="2" IsReadOnly="True" FontFamily="Consolas" ShowLineNumbers="True"
+                           FontSize="{Binding Source={x:Static svc:UiSettings.Instance}, Path=SqlEditorFontSizePx, Mode=OneWay}"
+                           HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/>
+          </Grid>
+        </DockPanel>
+      </TabItem>
+
+      <TabItem Header="Comparison" Style="{StaticResource ProcDisabledTab}" ToolTip="Ainda não implementado">
+        <TextBlock Text="Ainda não implementado." Margin="10"/>
+      </TabItem>
+      <TabItem Header="To-do" Style="{StaticResource ProcDisabledTab}" ToolTip="Ainda não implementado">
+        <TextBlock Text="Ainda não implementado." Margin="10"/>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</UserControl>

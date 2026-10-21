@@ -383,6 +383,8 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
     {
         if (string.IsNullOrWhiteSpace(name))
             return;
+        if (HandleProcedureMenuAction(name))
+            return;
 
         switch (name)
         {
@@ -1419,13 +1421,20 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
                 ActiveDocument = open;
             await Task.CompletedTask.ConfigureAwait(true);
         }
+        else if (IsProcedureNode(node) && IsConnected && _activeProfileId is not null)
+        {
+            HasSelection = true;
+            var open = _docs.Find(DocumentKeys.Procedure(_activeProfileId, node.DatabaseName!, node.SchemaName!, node.ObjectName!));
+            if (open is not null)
+                ActiveDocument = open;
+        }
         else
         {
             HasSelection = node.NodeKind == ExplorerNodeKind.Object;
         }
     }
 
-    /// <summary>Double-click: on a registered database connects to it; on a table opens it.</summary>
+    /// <summary>Double-click: on a registered database connects to it; on a table or procedure opens its editor.</summary>
     public async Task OnExplorerDoubleClickAsync(ExplorerNode? node)
     {
         if (node is null) return;
@@ -1445,6 +1454,11 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         {
             HasSelection = true;
             await OpenTableDocumentAsync(node.DatabaseName, node.SchemaName, node.ObjectName).ConfigureAwait(true);
+        }
+        else if (IsProcedureNode(node) && IsConnected)
+        {
+            HasSelection = true;
+            await OpenProcedureDocumentAsync(node.DatabaseName!, node.SchemaName!, node.ObjectName!).ConfigureAwait(true);
         }
     }
 
@@ -1488,7 +1502,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         var node = _selectedNode;
         var items = node is null || node.NodeKind == ExplorerNodeKind.Profile || !ContainsNode(node)
             ? BuildDatabaseNodeMenu()
-            : OpenMenuItems.ToList();
+            : BuildProcedureMenu(node) ?? OpenMenuItems.ToList();
         foreach (var item in items)
             ExplorerMenuItems.Add(item);
     }
