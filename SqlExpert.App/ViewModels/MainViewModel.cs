@@ -416,6 +416,9 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
             case "About":
                 ShowAbout();
                 break;
+            case "Check for updates...":
+                RunSafe(() => UpdateService.CheckManuallyAsync(Application.Current?.MainWindow, s => StatusText = s));
+                break;
             case "SQL Editor":
                 RunSafe(() => OpenSqlEditorAsync(forceNew: false));
                 break;
@@ -497,6 +500,12 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
                 return;
             case "fields.drop_field":
                 RunSafe(DropFieldAsync);
+                return;
+            case "constraints.new_constraint":
+                RunSafe(NewConstraintAsync);
+                return;
+            case "constraints.drop_constraint":
+                RunSafe(DropConstraintAsync);
                 return;
             case "fields.reorder_fields":
                 RunSafe(ReorderFieldsAsync);
@@ -916,7 +925,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         var collations = await LoadCollationsAsync(doc).ConfigureAwait(true);
 
         FieldEditorWindow? dlg = null;
-        dlg = new FieldEditorWindow(doc.Schema, doc.Table, null, structure.RowCount, collations,
+        dlg = new FieldEditorWindow(structure, null, collations,
             stmts => ApplyDdlAsync(doc, stmts, $"Campo [{dlg!.Result?.Name}] adicionado em [{doc.Schema}].[{doc.Table}].", dlg.Result?.Name))
         { Owner = Application.Current?.MainWindow };
         if (dlg.ShowDialog() != true) StatusText = "New field cancelado.";
@@ -942,7 +951,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         var collations = await LoadCollationsAsync(doc).ConfigureAwait(true);
 
         FieldEditorWindow? dlg = null;
-        dlg = new FieldEditorWindow(doc.Schema, doc.Table, column, structure.RowCount, collations,
+        dlg = new FieldEditorWindow(structure, column, collations,
             stmts => ApplyDdlAsync(doc, stmts, $"Campo [{dlg!.Result?.Name}] alterado em [{doc.Schema}].[{doc.Table}].", dlg.Result?.Name))
         { Owner = Application.Current?.MainWindow };
         if (dlg.ShowDialog() != true) StatusText = "Edit field cancelado.";
@@ -984,6 +993,64 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         }
 
         await ApplyDdlAsync(doc, stmts, $"Campo [{row.FieldName}] excluído de [{doc.Schema}].[{doc.Table}].", null).ConfigureAwait(true);
+    }
+
+    /// <summary>Constraints tab "New constraint": primary key (other kinds are greyed in the dialog).</summary>
+    private async Task NewConstraintAsync()
+    {
+        var doc = ActiveTableDocument();
+        if (doc is null || !EnsureConnectedFor(doc)) return;
+        if (!await doc.TableData.ConfirmLeaveAsync().ConfigureAwait(true)) return;
+        var structure = await LoadStructureAsync(doc).ConfigureAwait(true);
+        if (PrimaryKeyDdlBuilder.PrimaryKey(structure) is { } pk)
+        {
+            ShowInfo($"A tabela [{doc.Schema}].[{doc.Table}] já tem a chave primária [{pk.Name}] ({PrimaryKeyDdlBuilder.ColumnList(pk.Columns)}).\n\n" +
+                     "Para incluir ou tirar campos dela, use Edit field (opção Primary key) na aba Fields.\n" +
+                     "UNIQUE, FOREIGN KEY e CHECK ainda não podem ser criados por aqui.");
+            return;
+        }
+        PrimaryKeyWindow? dlg = null;
+        dlg = new PrimaryKeyWindow(structure,
+            stmts => ApplyDdlAsync(doc, stmts, $"Chave primária [{dlg!.ConstraintName}] criada em [{doc.Schema}].[{doc.Table}].", null))
+        { Owner = Application.Current?.MainWindow };
+        if (dlg.ShowDialog() != true) StatusText = "New constraint cancelado.";
+    }
+
+    /// <summary>Constraints tab "Drop constraint": refuses keys that foreign keys depend on.</summary>
+    private async Task DropConstraintAsync()
+    {
+        var doc = ActiveTableDocument();
+        if (doc is null || !EnsureConnectedFor(doc)) return;
+        if (doc.SelectedConstraint is not { } row)
+        {
+            ShowInfo("Selecione uma constraint na aba Constraints para usar \"Drop constraint\".");
+            return;
+        }
+        if (!await doc.TableData.ConfirmLeaveAsync().ConfigureAwait(true)) return;
+        var structure = await LoadStructureAsync(doc).ConfigureAwait(true);
+        var kind = PrimaryKeyDdlBuilder.ConstraintKind(structure, row.Name);
+        if (kind is null)
+            throw new InvalidOperationException($"A constraint [{row.Name}] não existe mais. Atualize a tabela.");
+        var blockers = PrimaryKeyDdlBuilder.GetDropConstraintBlockers(structure, row.Name);
+        if (blockers.Count > 0)
+        {
+            ShowInfo($"A constraint [{row.Name}] não pode ser excluída porque:\n\n• " + string.Join("\n• ", blockers) +
+                     "\n\nExclua essas foreign keys antes.", MessageBoxImage.Warning);
+            StatusText = $"Drop constraint recusado: [{row.Name}].";
+            return;
+        }
+        var sql = PrimaryKeyDdlBuilder.DropConstraint(doc.Schema, doc.Table, row.Name);
+        var owner = Application.Current?.MainWindow;
+        var msg = $"Excluir a constraint {kind} [{row.Name}] de [{doc.Schema}].[{doc.Table}]?\n\nSQL:\n{sql}";
+        var answer = owner is not null
+            ? MessageBox.Show(owner, msg, "SqlExpert - Drop constraint", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
+            : MessageBox.Show(msg, "SqlExpert - Drop constraint", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes)
+        {
+            StatusText = "Drop constraint cancelado.";
+            return;
+        }
+        await ApplyDdlAsync(doc, new[] { sql }, $"Constraint [{row.Name}] excluída de [{doc.Schema}].[{doc.Table}].", null).ConfigureAwait(true);
     }
 
     private async Task ReorderFieldsAsync()
@@ -1930,6 +1997,42 @@ public sealed class ExplorerNode : INotifyPropertyChanged
 }
 
 /// <summary>One row of the Fields grid (wraps the column metadata it was built from).</summary>
+/// <summary>One row of the Constraints tab.</summary>
+public sealed class ConstraintRow
+{
+    public ConstraintRow(ConstraintInfo c)
+    {
+        Name = c.Name;
+        TypeCode = c.Type;
+        Type = Display(c.Type);
+        Definition = c.Definition;
+    }
+
+    public string Name { get; }
+    /// <summary>sys type_desc (PRIMARY_KEY_CONSTRAINT, UNIQUE_CONSTRAINT, FOREIGN_KEY_CONSTRAINT, CHECK_CONSTRAINT).</summary>
+    public string TypeCode { get; }
+    public string Type { get; }
+    /// <summary>Key fields, referenced table (FK) or CHECK expression.</summary>
+    public string Definition { get; }
+
+    public static string Display(string typeDesc) => typeDesc switch
+    {
+        "PRIMARY_KEY_CONSTRAINT" => "PRIMARY KEY",
+        "UNIQUE_CONSTRAINT" => "UNIQUE",
+        "FOREIGN_KEY_CONSTRAINT" => "FOREIGN KEY",
+        "CHECK_CONSTRAINT" => "CHECK",
+        _ => typeDesc
+    };
+
+    public static int Order(string typeDesc) => typeDesc switch
+    {
+        "PRIMARY_KEY_CONSTRAINT" => 0,
+        "UNIQUE_CONSTRAINT" => 1,
+        "FOREIGN_KEY_CONSTRAINT" => 2,
+        _ => 3
+    };
+}
+
 public sealed class FieldRow
 {
     public FieldRow(ColumnInfo c)

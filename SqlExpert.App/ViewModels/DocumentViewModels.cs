@@ -100,6 +100,16 @@ public sealed class TableDocumentViewModel : DocumentViewModel
     public override string ToolTip => $"[{Schema}].[{Table}] : {Database}";
 
     public ObservableCollection<FieldRow> SampleColumns { get; } = new();
+
+    /// <summary>Rows of the Constraints tab (PRIMARY KEY, UNIQUE, FOREIGN KEY, CHECK).</summary>
+    public ObservableCollection<ConstraintRow> Constraints { get; } = new();
+
+    public ConstraintRow? SelectedConstraint
+    {
+        get => _selectedConstraint;
+        set { _selectedConstraint = value; OnPropertyChanged(); }
+    }
+    private ConstraintRow? _selectedConstraint;
     public TableDataViewModel TableData { get; }
 
     /// <summary>Row selected in the Fields grid (drives Edit/Drop and the Field description panel).</summary>
@@ -145,6 +155,8 @@ public sealed class TableDocumentViewModel : DocumentViewModel
         {
             var meta = await metadata.GetTableAsync(ProfileId, Database, Schema, Table).ConfigureAwait(true);
             SampleColumns.Clear();
+            var keepConstraint = SelectedConstraint?.Name;
+            Constraints.Clear();
             if (meta is null)
             {
                 Ddl = $"-- Tabela não encontrada: [{Schema}].[{Table}]";
@@ -158,6 +170,11 @@ public sealed class TableDocumentViewModel : DocumentViewModel
             }
             SelectedField = SampleColumns.FirstOrDefault(r => string.Equals(r.FieldName, selectField, StringComparison.OrdinalIgnoreCase))
                             ?? SampleColumns.FirstOrDefault();
+
+            foreach (var k in meta.Constraints.OrderBy(k => ConstraintRow.Order(k.Type)).ThenBy(k => k.Name, StringComparer.OrdinalIgnoreCase))
+                Constraints.Add(new ConstraintRow(k));
+            SelectedConstraint = Constraints.FirstOrDefault(c => string.Equals(c.Name, keepConstraint, StringComparison.OrdinalIgnoreCase))
+                                 ?? Constraints.FirstOrDefault();
 
             Ddl = DdlScriptBuilder.BuildCreateTable(meta);
             setStatus($"Tabela {Schema}.{Table}: {meta.Columns.Count} colunas.");

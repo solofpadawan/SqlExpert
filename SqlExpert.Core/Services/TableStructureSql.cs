@@ -84,6 +84,11 @@ public static class TableStructureSql
         FROM sys.triggers tr
         WHERE tr.parent_id = @id
         ORDER BY tr.name;
+
+        -- 7: PK_* names already used in the schema (constraint names are unique per schema)
+        SELECT o.name
+        FROM sys.objects o
+        WHERE o.schema_id = SCHEMA_ID(@schema) AND o.name LIKE N'PK[_]%';
         """;
 
     /// <summary>Database default collation first, then all collations.</summary>

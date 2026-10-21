@@ -19,6 +19,8 @@ public sealed class FieldDefinition
     public decimal IdentitySeed { get; set; } = 1;
     public decimal IdentityIncrement { get; set; } = 1;
     public string? Description { get; set; }
+    /// <summary>Field editor "Primary key": the field is (or becomes) part of the table's PRIMARY KEY (forces NOT NULL).</summary>
+    public bool IsPrimaryKey { get; set; }
 
     public FieldDefinition Clone() => (FieldDefinition)MemberwiseClone();
 

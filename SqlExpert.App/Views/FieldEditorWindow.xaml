@@ -41,7 +41,7 @@
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
 
       <TextBlock Grid.Row="0" Grid.Column="0" Style="{StaticResource Lbl}" Text="Field name"/>
@@ -62,6 +62,11 @@
 
       <TextBlock Grid.Row="3" Grid.Column="0" Style="{StaticResource Lbl}" Text="Nullable"/>
       <CheckBox Grid.Row="3" Grid.Column="1" x:Name="NullableBox" Content="Permite NULL" Checked="AnyChanged" Unchecked="AnyChanged"/>
+      <TextBlock Grid.Row="3" Grid.Column="2" Style="{StaticResource Lbl}" Margin="12,4,8,4" Text="Primary key"/>
+      <CheckBox Grid.Row="3" Grid.Column="3" x:Name="PrimaryKeyBox" Content="Chave primária" Checked="AnyChanged" Unchecked="AnyChanged"
+                ToolTip="Faz o campo parte da PRIMARY KEY da tabela (o campo passa a ser NOT NULL)"/>
+      <TextBlock Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="3" x:Name="PrimaryKeyNote" TextWrapping="Wrap" Foreground="#30508A"
+                 Margin="0,2,0,2" Visibility="Collapsed"/>
 
       <TextBlock Grid.Row="4" Grid.Column="0" Style="{StaticResource Lbl}" Text="Default"/>
       <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" x:Name="DefaultBox" FontFamily="Consolas" TextChanged="AnyChanged"

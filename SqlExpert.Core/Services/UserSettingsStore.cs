@@ -18,6 +18,9 @@ public sealed class UserSettingsStore
     private const string SortByAliasKey = "explorerSortByAlias";
     private const string HideDisconnectedKey = "hideDisconnectedDatabases";
     private const string ShowDescriptionKey = "showObjectsDescription";
+    private const string CheckUpdatesKey = "checkForUpdatesOnStartup";
+    private const string PreReleasesKey = "includePreReleases";
+    private const string SkippedVersionKey = "skippedUpdateVersion";
     private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
 
     public UserSettingsStore(string? path = null)
@@ -52,6 +55,12 @@ public sealed class UserSettingsStore
             settings.ExplorerSortByAlias = ReadBool(node?[SortByAliasKey]);
             settings.HideDisconnectedDatabases = ReadBool(node?[HideDisconnectedKey]);
             settings.ShowObjectsDescription = ReadBool(node?[ShowDescriptionKey]);
+            if (node?[CheckUpdatesKey] is JsonValue cu && cu.TryGetValue<bool>(out var cub))
+                settings.CheckForUpdatesOnStartup = cub;
+            if (node?[PreReleasesKey] is JsonValue pr && pr.TryGetValue<bool>(out var prb))
+                settings.IncludePreReleases = prb;
+            if (node?[SkippedVersionKey] is JsonValue sk && sk.TryGetValue<string>(out var sks) && !string.IsNullOrWhiteSpace(sks))
+                settings.SkippedUpdateVersion = sks;
             if (node?[WindowKey] is JsonObject w)
                 settings.MainWindow = ReadPlacement(w);
         }
@@ -96,6 +105,10 @@ public sealed class UserSettingsStore
         root[SortByAliasKey] = settings.ExplorerSortByAlias;
         root[HideDisconnectedKey] = settings.HideDisconnectedDatabases;
         root[ShowDescriptionKey] = settings.ShowObjectsDescription;
+        root[CheckUpdatesKey] = settings.CheckForUpdatesOnStartup;
+        if (settings.IncludePreReleases is bool pre) root[PreReleasesKey] = pre; else root.Remove(PreReleasesKey);
+        if (string.IsNullOrWhiteSpace(settings.SkippedUpdateVersion)) root.Remove(SkippedVersionKey);
+        else root[SkippedVersionKey] = settings.SkippedUpdateVersion;
         // Null placement = "not changed": keep whatever is already saved.
         if (settings.MainWindow is { } p && p.IsValid)
         {

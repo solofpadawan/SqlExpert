@@ -19,6 +19,9 @@ public sealed class UiSettings : INotifyPropertyChanged
     private bool _explorerSortByAlias;
     private bool _hideDisconnectedDatabases;
     private bool _showObjectsDescription;
+    private bool _checkForUpdatesOnStartup = true;
+    private bool? _includePreReleases;
+    private string? _skippedUpdateVersion;
 
     public static UiSettings Instance { get; } = new();
 
@@ -38,6 +41,9 @@ public sealed class UiSettings : INotifyPropertyChanged
         _explorerSortByAlias = loaded.ExplorerSortByAlias;
         _hideDisconnectedDatabases = loaded.HideDisconnectedDatabases;
         _showObjectsDescription = loaded.ShowObjectsDescription;
+        _checkForUpdatesOnStartup = loaded.CheckForUpdatesOnStartup;
+        _includePreReleases = loaded.IncludePreReleases;
+        _skippedUpdateVersion = loaded.SkippedUpdateVersion;
         OnPropertyChanged(nameof(DataGridFontSize));
         OnPropertyChanged(nameof(DataGridFontSizePx));
         OnPropertyChanged(nameof(SqlEditorFontSize));
@@ -46,6 +52,44 @@ public sealed class UiSettings : INotifyPropertyChanged
         OnPropertyChanged(nameof(ExplorerSortByAlias));
         OnPropertyChanged(nameof(HideDisconnectedDatabases));
         OnPropertyChanged(nameof(ShowObjectsDescription));
+        OnPropertyChanged(nameof(CheckForUpdatesOnStartup));
+        OnPropertyChanged(nameof(IncludePreReleasesSetting));
+        OnPropertyChanged(nameof(IncludePreReleases));
+    }
+
+    /// <summary>Options: check GitHub for a newer release at startup.</summary>
+    public bool CheckForUpdatesOnStartup
+    {
+        get => _checkForUpdatesOnStartup;
+        set { if (value == _checkForUpdatesOnStartup) return; _checkForUpdatesOnStartup = value; OnPropertyChanged(); Persist(); }
+    }
+
+    /// <summary>"Receber versões de teste (pre-release)" as saved (null = never chosen; the caller applies the default).</summary>
+    public bool? IncludePreReleasesSetting
+    {
+        get => _includePreReleases;
+        set { if (value == _includePreReleases) return; _includePreReleases = value; OnPropertyChanged(); OnPropertyChanged(nameof(IncludePreReleases)); Persist(); }
+    }
+
+    /// <summary>Effective pre-release option (saved choice, or the default of the running version); bound by Options.</summary>
+    public bool IncludePreReleases
+    {
+        get => _includePreReleases ?? SqlExpert.Core.Updates.ReleaseSelector.DefaultIncludePreReleases(UpdateService.CurrentVersion);
+        set
+        {
+            if (_includePreReleases == value) return;
+            _includePreReleases = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IncludePreReleasesSetting));
+            Persist();
+        }
+    }
+
+    /// <summary>Version skipped with "Pular esta versão" (null = none).</summary>
+    public string? SkippedUpdateVersion
+    {
+        get => _skippedUpdateVersion;
+        set { if (value == _skippedUpdateVersion) return; _skippedUpdateVersion = value; OnPropertyChanged(); Persist(); }
     }
 
     /// <summary>DB Explorer "Sort nodes": true = By alias, false = As registered.</summary>
@@ -127,6 +171,9 @@ public sealed class UiSettings : INotifyPropertyChanged
                 ExplorerSortByAlias = _explorerSortByAlias,
                 HideDisconnectedDatabases = _hideDisconnectedDatabases,
                 ShowObjectsDescription = _showObjectsDescription,
+                CheckForUpdatesOnStartup = _checkForUpdatesOnStartup,
+                IncludePreReleases = _includePreReleases,
+                SkippedUpdateVersion = _skippedUpdateVersion,
                 MainWindow = placement
             });
         }

@@ -181,7 +181,7 @@ public class NullCellEditingTests
         return Path.Combine(dir!.FullName, "SqlExpert.App", "Views");
     }
 
-    private static string Src(string file) => File.ReadAllText(Path.Combine(Views(), file));
+    private static string Src(string file) => File.ReadAllText(Path.Combine(Views(), file)).Replace("\r\n", "\n");
 
     [Fact]
     public void DataGrid_TextAndForeignKeyColumns_UseTheNullAwareEditor()

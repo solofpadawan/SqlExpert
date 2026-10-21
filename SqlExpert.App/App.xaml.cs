@@ -7,6 +7,7 @@ using SqlExpert.App.Views;
 using SqlExpert.Core.About;
 using SqlExpert.Core.Abstractions;
 using SqlExpert.Core.Services;
+using SqlExpert.Core.Updates;
 
 namespace SqlExpert.App;
 
@@ -25,6 +26,13 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) => { ReportError(args.Exception); args.Handled = true; };
         AppDomain.CurrentDomain.UnhandledException += (_, args) => { if (args.ExceptionObject is Exception ex) ReportError(ex); };
         TaskScheduler.UnobservedTaskException += (_, args) => { ReportError(args.Exception); args.SetObserved(); };
+
+        // Updater mode (started by a previous instance after "Atualizar agora"): no splash, no settings, no main window.
+        if (UpdaterCommandLine.TryParse(e.Args) is { } update)
+        {
+            UpdaterMode.Run(this, update);
+            return;
+        }
 
         // The splash is the first window: keep the app alive until the main window exists, whatever happens to it.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -51,6 +59,8 @@ public partial class App : Application
             await splash.SetStatusAsync("Opening main window...");
             main = new MainWindow { DataContext = vm };
             MainWindow = main;
+            // An update prepared with "Atualizar agora" is installed once the main window has really closed.
+            main.Closed += (_, _) => UpdateService.LaunchPendingUpdater();
             ShutdownMode = ShutdownMode.OnLastWindowClose;
             main.Show();
 
@@ -61,6 +71,7 @@ public partial class App : Application
             await splash.FadeOutAndCloseAsync(SplashFadeTime).ConfigureAwait(true);
             _splash = null;
             if (main.IsVisible) main.Activate();
+            _ = UpdateService.CheckOnStartupAsync(main);
         }
         catch (Exception ex)
         {

@@ -16,6 +16,9 @@ public partial class FieldEditorWindow : Window
     private readonly string _table;
     private readonly ColumnStructure? _original;
     private readonly long _rowCount;
+    private readonly TableStructure _structure;
+    private readonly bool _originalInKey;
+    private PrimaryKeyPlan _keyPlan = PrimaryKeyPlan.None;
     private readonly Func<IReadOnlyList<string>, Task> _execute;
     /// <summary>Combo item text → (schema, type) for user-defined types shown as [schema].[name].</summary>
     private readonly Dictionary<string, (string Schema, string Name)> _userTypes = new();
@@ -28,14 +31,18 @@ public partial class FieldEditorWindow : Window
     public FieldDefinition? Result { get; private set; }
 
     public FieldEditorWindow(
-        string schema, string table, ColumnStructure? original, long rowCount,
+        TableStructure structure, ColumnStructure? original,
         IReadOnlyList<string> collations, Func<IReadOnlyList<string>, Task> execute)
     {
         InitializeComponent();
-        _schema = schema;
-        _table = table;
+        _structure = structure;
+        _schema = structure.Schema;
+        _table = structure.Name;
+        var schema = _schema;
+        var table = _table;
         _original = original;
-        _rowCount = rowCount;
+        _rowCount = structure.RowCount;
+        _originalInKey = original is not null && PrimaryKeyDdlBuilder.IsInPrimaryKey(structure, original.Name);
         _execute = execute;
 
         foreach (var t in SqlTypeCatalog.CommonTypes) TypeBox.Items.Add(t);
@@ -66,6 +73,7 @@ public partial class FieldEditorWindow : Window
         PrecisionBox.Text = SqlTypeCatalog.HasPrecisionAndScale(f.DataType) && f.Precision is int p ? p.ToString() : "";
         ScaleBox.Text = (SqlTypeCatalog.HasPrecisionAndScale(f.DataType) || SqlTypeCatalog.HasFractionalScale(f.DataType)) && f.Scale is int s ? s.ToString() : "";
         NullableBox.IsChecked = f.IsNullable;
+        PrimaryKeyBox.IsChecked = _originalInKey;
         DefaultBox.Text = f.DefaultExpression ?? "";
         if (!string.IsNullOrEmpty(f.Collation) && !CollationBox.Items.Contains(f.Collation)) CollationBox.Items.Add(f.Collation);
         CollationBox.Text = f.Collation ?? "";
@@ -120,7 +128,8 @@ public partial class FieldEditorWindow : Window
             IsNullable = NullableBox.IsChecked == true,
             DefaultExpression = string.IsNullOrWhiteSpace(DefaultBox.Text) ? null : DefaultBox.Text.Trim(),
             Description = string.IsNullOrWhiteSpace(DescriptionBox.Text) ? null : DescriptionBox.Text.Trim(),
-            IsIdentity = IdentityBox.IsChecked == true
+            IsIdentity = IdentityBox.IsChecked == true,
+            IsPrimaryKey = PrimaryKeyBox.IsChecked == true
         };
         if (_userTypes.TryGetValue(typeText, out var ut)) { f.DataType = ut.Name; f.TypeSchema = ut.Schema; }
         else f.DataType = typeText;
@@ -178,14 +187,22 @@ public partial class FieldEditorWindow : Window
         PrecisionBox.IsEnabled = system && SqlTypeCatalog.HasPrecisionAndScale(t);
         ScaleBox.IsEnabled = system && (SqlTypeCatalog.HasPrecisionAndScale(t) || SqlTypeCatalog.HasFractionalScale(t));
         CollationBox.IsEnabled = SqlTypeCatalog.IsCharacterType(t);
+        var key = PrimaryKeyBox.IsChecked == true;
         if (IsNew)
         {
             var identity = IdentityBox.IsChecked == true;
             SeedBox.IsEnabled = IncrementBox.IsEnabled = identity;
-            if (identity && NullableBox.IsChecked == true) NullableBox.IsChecked = false;
-            NullableBox.IsEnabled = !identity;
+            if ((identity || key) && NullableBox.IsChecked == true) NullableBox.IsChecked = false;
+            NullableBox.IsEnabled = !identity && !key;
             DefaultBox.IsEnabled = !identity;
         }
+        else
+        {
+            // A key field is always NOT NULL; leaving the key re-enables Nullable.
+            if (key && NullableBox.IsChecked == true) NullableBox.IsChecked = false;
+            NullableBox.IsEnabled = !key;
+        }
+        NullableBox.ToolTip = key ? "Campos da chave primária são sempre NOT NULL." : null;
     }
 
     private void Rebuild()
@@ -196,15 +213,28 @@ public partial class FieldEditorWindow : Window
         if (f is not null)
             error = FieldDdlBuilder.Validate(f, IsNew);
 
+        _keyPlan = PrimaryKeyPlan.None;
         if (f is not null && error is null)
         {
-            _statements = IsNew
-                ? FieldDdlBuilder.BuildAddColumn(_schema, _table, f)
-                : FieldDdlBuilder.BuildAlterColumn(_schema, _table, _original!, f);
+            var built = IsNew
+                ? FieldDdlBuilder.BuildAddColumn(_structure, f)
+                : FieldDdlBuilder.BuildAlterColumn(_structure, _original!, f);
+            _statements = built.Statements;
+            _keyPlan = built.Key;
             Result = f;
-            if (IsNew && FieldDdlBuilder.NeedsRowsWarning(f, _rowCount))
+            if (_keyPlan.IsBlocked)
+            {
+                error = "Não é possível alterar a chave primária: " + string.Join("; ", _keyPlan.Blockers) +
+                        ". Remova essas foreign keys antes (ou faça a alteração por script).";
+                _statements = Array.Empty<string>();
+            }
+            else if (IsNew && FieldDdlBuilder.NeedsRowsWarning(f, _rowCount))
                 error = $"Atenção: a tabela tem {_rowCount} registro(s). Um campo NOT NULL sem Default não pode ser adicionado (o SQL Server recusa). Marque Nullable ou informe um Default.";
+            else if (IsNew && FieldDdlBuilder.NeedsDuplicateKeyWarning(f, _rowCount))
+                error = $"Atenção: a tabela tem {_rowCount} registros e todos receberiam o mesmo valor neste campo, o que repete a chave primária (o SQL Server recusa). Use IDENTITY ou um Default como newid().";
         }
+        PrimaryKeyNote.Text = _keyPlan.Summary ?? "";
+        PrimaryKeyNote.Visibility = string.IsNullOrEmpty(_keyPlan.Summary) ? Visibility.Collapsed : Visibility.Visible;
 
         PreviewBox.Text = error is not null && _statements.Count == 0
             ? "-- Corrija os dados do campo para gerar o SQL."
@@ -217,6 +247,13 @@ public partial class FieldEditorWindow : Window
     private async void Ok_Click(object sender, RoutedEventArgs e)
     {
         if (_busy || _statements.Count == 0 || Result is null) return;
+
+        if (_keyPlan.RecreatesExistingKey
+            && MessageBox.Show(this,
+                _keyPlan.Summary + "\n\nA chave primária será excluída e criada de novo na mesma transação " +
+                "(os índices da tabela são reconstruídos; em tabelas grandes isso pode demorar).\n\nContinuar?",
+                "SqlExpert - Primary key", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
 
         if (IsNew && FieldDdlBuilder.NeedsRowsWarning(Result, _rowCount)
             && MessageBox.Show(this,

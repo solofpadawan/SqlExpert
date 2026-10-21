@@ -21,6 +21,8 @@ public sealed class TableStructure
     /// <summary>Indexes that are not PK/UNIQUE constraints.</summary>
     public List<IndexStructure> Indexes { get; set; } = new();
     public List<TriggerStructure> Triggers { get; set; } = new();
+    /// <summary>Names starting with "PK_" already used by objects of the schema (to pick a free PK name).</summary>
+    public List<string> SchemaPrimaryKeyNames { get; set; } = new();
 
     public ColumnStructure? FindColumn(string name) =>
         Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));

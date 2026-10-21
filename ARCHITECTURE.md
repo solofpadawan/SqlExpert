@@ -58,6 +58,12 @@ Projeto independente, sem afiliação com o IBExpert/HK-Software. Nenhuma imagem
 - `ISqlConnectionFactory` → `Microsoft.Data.SqlClient` (Build / Open / Test).
 - `IMetadataService` → `sys.*` com lazy-load no Explorer; Fields + DDL (`DdlScriptBuilder`) para tabelas.
 
+## 4.2 Atualização automática (implementado, 1.0.1)
+
+- `SqlExpert.Core/Updates`: `SemVersion` (precedência semver), `ReleaseInfo` (JSON da API pública `GET /repos/solofpadawan/SqlExpert/releases`, sem autenticação), `ReleaseSelector` (maior release não-draft acima da versão atual, pre-release só com opt-in, versão pulada, asset `SqlExpert-X.Y.Z-win-x64.zip`, SHA-256 do `.sha256` ou da linha `SHA256:` das notas), `UpdateClient` (HTTP injetável, download com progresso, tamanho e hash), `UpdatePackage` (extração com proteção contra zip-slip), `UpdateApplier` (backup → cópia com retry → rollback) e `UpdaterRunner`.
+- App: `UpdateService` (verificação ao abrir, em segundo plano e silenciosa; Help > Check for updates...), `UpdateWindow` e `UpdaterMode`.
+- Instalação: o exe em execução é copiado para `%LocalAppData%\SqlExpert\updates\<versão>\updater` e iniciado com `--apply-update` quando a janela principal fecha (depois das confirmações normais de fechamento). Esse processo espera o PID antigo sair, substitui os arquivos da pasta do programa e abre o SqlExpert de novo. Escolhido no lugar de um script PowerShell/cmd (política de execução, antivírus e aspas em caminhos) e de um segundo exe self-contained (mais ~70 MB no zip); a lógica fica em Core, coberta por testes.
+
 ## 5. Fluxo de dados (v1)
 
 ```

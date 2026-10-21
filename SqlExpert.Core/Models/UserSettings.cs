@@ -32,6 +32,15 @@ public sealed class UserSettings
     /// <summary>DB Explorer "Show objects description" (MS_Description next to object names).</summary>
     public bool ShowObjectsDescription { get; set; }
 
+    /// <summary>Check GitHub for a newer release when the program starts (Options).</summary>
+    public bool CheckForUpdatesOnStartup { get; set; } = true;
+
+    /// <summary>"Receber versões de teste (pre-release)"; null = never chosen (see ReleaseSelector.DefaultIncludePreReleases).</summary>
+    public bool? IncludePreReleases { get; set; }
+
+    /// <summary>Version the user chose to skip ("Pular esta versão"), e.g. "1.0.2"; null = none.</summary>
+    public string? SkippedUpdateVersion { get; set; }
+
     public static int ClampFetchRows(int value) => Math.Clamp(value, 1, MaxSqlFetchRows);
 
     public static int ClampFontSize(int value) => Math.Clamp(value, MinDataGridFontSize, MaxDataGridFontSize);

@@ -14,7 +14,7 @@ public class CommandAvailabilityTests
     }
 
     [Theory]
-    [InlineData("constraints.drop_constraint")]
+    [InlineData("constraints.autowidth")]
     [InlineData("view.autohide_db_explorer")]
     [InlineData("indices.new_index")]
     public void KnownStubs_AreDisabled(string id)

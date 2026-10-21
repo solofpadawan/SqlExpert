@@ -146,6 +146,11 @@ public sealed class TableStructureService : ITableStructureService
         while (await r.ReadAsync(ct).ConfigureAwait(false))
             t.Triggers.Add(new TriggerStructure { Name = r.GetString(0), Definition = Str(r, 1), IsDisabled = r.GetBoolean(2) });
 
+        // 7: PK_* names of the schema
+        if (await r.NextResultAsync(ct).ConfigureAwait(false))
+            while (await r.ReadAsync(ct).ConfigureAwait(false))
+                if (!r.IsDBNull(0)) t.SchemaPrimaryKeyNames.Add(r.GetString(0));
+
         return t;
     }
 

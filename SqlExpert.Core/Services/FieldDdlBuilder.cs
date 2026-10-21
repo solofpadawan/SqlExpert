@@ -102,8 +102,20 @@ public static class FieldDdlBuilder
         if (SqlTypeCatalog.IsRowVersion(t) && HasText(f.DefaultExpression))
             return "rowversion não aceita Default.";
 
+        if (f.IsPrimaryKey)
+        {
+            if (f.IsNullable) return "Um campo da chave primária não pode aceitar NULL.";
+            var keyProblem = PrimaryKeyDdlBuilder.KeyTypeProblem(t, f.Length, userType);
+            if (keyProblem is not null) return keyProblem;
+        }
+
         return null;
     }
+
+    /// <summary>True when a new key field would give every existing row the same value (duplicate key on 2+ rows).</summary>
+    public static bool NeedsDuplicateKeyWarning(FieldDefinition f, long rowCount) =>
+        f.IsPrimaryKey && rowCount > 1 && !f.IsIdentity && !SqlTypeCatalog.IsRowVersion(f.DataType)
+        && !(HasText(f.DefaultExpression) && f.DefaultExpression!.Contains("newid", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>True when adding this field to a table with rows will fail (NOT NULL without default/identity).</summary>
     public static bool NeedsRowsWarning(FieldDefinition f, long rowCount) =>
@@ -130,6 +142,44 @@ public static class FieldDdlBuilder
         if (HasText(f.Description))
             list.Add(AddDescription(schema, table, f.Name, f.Description!));
         return list;
+    }
+
+    /// <summary>
+    /// New field with the primary-key option: ADD column, then the key change (new PK_&lt;table&gt;, or the existing key
+    /// dropped and re-created with the field appended). Check <see cref="PrimaryKeyPlan.Blockers"/> before running.
+    /// </summary>
+    public static (IReadOnlyList<string> Statements, PrimaryKeyPlan Key) BuildAddColumn(TableStructure t, FieldDefinition f, IEnumerable<string>? reservedNames = null)
+    {
+        var list = new List<string>(BuildAddColumn(t.Schema, t.Name, f));
+        var plan = f.IsPrimaryKey
+            ? PrimaryKeyDdlBuilder.PlanFieldChange(t, null, f.Name, willBeInKey: true, columnAltered: false, reservedNames)
+            : PrimaryKeyPlan.None;
+        // The column must exist before the key is re-created; the description goes last.
+        var descriptionAt = HasText(f.Description) ? list.Count - 1 : list.Count;
+        list.InsertRange(descriptionAt, plan.Before.Concat(plan.After));
+        return (list, plan);
+    }
+
+    /// <summary>
+    /// Edit field with the primary-key option: DROP of the old key first (when it changes or a key field is altered),
+    /// then the column statements, then the key re-created. Returns an empty list when nothing changed.
+    /// </summary>
+    public static (IReadOnlyList<string> Statements, PrimaryKeyPlan Key) BuildAlterColumn(TableStructure t, ColumnStructure original, FieldDefinition updated, IEnumerable<string>? reservedNames = null)
+    {
+        var column = BuildAlterColumn(t.Schema, t.Name, original, updated);
+        var before = FieldDefinition.FromColumn(original);
+        var altered = !string.Equals(FormatType(before), FormatType(updated), StringComparison.OrdinalIgnoreCase)
+                      || before.IsNullable != updated.IsNullable
+                      || (SqlTypeCatalog.IsCharacterType(updated.DataType) && HasText(updated.Collation)
+                          && !string.Equals((before.Collation ?? "").Trim(), (updated.Collation ?? "").Trim(), StringComparison.OrdinalIgnoreCase));
+        var plan = PrimaryKeyDdlBuilder.PlanFieldChange(t, original.Name, updated.Name, updated.IsPrimaryKey, altered, reservedNames);
+        if (plan.IsEmpty) return (column, plan);
+        var list = new List<string>(plan.Before);
+        var descriptions = column.Where(s => s.Contains("extendedproperty", StringComparison.OrdinalIgnoreCase)).ToList();
+        list.AddRange(column.Where(s => !descriptions.Contains(s)));
+        list.AddRange(plan.After);
+        list.AddRange(descriptions);
+        return (list, plan);
     }
 
     // ===== Edit field =====

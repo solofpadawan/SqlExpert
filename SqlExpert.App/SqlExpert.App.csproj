@@ -10,7 +10,7 @@
     <AssemblyName>SqlExpert</AssemblyName>
     <ApplicationTitle>SqlExpert</ApplicationTitle>
     <!-- Product version shown on the splash screen and in Help > About (read back via ProductVersionInfo). -->
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Product>SqlExpert</Product>
     <Copyright>Copyright (c) 2026 Saulo Padovan</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

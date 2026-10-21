@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:SqlExpert.App.Views"
         xmlns:vm="clr-namespace:SqlExpert.App.ViewModels"
+        xmlns:services="clr-namespace:SqlExpert.App.Services"
         Title="{Binding WindowTitle}"
         PreviewKeyDown="Window_OnPreviewKeyDown"
         Height="800" Width="1280" MinWidth="640" MinHeight="400"
@@ -132,7 +133,15 @@
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>
                   </ToolBar>
-                  <TextBlock Margin="8" Text="Constraints (PK/FK/CHECK/UNIQUE) — stub"/>
+                  <DataGrid ItemsSource="{Binding Constraints}" AutoGenerateColumns="False"
+                            SelectedItem="{Binding SelectedConstraint, Mode=TwoWay}" SelectionMode="Single" SelectionUnit="FullRow"
+                            CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Constraint Name" Binding="{Binding Name, Mode=OneWay}" Width="220"/>
+                      <DataGridTextColumn Header="Type" Binding="{Binding Type, Mode=OneWay}" Width="110"/>
+                      <DataGridTextColumn Header="Fields / Definition" Binding="{Binding Definition, Mode=OneWay}" Width="*"/>
+                    </DataGrid.Columns>
+                  </DataGrid>
                 </DockPanel>
               </TabItem>
               <TabItem Header="Indices">
@@ -415,6 +424,13 @@
         <MenuItem Header="Object Editor Options..." Command="{Binding Stub}" CommandParameter="Object Editor Options..."/>
         <Separator/>
         <MenuItem Header="Code formatting options..." Command="{Binding Stub}" CommandParameter="Code formatting options..."/>
+        <Separator/>
+        <MenuItem Header="Check for updates on startup" IsCheckable="True"
+                  ToolTip="Ao abrir, consulta as releases do SqlExpert no GitHub e avisa quando houver uma versão nova"
+                  IsChecked="{Binding Source={x:Static services:UiSettings.Instance}, Path=CheckForUpdatesOnStartup, Mode=TwoWay}"/>
+        <MenuItem Header="Receber versões de teste (pre-release)" IsCheckable="True"
+                  ToolTip="Também oferece versões marcadas como pre-release no GitHub"
+                  IsChecked="{Binding Source={x:Static services:UiSettings.Instance}, Path=IncludePreReleases, Mode=TwoWay}"/>
       </MenuItem>
 
       <!-- Tools -->
@@ -520,6 +536,8 @@
         <MenuItem Header="Send bug reports to" Command="{Binding Stub}" CommandParameter="Send bug reports to"/>
         <MenuItem Header="Support" Command="{Binding Stub}" CommandParameter="Support"/>
         <Separator/>
+        <MenuItem Header="Check for updates..." Command="{Binding Stub}" CommandParameter="Check for updates..."
+                  ToolTip="Procura uma versão nova do SqlExpert nas releases do GitHub"/>
         <MenuItem Header="About" Command="{Binding Stub}" CommandParameter="About"/>
         <Separator/>
         <MenuItem Header="SqlExpert Direct..." Command="{Binding Stub}" CommandParameter="SqlExpert Direct..."/>
