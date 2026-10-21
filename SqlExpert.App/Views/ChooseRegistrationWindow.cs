@@ -29,9 +29,9 @@ public sealed class ChooseRegistrationWindow : Window
         root.Children.Add(text);
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
-        var ok = new Button { Content = "OK", MinWidth = 75, IsDefault = true };
+        var ok = new Button { Content = "OK", MinWidth = 75, IsDefault = true }.WithDialogStyle();
         ok.Click += (_, _) => { if (_list!.SelectedIndex >= 0) DialogResult = true; };
-        var cancel = new Button { Content = "Cancel", MinWidth = 75, IsCancel = true, Margin = new Thickness(6, 0, 0, 0) };
+        var cancel = new Button { Content = "Cancel", MinWidth = 75, IsCancel = true, Margin = new Thickness(6, 0, 0, 0) }.WithDialogStyle();
         buttons.Children.Add(ok);
         buttons.Children.Add(cancel);
         DockPanel.SetDock(buttons, Dock.Bottom);

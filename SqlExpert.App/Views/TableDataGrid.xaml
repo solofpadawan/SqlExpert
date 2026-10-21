@@ -5,14 +5,8 @@
              xmlns:svc="clr-namespace:SqlExpert.App.Services">
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVisLocal"/>
-    <Style x:Key="NavButton" TargetType="Button">
-      <Setter Property="MinWidth" Value="26"/>
-      <Setter Property="Height" Value="22"/>
-      <Setter Property="Padding" Value="4,0"/>
-      <Setter Property="Margin" Value="1,0"/>
-      <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
-      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
-    </Style>
+    <!-- Navigator buttons: flat, icon only (Themes/Controls.xaml) -->
+    <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource FlatIconButton}"/>
     <!-- "<null>" in red (NullValueBrush, Resources/Branding.xaml), classic style -->
     <Style x:Key="CellText" TargetType="TextBlock" BasedOn="{StaticResource NullAwareCellText}">
       <Setter Property="Padding" Value="2,0"/>
@@ -20,17 +14,11 @@
     <Style x:Key="CellTextRight" TargetType="TextBlock" BasedOn="{StaticResource CellText}">
       <Setter Property="TextAlignment" Value="Right"/>
     </Style>
-    <Style x:Key="ViewTabItem" TargetType="TabItem">
-      <Setter Property="Padding" Value="8,2"/>
+    <!-- Grid View / Form View / Print Data: folder tabs pointing down (implicit TabItem style) -->
+    <Style x:Key="ViewTabItem" TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
       <Setter Property="MinWidth" Value="64"/>
     </Style>
-    <Style x:Key="PrintButton" TargetType="Button">
-      <Setter Property="MinWidth" Value="26"/>
-      <Setter Property="Height" Value="22"/>
-      <Setter Property="Padding" Value="4,0"/>
-      <Setter Property="Margin" Value="1,0"/>
-      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
-    </Style>
+    <Style x:Key="PrintButton" TargetType="Button" BasedOn="{StaticResource FlatToolButton}"/>
     <!-- Preview without DocumentViewer's own toolbar/search box: the Print Data toolbar drives it. -->
     <Style x:Key="PlainDocumentViewer" TargetType="DocumentViewer">
       <Setter Property="Template">
@@ -48,20 +36,21 @@
 
   <DockPanel>
     <!-- Navigator -->
-    <ToolBarTray DockPanel.Dock="Top" IsLocked="True">
-      <ToolBar ToolBarTray.IsLocked="True">
-        <Button Style="{StaticResource NavButton}" ToolTip="First" Command="{Binding FirstCommand}"><views:IconImage Icon="{StaticResource Icon.First}"/></Button>
-        <Button Style="{StaticResource NavButton}" ToolTip="Prior" Command="{Binding PriorCommand}"><views:IconImage Icon="{StaticResource Icon.Prior}"/></Button>
-        <Button Style="{StaticResource NavButton}" ToolTip="Next" Command="{Binding NextCommand}"><views:IconImage Icon="{StaticResource Icon.Next}"/></Button>
-        <Button Style="{StaticResource NavButton}" ToolTip="Last" Command="{Binding LastCommand}"><views:IconImage Icon="{StaticResource Icon.Last}"/></Button>
+    <Border DockPanel.Dock="Top" Style="{StaticResource InnerToolBarBand}">
+    <ToolBarTray IsLocked="True" Background="Transparent">
+      <ToolBar ToolBarTray.IsLocked="True" Style="{StaticResource InnerTrayToolBar}">
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="First" Command="{Binding FirstCommand}"><views:IconImage Icon="{StaticResource Icon.First}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Prior" Command="{Binding PriorCommand}"><views:IconImage Icon="{StaticResource Icon.Prior}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Next" Command="{Binding NextCommand}"><views:IconImage Icon="{StaticResource Icon.Next}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Last" Command="{Binding LastCommand}"><views:IconImage Icon="{StaticResource Icon.Last}"/></Button>
         <Separator/>
-        <Button Style="{StaticResource NavButton}" ToolTip="Insert record (Ins)" Command="{Binding InsertCommand}"><views:IconImage Icon="{StaticResource Icon.InsertRecord}"/></Button>
-        <Button Style="{StaticResource NavButton}" ToolTip="Delete record (Ctrl+Del)" Command="{Binding DeleteCommand}"><views:IconImage Icon="{StaticResource Icon.DeleteRecord}"/></Button>
-        <Button Style="{StaticResource NavButton}" ToolTip="Edit record (F2)" Command="{Binding EditCommand}"><views:IconImage Icon="{StaticResource Icon.EditRecord}"/></Button>
-        <Button Style="{StaticResource NavButton}" ToolTip="Post (gravar alterações pendentes)" Command="{Binding PostCommand}"><views:IconImage Icon="{StaticResource Icon.Post}"/></Button>
-        <Button Style="{StaticResource NavButton}" ToolTip="Cancel (descartar alterações pendentes)" Command="{Binding CancelCommand}"><views:IconImage Icon="{StaticResource Icon.CancelEdit}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Insert record (Ins)" Command="{Binding InsertCommand}"><views:IconImage Icon="{StaticResource Icon.InsertRecord}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Delete record (Ctrl+Del)" Command="{Binding DeleteCommand}"><views:IconImage Icon="{StaticResource Icon.DeleteRecord}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Edit record (F2)" Command="{Binding EditCommand}"><views:IconImage Icon="{StaticResource Icon.EditRecord}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Post (gravar alterações pendentes)" Command="{Binding PostCommand}"><views:IconImage Icon="{StaticResource Icon.Post}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Cancel (descartar alterações pendentes)" Command="{Binding CancelCommand}"><views:IconImage Icon="{StaticResource Icon.CancelEdit}"/></Button>
         <Separator/>
-        <Button Style="{StaticResource NavButton}" ToolTip="Refresh (recarregar do servidor)" Command="{Binding RefreshCommand}"><views:IconImage Icon="{StaticResource Icon.Refresh}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Refresh (recarregar do servidor)" Command="{Binding RefreshCommand}"><views:IconImage Icon="{StaticResource Icon.Refresh}"/></Button>
         <Separator/>
         <TextBlock Text="Rows (TOP):" VerticalAlignment="Center" Margin="4,0,2,0"
                    Visibility="{Binding IsTableMode, Converter={StaticResource BoolToVisLocal}}"/>
@@ -98,9 +87,10 @@
                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisLocal}}"/>
       </ToolBar>
     </ToolBarTray>
+    </Border>
 
     <!-- Bottom view tabs (classic style): the strip only; the three views live in ViewHost above it. -->
-    <TabControl x:Name="ViewTabs" DockPanel.Dock="Bottom" TabStripPlacement="Bottom" Height="26"
+    <TabControl x:Name="ViewTabs" DockPanel.Dock="Bottom" TabStripPlacement="Bottom"
                 Padding="0" BorderThickness="0,1,0,0" Background="Transparent"
                 SelectionChanged="ViewTabs_OnSelectionChanged">
       <TabItem Header="Grid View" Style="{StaticResource ViewTabItem}" ToolTip="Grade de registros"/>
@@ -135,8 +125,9 @@
 
       <!-- Print Data: toolbar + preview + progress overlay. -->
       <DockPanel x:Name="PrintHost" Visibility="Collapsed">
-        <ToolBarTray DockPanel.Dock="Top" IsLocked="True">
-          <ToolBar ToolBarTray.IsLocked="True">
+        <Border DockPanel.Dock="Top" Style="{StaticResource InnerToolBarBand}">
+    <ToolBarTray IsLocked="True" Background="Transparent">
+          <ToolBar ToolBarTray.IsLocked="True" Style="{StaticResource InnerTrayToolBar}">
             <Button Style="{StaticResource PrintButton}" x:Name="PrintSaveButton" Click="PrintSave_OnClick"
                     ToolTip="Salvar em arquivo (PDF ou XPS)">
               <StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.SaveToFile}"/><TextBlock Text="Save" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel>
@@ -145,7 +136,7 @@
                     ToolTip="Imprimir (escolher impressora)">
               <StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Print}"/><TextBlock Text="Print" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel>
             </Button>
-            <Button Style="{StaticResource PrintButton}" Click="PrintRefresh_OnClick"
+            <Button Style="{StaticResource FlatIconButton}" Click="PrintRefresh_OnClick"
                     ToolTip="Gerar a pré-visualização novamente"><views:IconImage Icon="{StaticResource Icon.Refresh}"/></Button>
             <Separator/>
             <TextBlock Text="Scale:" VerticalAlignment="Center" Margin="4,0,3,0"/>
@@ -174,6 +165,7 @@
             <TextBlock x:Name="PrintInfoText" VerticalAlignment="Center" Margin="6,0" Foreground="#505050"/>
           </ToolBar>
         </ToolBarTray>
+    </Border>
         <Grid>
           <DocumentViewer x:Name="Viewer" Style="{StaticResource PlainDocumentViewer}"/>
           <Border x:Name="PrintProgress" Visibility="Collapsed" Background="#F4F4F4" BorderBrush="#808080" BorderThickness="1"
@@ -181,7 +173,7 @@
             <StackPanel>
               <TextBlock x:Name="PrintProgressText" Text="Preparando..." HorizontalAlignment="Center" Margin="0,0,0,8"/>
               <ProgressBar x:Name="PrintProgressBar" Height="12" Minimum="0" Maximum="100" Margin="0,0,0,10"/>
-              <Button Content="Cancel" Width="80" HorizontalAlignment="Center" Click="PrintCancel_OnClick"/>
+              <Button Style="{StaticResource DialogButton}" Content="Cancel" Width="80" HorizontalAlignment="Center" Click="PrintCancel_OnClick"/>
             </StackPanel>
           </Border>
         </Grid>

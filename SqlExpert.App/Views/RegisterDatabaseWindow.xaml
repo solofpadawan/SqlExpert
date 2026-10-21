@@ -5,7 +5,8 @@
         Height="480" Width="520"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
   <Grid Margin="12">
     <Grid.RowDefinitions>
       <RowDefinition Height="*"/>
@@ -69,9 +70,9 @@
     <TextBlock Grid.Row="1" Name="StatusText" Margin="0,8,0,4" TextWrapping="Wrap" Foreground="#A00"/>
 
     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
-      <Button Content="Test Connection" Width="120" Margin="0,0,8,0" Click="Test_Click"/>
-      <Button Content="OK" Width="80" Margin="0,0,8,0" IsDefault="True" Click="Ok_Click"/>
-      <Button Content="Cancel" Width="80" IsCancel="True" Click="Cancel_Click"/>
+      <Button Style="{StaticResource DialogButton}" Content="Test Connection" Width="120" Margin="0,0,8,0" Click="Test_Click"/>
+      <Button Style="{StaticResource DialogButton}" Content="OK" Width="80" Margin="0,0,8,0" IsDefault="True" Click="Ok_Click"/>
+      <Button Style="{StaticResource DialogButton}" Content="Cancel" Width="80" IsCancel="True" Click="Cancel_Click"/>
     </StackPanel>
   </Grid>
 </Window>

@@ -15,6 +15,16 @@ namespace SqlExpert.App.Views;
 /// </summary>
 public partial class DatabasePropertiesWindow : Window
 {
+    /// <summary>Success status text: dark blue of the UI palette (no green).</summary>
+    private static readonly System.Windows.Media.Brush SuccessBrush = CreateSuccessBrush();
+
+    private static System.Windows.Media.Brush CreateSuccessBrush()
+    {
+        var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1F, 0x4E, 0x8C));
+        brush.Freeze();
+        return brush;
+    }
+
     private readonly ISqlConnectionFactory _factory;
     private readonly ICredentialStore _credentials;
     private readonly ConnectionProfile _baseProfile;
@@ -193,7 +203,7 @@ public partial class DatabasePropertiesWindow : Window
             await using var conn = await _factory.OpenAsync(profile, PasswordForConnect()).ConfigureAwait(true);
             var version = await RegistrationScripts.GetServerVersionAsync(conn).ConfigureAwait(true);
             Form.ServerVersion = version;
-            SetStatus("Conexão OK — " + version, Brushes.DarkGreen);
+            SetStatus("Conexão OK — " + version, SuccessBrush);
             MessageBox.Show(this, $"Conexão OK.\n\n{version}\nDatabase: {profile.InitialCatalog}", "Test Connect",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -229,7 +239,7 @@ public partial class DatabasePropertiesWindow : Window
             foreach (var d in databases) Form.Databases.Add(d);
             Form.Database = current;
             DatabaseCombo.Text = current;
-            SetStatus($"{databases.Count} database(s) em {SqlConnectionFactory.BuildDataSource(profile)}.", Brushes.DarkGreen);
+            SetStatus($"{databases.Count} database(s) em {SqlConnectionFactory.BuildDataSource(profile)}.", SuccessBrush);
         }
         catch (Exception ex)
         {
@@ -257,7 +267,7 @@ public partial class DatabasePropertiesWindow : Window
             else
                 SetPassword("");
             SelectPage("General");
-            SetStatus($"Dados copiados de '{source.DisplayName}'. O alias foi mantido.", Brushes.DarkGreen);
+            SetStatus($"Dados copiados de '{source.DisplayName}'. O alias foi mantido.", SuccessBrush);
         }
         catch (Exception ex)
         {

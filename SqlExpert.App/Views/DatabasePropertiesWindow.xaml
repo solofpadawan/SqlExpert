@@ -6,7 +6,8 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="False"
-        Background="#F0F0F0">
+        Background="#F0F0F0"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
   <!-- Original layout modelled on a classic "Database Properties" dialog, adapted to SQL Server. -->
   <Window.Resources>
     <Style x:Key="Caption" TargetType="TextBlock">
@@ -262,7 +263,7 @@
           <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
             <TextBlock Text="Color (#RRGGBB)" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <TextBox Width="90" Text="{Binding ColorMark, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-            <Button Content="No color" Margin="8,0,0,0" Padding="10,1" Click="NoColor_Click"/>
+            <Button Style="{StaticResource DialogButton}" Content="No color" Margin="8,0,0,0" Padding="10,1" Click="NoColor_Click"/>
           </StackPanel>
           <Border Margin="0,14,0,0" Width="300" HorizontalAlignment="Left" BorderBrush="#A0A0A0" BorderThickness="1" Background="White">
             <StackPanel>
@@ -280,10 +281,10 @@
     <!-- ===== Bottom bar ===== -->
     <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" BorderBrush="#C8C8C8" BorderThickness="0,1,0,0" Padding="6,6,14,8">
       <DockPanel LastChildFill="True">
-        <Button x:Name="TestButton" DockPanel.Dock="Left" Content="Test Connect" MinWidth="95" Padding="8,2" Click="Test_Click"/>
-        <Button x:Name="CopyButton" DockPanel.Dock="Left" Content="Copy Registration Data..." Margin="6,0,0,0" Padding="8,2" Click="CopyRegistration_Click"/>
-        <Button DockPanel.Dock="Right" Content="Cancel" MinWidth="75" Margin="6,0,0,0" IsCancel="True" Click="Cancel_Click"/>
-        <Button DockPanel.Dock="Right" Content="OK" MinWidth="75" IsDefault="True" Click="Ok_Click"/>
+        <Button x:Name="TestButton" Style="{StaticResource DialogButton}" DockPanel.Dock="Left" Content="Test Connect" MinWidth="95" Padding="8,2" Click="Test_Click"/>
+        <Button x:Name="CopyButton" Style="{StaticResource DialogButton}" DockPanel.Dock="Left" Content="Copy Registration Data..." Margin="6,0,0,0" Padding="8,2" Click="CopyRegistration_Click"/>
+        <Button DockPanel.Dock="Right" Style="{StaticResource DialogButton}" Content="Cancel" MinWidth="75" Margin="6,0,0,0" IsCancel="True" Click="Cancel_Click"/>
+        <Button DockPanel.Dock="Right" Style="{StaticResource DialogButton}" Content="OK" MinWidth="75" IsDefault="True" Click="Ok_Click"/>
         <TextBlock x:Name="StatusText" Margin="10,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
       </DockPanel>
     </Border>

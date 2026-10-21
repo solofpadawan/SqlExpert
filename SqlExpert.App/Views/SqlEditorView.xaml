@@ -7,13 +7,8 @@
              PreviewKeyDown="OnPreviewKeyDown">
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="SqlBoolToVis"/>
-    <Style x:Key="SqlTbButton" TargetType="Button">
-      <Setter Property="MinWidth" Value="26"/>
-      <Setter Property="Height" Value="22"/>
-      <Setter Property="Padding" Value="5,0"/>
-      <Setter Property="Margin" Value="1,0"/>
-      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
-    </Style>
+    <!-- Flat toolbar buttons (Themes/Controls.xaml): icon + caption -->
+    <Style x:Key="SqlTbButton" TargetType="Button" BasedOn="{StaticResource FlatToolButton}"/>
     <!-- "<null>" in red (NullValueBrush, Resources/Branding.xaml), classic style -->
     <Style x:Key="SqlCellText" TargetType="TextBlock" BasedOn="{StaticResource NullAwareCellText}">
       <Setter Property="Padding" Value="2,0"/>
@@ -40,36 +35,37 @@
   </UserControl.Resources>
 
   <DockPanel>
-    <ToolBarTray DockPanel.Dock="Top" IsLocked="True">
-      <ToolBar ToolBarTray.IsLocked="True">
+    <Border DockPanel.Dock="Top" Style="{StaticResource InnerToolBarBand}">
+    <ToolBarTray IsLocked="True" Background="Transparent">
+      <ToolBar ToolBarTray.IsLocked="True" Style="{StaticResource InnerTrayToolBar}">
         <Button Style="{StaticResource SqlTbButton}" FontWeight="Bold"
-                ToolTip="Executar (F9 / Ctrl+Enter). Com seleção, executa só o texto selecionado." Command="{Binding ExecuteCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Execute}"/><TextBlock Text="Execute" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+                ToolTip="Executar (F9 / Ctrl+Enter). Com seleção, executa só o texto selecionado." Command="{Binding ExecuteCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Execute}"/><TextBlock Text="Execute" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
         <Button Style="{StaticResource SqlTbButton}"
-                ToolTip="Cancelar a execução (Ctrl+Break)" Command="{Binding CancelCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Stop}"/><TextBlock Text="Stop" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+                ToolTip="Cancelar a execução (Ctrl+Break)" Command="{Binding CancelCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Stop}"/><TextBlock Text="Stop" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
         <Separator/>
         <CheckBox Content="Autocommit" VerticalAlignment="Center" Margin="4,0"
                   ToolTip="Ligado: cada comando confirma sozinho. Desligado: a transação fica aberta até Commit/Rollback."
                   IsChecked="{Binding Autocommit, Mode=TwoWay}" IsEnabled="{Binding IsIdle, Mode=OneWay}"/>
-        <Button Style="{StaticResource SqlTbButton}" ToolTip="COMMIT da transação aberta" Command="{Binding CommitCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Commit}"/><TextBlock Text="Commit" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
-        <Button Style="{StaticResource SqlTbButton}" ToolTip="ROLLBACK da transação aberta" Command="{Binding RollbackCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Rollback}"/><TextBlock Text="Rollback" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+        <Button Style="{StaticResource SqlTbButton}" ToolTip="COMMIT da transação aberta" Command="{Binding CommitCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Commit}"/><TextBlock Text="Commit" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+        <Button Style="{StaticResource SqlTbButton}" ToolTip="ROLLBACK da transação aberta" Command="{Binding RollbackCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Rollback}"/><TextBlock Text="Rollback" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
         <Separator/>
         <TextBlock Text="Fetch first:" VerticalAlignment="Center" Margin="4,0,2,0"/>
         <TextBox x:Name="FetchBox" Width="64" VerticalContentAlignment="Center" HorizontalContentAlignment="Right"
                  ToolTip="Registros mantidos por resultado (padrão 1000). Enter aplica."
                  Text="{Binding FetchRows, Mode=TwoWay, UpdateSourceTrigger=LostFocus, ValidatesOnExceptions=True}"
                  KeyDown="FetchBox_OnKeyDown"/>
-        <Button Style="{StaticResource SqlTbButton}" ToolTip="Executa de novo sem limite de registros" Command="{Binding FetchAllCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.FetchAll}"/><TextBlock Text="Fetch all" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+        <Button Style="{StaticResource SqlTbButton}" ToolTip="Executa de novo sem limite de registros" Command="{Binding FetchAllCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.FetchAll}"/><TextBlock Text="Fetch all" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
         <Separator/>
         <CheckBox Content="Plan" VerticalAlignment="Center" Margin="4,0"
                   ToolTip="Coleta o plano de execução real e os números do servidor (Plan / Performance info na aba Messages)"
                   IsChecked="{Binding CapturePlan, Mode=TwoWay}" IsEnabled="{Binding IsIdle, Mode=OneWay}"/>
         <Separator/>
-        <Button Style="{StaticResource SqlTbButton}" ToolTip="Load from File (Ctrl+O)" Command="{Binding OpenCommand}"><views:IconImage Icon="{StaticResource Icon.LoadFromFile}"/></Button>
-        <Button Style="{StaticResource SqlTbButton}" ToolTip="Save to File (Ctrl+S)" Command="{Binding SaveCommand}"><views:IconImage Icon="{StaticResource Icon.SaveToFile}"/></Button>
-        <Button Style="{StaticResource SqlTbButton}" ToolTip="Save as..." Command="{Binding SaveAsCommand}"><views:IconImage Icon="{StaticResource Icon.SaveAs}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Load from File (Ctrl+O)" Command="{Binding OpenCommand}"><views:IconImage Icon="{StaticResource Icon.LoadFromFile}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Save to File (Ctrl+S)" Command="{Binding SaveCommand}"><views:IconImage Icon="{StaticResource Icon.SaveToFile}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Save as..." Command="{Binding SaveAsCommand}"><views:IconImage Icon="{StaticResource Icon.SaveAs}"/></Button>
         <Separator/>
-        <Button Style="{StaticResource SqlTbButton}" ToolTip="Find (Ctrl+F, F3 / Shift+F3)" Click="Find_OnClick"><views:IconImage Icon="{StaticResource Icon.Find}"/></Button>
-        <Button Style="{StaticResource SqlTbButton}" ToolTip="Replace (Ctrl+R / Ctrl+H)" Click="Replace_OnClick"><views:IconImage Icon="{StaticResource Icon.Replace}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Find (Ctrl+F, F3 / Shift+F3)" Click="Find_OnClick"><views:IconImage Icon="{StaticResource Icon.Find}"/></Button>
+        <Button Style="{StaticResource FlatIconButton}" ToolTip="Replace (Ctrl+R / Ctrl+H)" Click="Replace_OnClick"><views:IconImage Icon="{StaticResource Icon.Replace}"/></Button>
         <Separator/>
         <TextBlock Text="Font size:" VerticalAlignment="Center" Margin="4,0,3,0"/>
         <Grid VerticalAlignment="Center" Height="22">
@@ -91,6 +87,7 @@
                    Visibility="{Binding IsExecuting, Mode=OneWay, Converter={StaticResource SqlBoolToVis}}"/>
       </ToolBar>
     </ToolBarTray>
+    </Border>
 
     <StatusBar DockPanel.Dock="Bottom">
       <StatusBarItem>
@@ -144,13 +141,13 @@
         </TabItem>
       <TabItem Header="History" Tag="sqleditor.page.history" ToolTip="Últimos comandos executados nesta conexão">
         <DockPanel>
-          <ToolBar DockPanel.Dock="Top">
-            <Button Style="{StaticResource SqlTbButton}" Content="Inserir no editor" ToolTip="Insere o comando na posição do cursor (Enter / duplo clique)"
-                    Command="{Binding InsertHistoryCommand}"/>
-            <Button Style="{StaticResource SqlTbButton}" Content="Substituir texto" ToolTip="Substitui todo o texto do editor pelo comando"
-                    Command="{Binding ReplaceWithHistoryCommand}"/>
-            <Button Style="{StaticResource SqlTbButton}" Content="Copiar" ToolTip="Copia o comando para a área de transferência"
-                    Command="{Binding CopyHistoryCommand}"/>
+          <ToolBar DockPanel.Dock="Top" Style="{StaticResource InnerToolBar}">
+            <Button Style="{StaticResource SqlTbButton}" ToolTip="Insere o comando na posição do cursor (Enter / duplo clique)"
+                    Command="{Binding InsertHistoryCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Paste}"/><TextBlock Text="Inserir no editor" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+            <Button Style="{StaticResource SqlTbButton}" ToolTip="Substitui todo o texto do editor pelo comando"
+                    Command="{Binding ReplaceWithHistoryCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Replace}"/><TextBlock Text="Substituir texto" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+            <Button Style="{StaticResource SqlTbButton}" ToolTip="Copia o comando para a área de transferência"
+                    Command="{Binding CopyHistoryCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Copy}"/><TextBlock Text="Copiar" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
             <TextBlock VerticalAlignment="Center" Margin="8,0" Foreground="#606060"
                        Text="Últimos 100 comandos executados nesta conexão"/>
           </ToolBar>

@@ -7,6 +7,16 @@ namespace SqlExpert.App.Views;
 
 public partial class RegisterDatabaseWindow : Window
 {
+    /// <summary>Success status text: dark blue of the UI palette (no green).</summary>
+    private static readonly System.Windows.Media.Brush SuccessBrush = CreateSuccessBrush();
+
+    private static System.Windows.Media.Brush CreateSuccessBrush()
+    {
+        var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1F, 0x4E, 0x8C));
+        brush.Freeze();
+        return brush;
+    }
+
     private readonly ISqlConnectionFactory _factory;
 
     public ConnectionProfile? ResultProfile { get; private set; }
@@ -77,7 +87,7 @@ public partial class RegisterDatabaseWindow : Window
             var profile = BuildProfile();
             var password = profile.AuthMode == AuthMode.SqlLogin ? PasswordBox.Password : null;
             await _factory.TestConnectionAsync(profile, password);
-            StatusText.Foreground = System.Windows.Media.Brushes.DarkGreen;
+            StatusText.Foreground = SuccessBrush;
             StatusText.Text = "Conexão OK.";
         }
         catch (Exception ex)

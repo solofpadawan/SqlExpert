@@ -24,8 +24,8 @@ public sealed class PrimaryKeyWindow : Window
         TextWrapping = TextWrapping.NoWrap, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto
     };
     private readonly TextBlock _error = new() { Foreground = Brushes.DarkRed, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
-    private readonly Button _ok = new() { Content = "OK", Width = 80, IsDefault = true, Margin = new Thickness(0, 0, 8, 0) };
-    private readonly Button _cancel = new() { Content = "Cancel", Width = 80, IsCancel = true };
+    private readonly Button _ok = new Button { Content = "OK", Width = 80, IsDefault = true, Margin = new Thickness(0, 0, 8, 0) }.WithDialogStyle();
+    private readonly Button _cancel = new Button { Content = "Cancel", Width = 80, IsCancel = true }.WithDialogStyle();
     private IReadOnlyList<string> _statements = Array.Empty<string>();
     private bool _busy;
 
@@ -78,10 +78,10 @@ public sealed class PrimaryKeyWindow : Window
         AddCell(lists, _available, 1, 0);
         AddCell(lists, _selected, 1, 2);
         var moves = new StackPanel { Margin = new Thickness(6, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
-        var add = new Button { Content = ">", Width = 34, Margin = new Thickness(0, 2, 0, 2), ToolTip = "Incluir na chave" };
-        var remove = new Button { Content = "<", Width = 34, Margin = new Thickness(0, 2, 0, 2), ToolTip = "Tirar da chave" };
-        var up = new Button { Content = "▲", Width = 34, Margin = new Thickness(0, 10, 0, 2), ToolTip = "Subir" };
-        var down = new Button { Content = "▼", Width = 34, Margin = new Thickness(0, 2, 0, 2), ToolTip = "Descer" };
+        var add = new Button { Content = ">", Width = 34, Margin = new Thickness(0, 2, 0, 2), ToolTip = "Incluir na chave" }.WithDialogStyle();
+        var remove = new Button { Content = "<", Width = 34, Margin = new Thickness(0, 2, 0, 2), ToolTip = "Tirar da chave" }.WithDialogStyle();
+        var up = new Button { Content = "▲", Width = 34, Margin = new Thickness(0, 10, 0, 2), ToolTip = "Subir" }.WithDialogStyle();
+        var down = new Button { Content = "▼", Width = 34, Margin = new Thickness(0, 2, 0, 2), ToolTip = "Descer" }.WithDialogStyle();
         moves.Children.Add(add); moves.Children.Add(remove); moves.Children.Add(up); moves.Children.Add(down);
         AddCell(lists, moves, 1, 1);
         root.Children.Add(At(lists, 2));

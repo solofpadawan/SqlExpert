@@ -190,21 +190,18 @@ internal sealed class MemoEditorWindow : Window
             _counter.Text = MemoEditRules.CharCounter(_text.Text);
         };
 
-        // Navigator: |◀ ◀ ▶ ▶|  −  ✓ ✗   (enabled from the record state)
-        var bar = new ToolBar { Background = Brushes.Transparent };
+        // Navigator: First / Prior / Next / Last, Delete, Post / Cancel (enabled from the record state); flat vector icons.
+        var bar = new ToolBar();
+        bar.SetResourceReference(StyleProperty, "InnerTrayToolBar");
         ToolBarTray.SetIsLocked(bar, true);
-        bar.Items.Add(NavButton("|◀", "First", source.First, apply: true));
-        bar.Items.Add(NavButton("◀", "Prior", source.Prior, apply: true));
-        bar.Items.Add(NavButton("▶", "Next", source.Next, apply: true));
-        bar.Items.Add(NavButton("▶|", "Last", source.Last, apply: true));
+        bar.Items.Add(NavButton("Icon.First", "First", source.First, apply: true));
+        bar.Items.Add(NavButton("Icon.Prior", "Prior", source.Prior, apply: true));
+        bar.Items.Add(NavButton("Icon.Next", "Next", source.Next, apply: true));
+        bar.Items.Add(NavButton("Icon.Last", "Last", source.Last, apply: true));
         bar.Items.Add(new Separator());
-        bar.Items.Add(NavButton("−", "Delete record", source.Delete, apply: false));
-        var post = NavButton("✓", "Post (gravar alterações pendentes)", source.Post, apply: true, needsChanges: true);
-        post.Foreground = new SolidColorBrush(Color.FromRgb(0x1E, 0x7B, 0x1E));
-        bar.Items.Add(post);
-        var cancel = NavButton("✗", "Cancel (descartar alterações pendentes)", source.Cancel, apply: false, needsChanges: true);
-        cancel.Foreground = new SolidColorBrush(Color.FromRgb(0xB2, 0x22, 0x22));
-        bar.Items.Add(cancel);
+        bar.Items.Add(NavButton("Icon.DeleteRecord", "Delete record", source.Delete, apply: false));
+        bar.Items.Add(NavButton("Icon.Post", "Post (gravar alterações pendentes)", source.Post, apply: true, needsChanges: true));
+        bar.Items.Add(NavButton("Icon.CancelEdit", "Cancel (descartar alterações pendentes)", source.Cancel, apply: false, needsChanges: true));
         bar.Items.Add(new Separator());
         var wrap = new CheckBox { Content = "Wrap", IsChecked = true, Margin = new Thickness(4, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center, ToolTip = "Quebrar linhas" };
         wrap.Click += (_, _) => _text.TextWrapping = wrap.IsChecked == true ? TextWrapping.Wrap : TextWrapping.NoWrap;
@@ -213,8 +210,10 @@ internal sealed class MemoEditorWindow : Window
         var proportional = _text.FontFamily;
         mono.Click += (_, _) => _text.FontFamily = mono.IsChecked == true ? new FontFamily("Consolas") : proportional;
         bar.Items.Add(mono);
-        var tray = new ToolBarTray { IsLocked = true };
+        var tray = new ToolBarTray { IsLocked = true, Background = Brushes.Transparent };
         tray.ToolBars.Add(bar);
+        var band = new Border { Child = tray };
+        band.SetResourceReference(StyleProperty, "InnerToolBarBand");
 
         // "Plain text editor" header bar with the live "N chars" counter at the right.
         var header = new DockPanel { Background = HeaderBackground };
@@ -228,9 +227,9 @@ internal sealed class MemoEditorWindow : Window
             Margin = new Thickness(4, 2, 4, 2)
         });
 
-        var copy = new Button { Content = "Copy to clipboard", MinWidth = 130, Margin = new Thickness(6), Padding = new Thickness(8, 2, 8, 2) };
+        var copy = new Button { Content = "Copy to clipboard", MinWidth = 130, Margin = new Thickness(6), Padding = new Thickness(8, 2, 8, 2) }.WithDialogStyle();
         copy.Click += (_, _) => CopyToClipboard();
-        var close = new Button { Content = "Close", MinWidth = 80, Margin = new Thickness(6), Padding = new Thickness(8, 2, 8, 2), IsCancel = true };
+        var close = new Button { Content = "Close", MinWidth = 80, Margin = new Thickness(6), Padding = new Thickness(8, 2, 8, 2), IsCancel = true }.WithDialogStyle();
         close.Click += (_, _) => Close();
         var bottom = new DockPanel { Background = SystemColors.ControlBrush };
         DockPanel.SetDock(close, Dock.Right);
@@ -239,10 +238,10 @@ internal sealed class MemoEditorWindow : Window
         bottom.Children.Add(copy);
 
         var root = new DockPanel();
-        DockPanel.SetDock(tray, Dock.Top);
+        DockPanel.SetDock(band, Dock.Top);
         DockPanel.SetDock(header, Dock.Top);
         DockPanel.SetDock(bottom, Dock.Bottom);
-        root.Children.Add(tray);
+        root.Children.Add(band);
         root.Children.Add(header);
         root.Children.Add(bottom);
         root.Children.Add(new Border { BorderBrush = Brushes.Gray, BorderThickness = new Thickness(0, 1, 0, 1), Child = _text });
@@ -272,16 +271,15 @@ internal sealed class MemoEditorWindow : Window
         return w;
     }
 
-    private Button NavButton(string glyph, string tip, ICommand? command, bool apply, bool needsChanges = false)
+    private Button NavButton(string iconKey, string tip, ICommand? command, bool apply, bool needsChanges = false)
     {
         var button = new Button
         {
-            Content = glyph,
-            MinWidth = 24,
-            FontFamily = new FontFamily("Segoe UI Symbol"),
+            Content = new IconImage { Icon = TryFindResource(iconKey) as ImageSource },
             ToolTip = tip,
             Focusable = false
         };
+        button.SetResourceReference(StyleProperty, "FlatIconButton");
         ToolTipService.SetShowOnDisabled(button, true);
         if (command is null)
         {

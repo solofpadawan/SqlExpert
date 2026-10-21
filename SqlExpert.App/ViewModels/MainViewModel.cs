@@ -1765,6 +1765,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
                 Shortcut = def.Shortcut,
                 ToolTip = tip,
                 IsSeparator = false,
+                IconKey = SqlExpert.Core.Commands.CommandIcons.For(def.Id),
                 Command = Registry[def.Id]
             });
         }

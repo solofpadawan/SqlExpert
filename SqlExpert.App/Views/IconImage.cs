@@ -40,7 +40,7 @@ public sealed class IconImage : Image
     {
         var icon = Icon;
         Source = icon is null || IsEnabled ? icon : GrayCache.GetValue(icon, Gray);
-        Opacity = IsEnabled ? 1.0 : 0.6;
+        Opacity = IsEnabled ? 1.0 : 0.45;
     }
 
     /// <summary>Grey copy of a DrawingImage (every brush → luminance grey, lightened). Other sources stay as they are.</summary>

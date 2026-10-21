@@ -39,9 +39,9 @@ public sealed class ProcedureExecuteWindow : Window
         root.Children.Add(text);
 
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
-        var ok = new Button { Content = "Execute", MinWidth = 85, IsDefault = true };
+        var ok = new Button { Content = "Execute", MinWidth = 85, IsDefault = true }.WithDialogStyle();
         ok.Click += (_, _) => DialogResult = true;
-        var cancel = new Button { Content = "Cancel", MinWidth = 75, IsCancel = true, Margin = new Thickness(6, 0, 0, 0) };
+        var cancel = new Button { Content = "Cancel", MinWidth = 75, IsCancel = true, Margin = new Thickness(6, 0, 0, 0) }.WithDialogStyle();
         buttons.Children.Add(ok);
         buttons.Children.Add(cancel);
         DockPanel.SetDock(buttons, Dock.Bottom);

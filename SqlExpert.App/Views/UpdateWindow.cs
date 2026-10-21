@@ -74,10 +74,10 @@ public sealed class UpdateWindow : Window
         bottom.Children.Add(_bar);
         bottom.Children.Add(_status);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
-        _installButton = new Button { Content = "Atualizar agora", MinWidth = 110, IsDefault = true };
-        _laterButton = new Button { Content = "Depois", MinWidth = 80, IsCancel = true, Margin = new Thickness(6, 0, 0, 0) };
-        _skipButton = new Button { Content = "Pular esta versão", MinWidth = 110, Margin = new Thickness(6, 0, 0, 0) };
-        _cancelButton = new Button { Content = "Cancelar", MinWidth = 80, Margin = new Thickness(6, 0, 0, 0), Visibility = Visibility.Collapsed };
+        _installButton = new Button { Content = "Atualizar agora", MinWidth = 110, IsDefault = true }.WithDialogStyle();
+        _laterButton = new Button { Content = "Depois", MinWidth = 80, IsCancel = true, Margin = new Thickness(6, 0, 0, 0) }.WithDialogStyle();
+        _skipButton = new Button { Content = "Pular esta versão", MinWidth = 110, Margin = new Thickness(6, 0, 0, 0) }.WithDialogStyle();
+        _cancelButton = new Button { Content = "Cancelar", MinWidth = 80, Margin = new Thickness(6, 0, 0, 0), Visibility = Visibility.Collapsed }.WithDialogStyle();
         buttons.Children.Add(_installButton);
         buttons.Children.Add(_laterButton);
         buttons.Children.Add(_skipButton);

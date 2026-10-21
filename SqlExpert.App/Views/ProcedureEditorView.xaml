@@ -10,21 +10,15 @@
        implemented are shown disabled, never hidden. -->
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="ProcBoolToVis"/>
-    <Style x:Key="ProcTbButton" TargetType="Button">
-      <Setter Property="MinWidth" Value="26"/>
-      <Setter Property="Height" Value="22"/>
-      <Setter Property="Padding" Value="5,0"/>
-      <Setter Property="Margin" Value="1,0"/>
-      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
-    </Style>
-    <Style x:Key="ProcSideButton" TargetType="Button">
+    <!-- Flat toolbar buttons (Themes/Controls.xaml): icon + caption -->
+    <Style x:Key="ProcTbButton" TargetType="Button" BasedOn="{StaticResource FlatToolButton}"/>
+    <!-- Parameter grid side buttons: icon only, stacked -->
+    <Style x:Key="ProcSideButton" TargetType="Button" BasedOn="{StaticResource FlatIconButton}">
       <Setter Property="Width" Value="24"/>
-      <Setter Property="Height" Value="22"/>
-      <Setter Property="Margin" Value="1"/>
+      <Setter Property="Margin" Value="1,1,1,0"/>
       <Setter Property="Padding" Value="0"/>
-      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
     </Style>
-    <Style x:Key="ProcDisabledTab" TargetType="TabItem">
+    <Style x:Key="ProcDisabledTab" TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
       <Setter Property="IsEnabled" Value="False"/>
       <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
     </Style>
@@ -55,50 +49,55 @@
 
   <DockPanel>
     <!-- Toolbar + object name box on the right -->
-    <Grid DockPanel.Dock="Top" Background="{StaticResource ToolbarBg}">
+    <Border DockPanel.Dock="Top" Style="{StaticResource InnerToolBarBand}">
+    <Grid>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*"/>
         <ColumnDefinition Width="Auto"/>
       </Grid.ColumnDefinitions>
       <ToolBarTray IsLocked="True" Background="Transparent">
-        <ToolBar ToolBarTray.IsLocked="True">
-          <Button x:Name="ProcedureMenuButton" Style="{StaticResource ProcTbButton}" Content="Procedure ▾" FontWeight="SemiBold"
+        <ToolBar ToolBarTray.IsLocked="True" Style="{StaticResource InnerTrayToolBar}">
+          <Button x:Name="ProcedureMenuButton" Style="{StaticResource ProcTbButton}" FontWeight="SemiBold"
                   ToolTip="Menu da procedure" Click="ProcedureMenuButton_OnClick">
+            <StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Procedure}"/><TextBlock Text="Procedure ▾" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel>
             <Button.ContextMenu>
               <ContextMenu ItemsSource="{Binding MenuItems, Mode=OneWay}" ItemContainerStyle="{StaticResource CommandMenuItemStyle}"/>
             </Button.ContextMenu>
           </Button>
           <Separator/>
           <Button Style="{StaticResource ProcTbButton}" FontWeight="Bold"
-                  ToolTip="Compile (Ctrl+F9): CREATE OR ALTER PROCEDURE (ALTER/CREATE antes do SQL Server 2016 SP1)" Command="{Binding CompileCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Compile}"/><TextBlock Text="Compile" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+                  ToolTip="Compile (Ctrl+F9): CREATE OR ALTER PROCEDURE (ALTER/CREATE antes do SQL Server 2016 SP1)" Command="{Binding CompileCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Compile}"/><TextBlock Text="Compile" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
           <Button Style="{StaticResource ProcTbButton}" FontWeight="Bold"
-                  ToolTip="Execute (F9): pede os valores dos parâmetros e executa EXEC" Command="{Binding ExecuteCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Execute}"/><TextBlock Text="Execute" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+                  ToolTip="Execute (F9): pede os valores dos parâmetros e executa EXEC" Command="{Binding ExecuteCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Execute}"/><TextBlock Text="Execute" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
           <Button Style="{StaticResource ProcTbButton}"
-                  ToolTip="Cancelar (Ctrl+Break)" Command="{Binding CancelCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Stop}"/><TextBlock Text="Stop" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+                  ToolTip="Cancelar (Ctrl+Break)" Command="{Binding CancelCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Stop}"/><TextBlock Text="Stop" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
           <Separator/>
           <CheckBox Content="Autocommit" VerticalAlignment="Center" Margin="4,0"
                     ToolTip="Ligado: o Compile confirma sozinho. Desligado: o Compile fica dentro de uma transação aberta até Commit/Rollback."
                     IsChecked="{Binding Autocommit, Mode=TwoWay}" IsEnabled="{Binding IsIdle, Mode=OneWay}"/>
-          <Button Style="{StaticResource ProcTbButton}" ToolTip="COMMIT da transação aberta" Command="{Binding CommitCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Commit}"/><TextBlock Text="Commit" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
-          <Button Style="{StaticResource ProcTbButton}" ToolTip="ROLLBACK da transação aberta" Command="{Binding RollbackCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Rollback}"/><TextBlock Text="Rollback" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+          <Button Style="{StaticResource ProcTbButton}" ToolTip="COMMIT da transação aberta" Command="{Binding CommitCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Commit}"/><TextBlock Text="Commit" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+          <Button Style="{StaticResource ProcTbButton}" ToolTip="ROLLBACK da transação aberta" Command="{Binding RollbackCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Rollback}"/><TextBlock Text="Rollback" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
           <Separator/>
-          <Button Content="Edit full text" ToolTip="Alterna entre grade de parâmetros + corpo e o texto completo do CREATE"
+          <Button ToolTip="Alterna entre grade de parâmetros + corpo e o texto completo do CREATE"
                   Command="{Binding ToggleFullTextCommand}">
+            <StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.FullText}"/><TextBlock Text="Edit full text" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel>
             <Button.Style>
               <Style TargetType="Button" BasedOn="{StaticResource ProcTbButton}">
                 <Style.Triggers>
+                  <!-- toggled on: looks pressed -->
                   <DataTrigger Binding="{Binding IsFullTextMode, Mode=OneWay}" Value="True">
                     <Setter Property="FontWeight" Value="Bold"/>
-                    <Setter Property="Background" Value="#CFE3FF"/>
+                    <Setter Property="Background" Value="{StaticResource Ui.PressedFill}"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource Ui.PressedBorder}"/>
                   </DataTrigger>
                 </Style.Triggers>
               </Style>
             </Button.Style>
           </Button>
-          <Button Style="{StaticResource ProcTbButton}" ToolTip="Recarregar do servidor" Command="{Binding ReloadCommand}"><views:IconImage Icon="{StaticResource Icon.Refresh}"/></Button>
+          <Button Style="{StaticResource FlatIconButton}" ToolTip="Recarregar do servidor" Command="{Binding ReloadCommand}"><views:IconImage Icon="{StaticResource Icon.Refresh}"/></Button>
           <Separator/>
-          <Button Style="{StaticResource ProcTbButton}" ToolTip="Find (Ctrl+F)" Click="Find_OnClick"><views:IconImage Icon="{StaticResource Icon.Find}"/></Button>
-          <Button Style="{StaticResource ProcTbButton}" ToolTip="Print — ainda não implementado" Command="{Binding DisabledCommand}"><views:IconImage Icon="{StaticResource Icon.Print}"/></Button>
+          <Button Style="{StaticResource FlatIconButton}" ToolTip="Find (Ctrl+F)" Click="Find_OnClick"><views:IconImage Icon="{StaticResource Icon.Find}"/></Button>
+          <Button Style="{StaticResource FlatIconButton}" ToolTip="Print — ainda não implementado" Command="{Binding DisabledCommand}"><views:IconImage Icon="{StaticResource Icon.Print}"/></Button>
           <TextBlock Text="executando..." VerticalAlignment="Center" Margin="8,0" Foreground="#B25F00" FontWeight="SemiBold"
                      Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource ProcBoolToVis}}"/>
         </ToolBar>
@@ -111,6 +110,7 @@
                  IsReadOnly="{Binding IsFullTextMode, Mode=OneWay}" KeyDown="NameBox_OnKeyDown"/>
       </StackPanel>
     </Grid>
+    </Border>
 
     <StatusBar DockPanel.Dock="Bottom">
       <StatusBar.Style>
@@ -165,10 +165,10 @@
           <DockPanel Grid.Row="0">
             <StackPanel DockPanel.Dock="Left" Orientation="Vertical" Margin="0,0,2,0">
               <Button Style="{StaticResource ProcSideButton}" ToolTip="Adicionar parâmetro no fim" Command="{Binding AddParameterCommand}"><views:IconImage Icon="{StaticResource Icon.InsertRecord}"/></Button>
-              <Button Style="{StaticResource ProcSideButton}" Content="⤵" ToolTip="Inserir parâmetro antes do selecionado" Command="{Binding InsertParameterCommand}"/>
+              <Button Style="{StaticResource ProcSideButton}" ToolTip="Inserir parâmetro antes do selecionado" Command="{Binding InsertParameterCommand}"><views:IconImage Icon="{StaticResource Icon.InsertBefore}"/></Button>
               <Button Style="{StaticResource ProcSideButton}" ToolTip="Remover parâmetro" Command="{Binding DeleteParameterCommand}"><views:IconImage Icon="{StaticResource Icon.DeleteRecord}"/></Button>
-              <Button Style="{StaticResource ProcSideButton}" Content="↑" ToolTip="Mover para cima" Command="{Binding MoveParameterUpCommand}"/>
-              <Button Style="{StaticResource ProcSideButton}" Content="↓" ToolTip="Mover para baixo" Command="{Binding MoveParameterDownCommand}"/>
+              <Button Style="{StaticResource ProcSideButton}" ToolTip="Mover para cima" Command="{Binding MoveParameterUpCommand}"><views:IconImage Icon="{StaticResource Icon.MoveUp}"/></Button>
+              <Button Style="{StaticResource ProcSideButton}" ToolTip="Mover para baixo" Command="{Binding MoveParameterDownCommand}"><views:IconImage Icon="{StaticResource Icon.MoveDown}"/></Button>
             </StackPanel>
             <TabControl TabStripPlacement="Bottom" SelectedIndex="{Binding SelectedSubTab, Mode=TwoWay}">
               <TabItem Header="Input Parameters">
@@ -250,9 +250,9 @@
       <!-- ===== Description ===== -->
       <TabItem Header="Description">
         <DockPanel>
-          <ToolBar DockPanel.Dock="Top">
+          <ToolBar DockPanel.Dock="Top" Style="{StaticResource InnerToolBar}">
             <Button Style="{StaticResource ProcTbButton}" ToolTip="Grava MS_Description da procedure"
-                    Command="{Binding SaveDescriptionCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.SaveToFile}"/><TextBlock Text="Gravar descrição" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+                    Command="{Binding SaveDescriptionCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.SaveToFile}"/><TextBlock Text="Gravar descrição" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
             <TextBlock VerticalAlignment="Center" Margin="8,0" Foreground="#606060"
                        Text="Extended property MS_Description. A descrição dos parâmetros fica na grade (gravada no Compile)."/>
           </ToolBar>
@@ -265,8 +265,8 @@
       <!-- ===== Dependencies ===== -->
       <TabItem Header="Dependencies">
         <DockPanel>
-          <ToolBar DockPanel.Dock="Top">
-            <Button Style="{StaticResource ProcTbButton}" ToolTip="Atualizar dependências" Command="{Binding RefreshDependenciesCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Refresh}"/><TextBlock Text="Atualizar" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+          <ToolBar DockPanel.Dock="Top" Style="{StaticResource InnerToolBar}">
+            <Button Style="{StaticResource ProcTbButton}" ToolTip="Atualizar dependências" Command="{Binding RefreshDependenciesCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Refresh}"/><TextBlock Text="Atualizar" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
             <TextBlock VerticalAlignment="Center" Margin="8,0" Foreground="#606060"
                        Text="Usa = objetos referenciados pela procedure · Usado por = objetos que referenciam a procedure"/>
           </ToolBar>
@@ -313,10 +313,10 @@
       <!-- ===== Version History (local) ===== -->
       <TabItem Header="Version History">
         <DockPanel>
-          <ToolBar DockPanel.Dock="Top">
-            <Button Style="{StaticResource ProcTbButton}" Content="Restaurar no editor" ToolTip="Coloca esta versão no editor (compile para aplicar)"
-                    Command="{Binding RestoreHistoryCommand}"/>
-            <Button Style="{StaticResource ProcTbButton}" ToolTip="Atualizar lista" Command="{Binding RefreshHistoryCommand}"><views:IconImage Icon="{StaticResource Icon.Refresh}"/></Button>
+          <ToolBar DockPanel.Dock="Top" Style="{StaticResource InnerToolBar}">
+            <Button Style="{StaticResource ProcTbButton}" ToolTip="Coloca esta versão no editor (compile para aplicar)"
+                    Command="{Binding RestoreHistoryCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Restore}"/><TextBlock Text="Restaurar no editor" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+            <Button Style="{StaticResource FlatIconButton}" ToolTip="Atualizar lista" Command="{Binding RefreshHistoryCommand}"><views:IconImage Icon="{StaticResource Icon.Refresh}"/></Button>
             <TextBlock VerticalAlignment="Center" Margin="8,0" Foreground="#606060" TextTrimming="CharacterEllipsis"
                        Text="{Binding HistoryFolder, Mode=OneWay, StringFormat='Histórico local de compiles: {0}'}"/>
           </ToolBar>

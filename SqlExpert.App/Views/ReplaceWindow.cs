@@ -50,7 +50,7 @@ public sealed class ReplaceWindow : Window
         var buttons = new StackPanel { Margin = new Thickness(10, 0, 0, 0) };
         Button B(string text, RoutedEventHandler click, bool isDefault = false)
         {
-            var b = new Button { Content = text, MinWidth = 110, Margin = new Thickness(0, 0, 0, 6), Padding = new Thickness(8, 2, 8, 2), IsDefault = isDefault };
+            var b = new Button { Content = text, MinWidth = 110, Margin = new Thickness(0, 0, 0, 6), Padding = new Thickness(8, 2, 8, 2), IsDefault = isDefault }.WithDialogStyle();
             b.Click += click;
             buttons.Children.Add(b);
             return b;

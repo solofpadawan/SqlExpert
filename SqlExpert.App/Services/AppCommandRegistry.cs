@@ -62,6 +62,8 @@ public sealed class CommandMenuItem
     public string? Shortcut { get; init; }
     public string? ToolTip { get; init; }
     public bool IsSeparator { get; init; }
+    /// <summary>Vector icon key (Themes/Icons.xaml) shown on inner toolbar buttons; null = caption only.</summary>
+    public string? IconKey { get; init; }
     /// <summary>Null for a submenu parent (its <see cref="Children"/> carry the commands).</summary>
     public ICommand? Command { get; init; }
     public object? CommandParameter { get; init; }

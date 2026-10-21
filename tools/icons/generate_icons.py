@@ -420,6 +420,57 @@ def fetch_all():
     ]
 
 
+def reorder():
+    """Up arrow (blue) + down arrow (slate): change the order of a list."""
+    return [
+        shape("M5,13.5 V2.5 M2.5,5 L5,2.5 L7.5,5", stroke=BLUE["dark"], w=1.4),
+        shape("M11,2.5 V13.5 M8.5,11 L11,13.5 L13.5,11", stroke=SLATE["dark"], w=1.4),
+    ]
+
+
+def move_up():
+    return [shape("M8,13.5 V2.8 M3.5,7.3 L8,2.8 L12.5,7.3", stroke=BLUE["dark"], w=1.8)]
+
+
+def move_down():
+    return [shape("M8,2.5 V13.2 M3.5,8.7 L8,13.2 L12.5,8.7", stroke=BLUE["dark"], w=1.8)]
+
+
+def move_top():
+    return [shape("M3,2.5 H13", stroke=SLATE["dark"], w=1.6),
+            shape("M8,14 V5.3 M4,9.3 L8,5.3 L12,9.3", stroke=BLUE["dark"], w=1.8)]
+
+
+def move_bottom():
+    return [shape("M3,13.5 H13", stroke=SLATE["dark"], w=1.6),
+            shape("M8,2 V10.7 M4,6.7 L8,10.7 L12,6.7", stroke=BLUE["dark"], w=1.8)]
+
+
+def insert_before():
+    """Rows with a "+" on the upper one: insert an item before the selected one."""
+    return [
+        shape(rect(1.5, 9.5, 14.5, 14.5), fill=SLATE["light"], stroke=SLATE["dark"]),
+        shape("M5,2 V8 M2,5 H8", stroke=BLUE["dark"], w=2),
+        shape("M10,4.5 H14.5", stroke=SLATE["soft"], w=1.4),
+    ]
+
+
+def auto_width():
+    """Column with a double arrow: fit the column widths."""
+    return [
+        shape("M1.5,2.5 V13.5 M14.5,2.5 V13.5", stroke=SLATE["dark"], w=1.2),
+        shape("M4,8 H12 M6.2,5.8 L4,8 L6.2,10.2 M9.8,5.8 L12,8 L9.8,10.2", stroke=BLUE["dark"], w=1.4),
+    ]
+
+
+def tree_box(sign):
+    s = [shape(rect(2.5, 2.5, 13.5, 13.5), fill=WHITE, stroke=SLATE["dark"]),
+         shape("M5,8 H11", stroke=BLUE["dark"], w=1.6)]
+    if sign == "+":
+        s.append(shape("M8,5 V11", stroke=BLUE["dark"], w=1.6))
+    return s
+
+
 def save_as():
     return floppy() + [
         shape("M9,15 L9.5,12.6 L14,8.1 L15.9,10 L11.4,14.5 Z", fill=WHITE, stroke=WHITE, w=2),
@@ -558,6 +609,21 @@ ICONS.update({
     "Commit": check(),
     "Rollback": undo(),
     "FetchAll": fetch_all(),
+    # Inner toolbars (Fields / parameters / reorder dialog)
+    "Reorder": reorder(),
+    "MoveUp": move_up(),
+    "MoveDown": move_down(),
+    "MoveTop": move_top(),
+    "MoveBottom": move_bottom(),
+    "InsertBefore": insert_before(),
+    "FullText": page(),
+    "Restore": undo(),
+    "Description": page(lines=True, colored=False),
+    "ClearColor": cross(SLATE["dark"]),
+    "AutoWidth": auto_width(),
+    "ExpandAll": tree_box("+"),
+    "CollapseAll": tree_box("-"),
+    "Revoke": key() + badge_minus(),
 })
 # "New <object>" buttons: the object drawing plus the blue "+" badge.
 for _k in ("UserDefinedType", "Table", "View", "Procedure", "Trigger", "Sequence", "CustomMessage", "Function", "Role"):
