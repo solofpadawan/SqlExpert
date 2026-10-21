@@ -306,6 +306,57 @@ public static class CommandCatalog
         list.Add(new CommandDefinition("dbexplorer.show_objects_description", "DbExplorerPopup", "Show objects description", null, CommandEnabledWhen.Always, false, @"MS_Description (sys.extended_properties)", false));
         list.Add(new CommandDefinition("dbexplorer.inspector_page_mode", "DbExplorerPopup", "Inspector Page Mode", null, CommandEnabledWhen.Always, true, null, false));
         list.Add(new CommandDefinition("dbexplorer.hide_disconnected_databases", "DbExplorerPopup", "Hide Disconnected Databases", null, CommandEnabledWhen.Always, true, null, false));
+        // Category: Procedures folder popup (right-click on "Procedures"; reference order, separators and shortcuts)
+        list.Add(new CommandDefinition("procfolder.new_procedure", "ProceduresPopup", "New Procedure...", "Ctrl+N", CommandEnabledWhen.Connected, false, @"CREATE PROCEDURE", false));
+        list.Add(new CommandDefinition("procfolder.apply_block_to_selected_objects", "ProceduresPopup", "Apply block to selected objects...", null, CommandEnabledWhen.Connected, true, null, false));
+        list.Add(new CommandDefinition("procfolder.autogrant_privileges", "ProceduresPopup", "Autogrant privileges", "Shift+Ctrl+A", CommandEnabledWhen.Connected, true, @"GRANT EXECUTE to roles/users", false));
+        list.Add(new CommandDefinition("procfolder.deactivate_procedures", "ProceduresPopup", "Deactivate procedures", null, CommandEnabledWhen.Connected, true, @"Not applicable to SQL Server", true));
+        list.Add(new CommandDefinition("procfolder.activate_procedures", "ProceduresPopup", "Activate procedures", null, CommandEnabledWhen.Connected, false, @"Not applicable to SQL Server", true));
+        list.Add(new CommandDefinition("procfolder.goto_database", "ProceduresPopup", "Goto Database", null, CommandEnabledWhen.Always, true, null, true));
+        list.Add(new CommandDefinition("procfolder.goto_object", "ProceduresPopup", "Goto Object", null, CommandEnabledWhen.Connected, false, null, true));
+        list.Add(new CommandDefinition("procfolder.refresh", "ProceduresPopup", "Refresh", "F5", CommandEnabledWhen.Connected, true, null, false));
+        list.Add(new CommandDefinition("procfolder.connect_to_database", "ProceduresPopup", "Connect to Database", "Shift+Ctrl+C", CommandEnabledWhen.Always, true, null, false));
+        list.Add(new CommandDefinition("procfolder.reconnect", "ProceduresPopup", "Reconnect", null, CommandEnabledWhen.Connected, false, null, false));
+        list.Add(new CommandDefinition("procfolder.disconnect_from_database", "ProceduresPopup", "Disconnect from Database", null, CommandEnabledWhen.Connected, false, null, false));
+        list.Add(new CommandDefinition("procfolder.register_database", "ProceduresPopup", "Register Database", "Shift+Alt+R", CommandEnabledWhen.Always, true, null, false));
+        list.Add(new CommandDefinition("procfolder.unregister_database", "ProceduresPopup", "Unregister Database", "Shift+Alt+U", CommandEnabledWhen.Always, false, null, false));
+        list.Add(new CommandDefinition("procfolder.clone_registration_info", "ProceduresPopup", "Clone Registration Info", null, CommandEnabledWhen.Always, false, null, false));
+        list.Add(new CommandDefinition("procfolder.database_registration_info", "ProceduresPopup", "Database Registration Info...", null, CommandEnabledWhen.Always, true, null, false));
+        list.Add(new CommandDefinition("procfolder.recompute_selectivity_of_all_indices", "ProceduresPopup", "Recompute selectivity of all indices", null, CommandEnabledWhen.Connected, true, @"UPDATE STATISTICS on every user table", false));
+        list.Add(new CommandDefinition("procfolder.recompile_all_stored_procedures", "ProceduresPopup", "Recompile all stored procedures", null, CommandEnabledWhen.Connected, false, @"sp_refreshsqlmodule on every procedure", false));
+        list.Add(new CommandDefinition("procfolder.recompile_all_triggers", "ProceduresPopup", "Recompile All Triggers", null, CommandEnabledWhen.Connected, false, @"sp_refreshsqlmodule on every trigger", false));
+        list.Add(new CommandDefinition("procfolder.show_sql_assistant", "ProceduresPopup", "Show SQL Assistant", "Ctrl+A", CommandEnabledWhen.Always, true, null, false));
+        list.Add(new CommandDefinition("procfolder.show_objects_description", "ProceduresPopup", "Show objects description", null, CommandEnabledWhen.Always, false, @"MS_Description (sys.extended_properties)", false));
+        list.Add(new CommandDefinition("procfolder.inspector_page_mode", "ProceduresPopup", "Inspector Page Mode", null, CommandEnabledWhen.Always, true, null, false));
+        list.Add(new CommandDefinition("procfolder.hide_disconnected_databases", "ProceduresPopup", "Hide Disconnected Databases", null, CommandEnabledWhen.Always, true, null, false));
+        // Children of the greyed Deactivate/Activate procedures submenus (no SQL Server equivalent).
+        list.Add(new CommandDefinition("procfolder.deactivate_all", "ProceduresPopup.Sub", "All procedures", null, CommandEnabledWhen.Never, false, @"Not applicable to SQL Server", false));
+        list.Add(new CommandDefinition("procfolder.deactivate_selected", "ProceduresPopup.Sub", "Selected only", null, CommandEnabledWhen.Never, false, @"Not applicable to SQL Server", false));
+        list.Add(new CommandDefinition("procfolder.activate_all", "ProceduresPopup.Sub", "All procedures", null, CommandEnabledWhen.Never, false, @"Not applicable to SQL Server", false));
+        list.Add(new CommandDefinition("procfolder.activate_selected", "ProceduresPopup.Sub", "Selected only", null, CommandEnabledWhen.Never, false, @"Not applicable to SQL Server", false));
+        // Category: popup of one procedure node
+        list.Add(new CommandDefinition("procnode.edit_procedure", "ProcedurePopup", "Edit Procedure...", null, CommandEnabledWhen.Connected, false, @"OBJECT_DEFINITION / CREATE OR ALTER PROCEDURE", false));
+        list.Add(new CommandDefinition("procnode.new_procedure", "ProcedurePopup", "New Procedure...", "Ctrl+N", CommandEnabledWhen.Connected, false, @"CREATE PROCEDURE", false));
+        list.Add(new CommandDefinition("procnode.drop_procedure", "ProcedurePopup", "Drop Procedure", null, CommandEnabledWhen.Connected, false, @"DROP PROCEDURE", false));
+        list.Add(new CommandDefinition("procnode.execute", "ProcedurePopup", "Execute...", null, CommandEnabledWhen.Connected, true, @"EXEC with input parameter values", false));
+        list.Add(new CommandDefinition("procnode.copy_name", "ProcedurePopup", "Copy name", null, CommandEnabledWhen.Always, true, null, false));
+        list.Add(new CommandDefinition("procnode.script_to_clipboard", "ProcedurePopup", "Script to clipboard (CREATE)", null, CommandEnabledWhen.Connected, false, @"OBJECT_DEFINITION", false));
+        list.Add(new CommandDefinition("procnode.apply_block_to_selected_objects", "ProcedurePopup", "Apply block to selected objects...", null, CommandEnabledWhen.Connected, true, null, false));
+        list.Add(new CommandDefinition("procnode.autogrant_privileges", "ProcedurePopup", "Autogrant privileges", "Shift+Ctrl+A", CommandEnabledWhen.Connected, false, @"GRANT EXECUTE to roles/users", false));
+        list.Add(new CommandDefinition("procnode.refresh", "ProcedurePopup", "Refresh", "F5", CommandEnabledWhen.Connected, true, null, false));
+        // Category: procedure editor ("Procedure" drop-down of the editor toolbar)
+        list.Add(new CommandDefinition("proceditor.compile", "ProcedureEditor", "Compile", "Ctrl+F9", CommandEnabledWhen.Connected, false, @"CREATE OR ALTER PROCEDURE (ALTER/CREATE before 2016 SP1)", false));
+        list.Add(new CommandDefinition("proceditor.execute", "ProcedureEditor", "Execute...", "F9", CommandEnabledWhen.Connected, false, @"EXEC with input parameter values", false));
+        list.Add(new CommandDefinition("proceditor.commit", "ProcedureEditor", "Commit", null, CommandEnabledWhen.Connected, true, @"COMMIT TRANSACTION", false));
+        list.Add(new CommandDefinition("proceditor.rollback", "ProcedureEditor", "Rollback", null, CommandEnabledWhen.Connected, false, @"ROLLBACK TRANSACTION", false));
+        list.Add(new CommandDefinition("proceditor.edit_full_text", "ProcedureEditor", "Edit full text", null, CommandEnabledWhen.Always, true, null, false));
+        list.Add(new CommandDefinition("proceditor.reload", "ProcedureEditor", "Reload from server", null, CommandEnabledWhen.Connected, false, null, false));
+        list.Add(new CommandDefinition("proceditor.copy_name", "ProcedureEditor", "Copy name", null, CommandEnabledWhen.Always, true, null, false));
+        list.Add(new CommandDefinition("proceditor.script_to_clipboard", "ProcedureEditor", "Script to clipboard", null, CommandEnabledWhen.Always, false, null, false));
+        list.Add(new CommandDefinition("proceditor.drop_procedure", "ProcedureEditor", "Drop Procedure", null, CommandEnabledWhen.Connected, false, @"DROP PROCEDURE", false));
+        list.Add(new CommandDefinition("proceditor.debug_procedure", "ProcedureEditor", "Debug procedure", null, CommandEnabledWhen.Never, true, @"No T-SQL debugger in SqlExpert yet", false));
+        list.Add(new CommandDefinition("proceditor.print", "ProcedureEditor", "Print", null, CommandEnabledWhen.Never, false, null, false));
+        list.Add(new CommandDefinition("proceditor.save_to_file", "ProcedureEditor", "Save to File", null, CommandEnabledWhen.Never, false, null, false));
         list.Add(new CommandDefinition("database.exit", "Database", "Exit", "Alt+F4", CommandEnabledWhen.Always, false, null, false));
         list.Add(new CommandDefinition("database.recreate_database", "Database", "Recreate database", null, CommandEnabledWhen.Connected, true, @"DROP + CREATE DATABASE", false));
         list.Add(new CommandDefinition("database.recompile_all_triggers", "Database", "Recompile All Triggers", null, CommandEnabledWhen.Connected, false, @"sp_recompile / ENABLE-DISABLE TRIGGER", false));

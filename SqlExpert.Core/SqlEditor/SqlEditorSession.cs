@@ -211,7 +211,8 @@ public sealed class SqlEditorSession : IDisposable
                 anyError = true;
                 var line = SqlErrorLineMapper.ToEditorLine(request.StartLine, batch.StartLine, e.LineNumber, e.Procedure);
                 var header = SqlErrorLineMapper.FormatHeader(e.Number, e.Class, e.State, line, e.Procedure, e.LineNumber);
-                AddMessage(new SqlMessage(SqlMessageKind.Error, header + Environment.NewLine + e.Message, line, e.Number, e.Class));
+                int? textLine = e.LineNumber > 0 ? SqlErrorLineMapper.ToEditorLine(request.StartLine, batch.StartLine, e.LineNumber) : null;
+                AddMessage(new SqlMessage(SqlMessageKind.Error, header + Environment.NewLine + e.Message, line, e.Number, e.Class, textLine));
             }
             if (!anyError)
             {
@@ -292,9 +293,10 @@ public sealed class SqlEditorSession : IDisposable
                 int start, batchStart;
                 lock (_sinkLock) { start = _sinkStartLine; batchStart = _sinkBatchStart; }
                 var line = SqlErrorLineMapper.ToEditorLine(start, batchStart, err.LineNumber, err.Procedure);
+                int? textLine = err.LineNumber > 0 ? SqlErrorLineMapper.ToEditorLine(start, batchStart, err.LineNumber) : null;
                 AddMessage(new SqlMessage(SqlMessageKind.Error,
                     SqlErrorLineMapper.FormatHeader(err.Number, err.Class, err.State, line, err.Procedure, err.LineNumber) + Environment.NewLine + err.Message,
-                    line, err.Number, err.Class));
+                    line, err.Number, err.Class, textLine));
             }
             else
             {
@@ -344,6 +346,35 @@ public sealed class SqlEditorSession : IDisposable
         }
         result.TranCount = TranCount;
         result.CurrentDatabase = CurrentDatabase;
+    }
+
+    /// <summary>
+    /// Runs <paramref name="work"/> on this session's own connection (opened when needed), one call at a time with the
+    /// executions. Object editors read their metadata here: while this session holds an open transaction, another
+    /// connection would block on the uncommitted DDL, this one sees it.
+    /// </summary>
+    public async Task<T> RunOnConnectionAsync<T>(Func<SqlConnection, CancellationToken, Task<T>> work, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!await _gate.WaitAsync(0, CancellationToken.None).ConfigureAwait(false))
+            throw new InvalidOperationException("Já existe uma execução em andamento neste editor.");
+        try
+        {
+            var conn = await EnsureConnectionAsync(new SqlExecutionResult(), cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await work(conn, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await RefreshStateAsync(new SqlExecutionResult()).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     /// <summary>Commits every open level (WHILE @@TRANCOUNT &gt; 0 COMMIT). Returns the messages of the operation.</summary>

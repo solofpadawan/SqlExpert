@@ -97,6 +97,14 @@ public static class DocumentKeys
     public static string Table(string profileId, string database, string schema, string table) =>
         string.Join("|", "table", profileId, database, schema, table).ToLowerInvariant();
 
+    /// <summary>Key of a procedure editor document: profile + database + schema + procedure (case-insensitive).</summary>
+    public static string Procedure(string profileId, string database, string schema, string name) =>
+        string.Join("|", "procedure", profileId, database, schema, name).ToLowerInvariant();
+
+    /// <summary>Key of a New Procedure document (not on the server yet).</summary>
+    public static string NewProcedure(string profileId, string database, int number) =>
+        string.Join("|", "newprocedure", profileId, database, number.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToLowerInvariant();
+
     /// <summary>Key of a SQL Editor document: profile + editor number (several editors per connection).</summary>
     public static string SqlEditor(string profileId, int number) =>
         string.Join("|", "sqleditor", profileId, number.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToLowerInvariant();
@@ -108,6 +116,9 @@ public static class WindowTitles
 
     /// <summary>"Table : [dbo].[Clientes]"</summary>
     public static string TableCaption(string schema, string table) => $"Table : [{schema}].[{table}]";
+
+    /// <summary>"Procedure : [dbo].[AtualizaCodigo]"</summary>
+    public static string ProcedureCaption(string schema, string name) => $"Procedure : [{schema}].[{name}]";
 
     /// <summary>"SQL Editor", "SQL Editor 2", … plus " - file.sql" when a file is loaded.</summary>
     public static string SqlEditorCaption(int number, string? fileName = null)

@@ -13,7 +13,9 @@ public enum SqlMessageKind
 }
 
 /// <summary>One line of the Messages tab. <see cref="EditorLine"/> is the editor line (1-based) when known.</summary>
-public sealed record SqlMessage(SqlMessageKind Kind, string Text, int? EditorLine = null, int? Number = null, int? Severity = null);
+/// <param name="TextLine">Line of the error inside the executed text, even when the server attributes it to a module
+/// (e.g. a compile error of CREATE PROCEDURE); null when the server sent no line.</param>
+public sealed record SqlMessage(SqlMessageKind Kind, string Text, int? EditorLine = null, int? Number = null, int? Severity = null, int? TextLine = null);
 
 public sealed record SqlResultColumn(string Name, string DataTypeName, Type ClrType);
 

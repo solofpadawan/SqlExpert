@@ -9,5 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <!-- T-SQL parser (MIT): splits procedure definitions into header/parameters/body. -->
+    <PackageReference Include="Microsoft.SqlServer.TransactSql.ScriptDom" Version="170.191.0" />
   </ItemGroup>
 </Project>
