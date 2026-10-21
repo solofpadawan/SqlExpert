@@ -1866,6 +1866,19 @@ public sealed class ExplorerNode : INotifyPropertyChanged
             : null;
 
     public ExplorerNodeKind NodeKind { get; set; } = ExplorerNodeKind.Root;
+
+    /// <summary>
+    /// Vector icon key (Themes/Icons.xaml): registration (connected / not), database, or the object type - the same
+    /// icon on the folder ("Tables") and on each object under it. Null = no icon (placeholder).
+    /// </summary>
+    public string? IconKey => NodeKind switch
+    {
+        ExplorerNodeKind.Profile => ObjectIcons.Registration(IsActive),
+        ExplorerNodeKind.Database => ObjectIcons.Database,
+        ExplorerNodeKind.Category or ExplorerNodeKind.Object when ObjectKind is { } kind => ObjectIcons.For(kind),
+        _ => null
+    };
+
     public string? ProfileId { get; set; }
     public string? DatabaseName { get; set; }
     public ObjectKind? ObjectKind { get; set; }
@@ -1885,6 +1898,7 @@ public sealed class ExplorerNode : INotifyPropertyChanged
             if (_isActive == value) return;
             _isActive = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsActive)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IconKey)));
         }
     }
 

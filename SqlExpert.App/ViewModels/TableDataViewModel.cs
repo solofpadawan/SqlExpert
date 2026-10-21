@@ -49,6 +49,8 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
     private int _lookupFetchRows = UserSettings.DefaultSqlFetchRows;
     /// <summary>FK lookup rows per constraint name, kept while the table editor is open (cleared on reload).</summary>
     private readonly Dictionary<string, LookupData> _lookupCache = new(StringComparer.Ordinal);
+    /// <summary>Record appended by ↓ on the last row, while it is still untouched (discarded when left blank).</summary>
+    private DataRow? _appendedRow;
 
     public TableDataViewModel(ITableDataService service, Action<string> setStatus)
     {
@@ -162,6 +164,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
             if (_table is null) return false;
             foreach (DataRow row in _table.Rows)
             {
+                if (IsBlankAppended(row)) continue;
                 if (row.RowState is DataRowState.Added or DataRowState.Deleted) return true;
                 if (row.RowState == DataRowState.Modified && ChangedColumns(row).Count > 0) return true;
             }
@@ -215,6 +218,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         _isLoaded = false;
         _lookupCache.Clear();
         _schema = null;
+        _appendedRow = null;
         DetachTable();
         _table = null;
         _columns = Array.Empty<GridColumnSpec>();
@@ -312,6 +316,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
     private void ApplyPage(TableDataSchema schema, TableDataPage page)
     {
         DetachTable();
+        _appendedRow = null;
         _schema = schema;
         var ordered = schema.Columns.OrderBy(c => c.Ordinal).ToList();
 
@@ -389,6 +394,76 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         EditRequested?.Invoke();
     }
 
+    // ===== ↓ on the last row: new empty record (classic style) =====
+
+    /// <summary>True when <paramref name="row"/> is not in the database yet (row header "*").</summary>
+    public static bool IsNewRow(DataRowView? row) => row?.Row.RowState == DataRowState.Added;
+
+    /// <summary>The last row is a record appended by ↓ that nobody filled in yet.</summary>
+    public bool LastRowIsBlankAppended =>
+        _view is { Count: > 0 } v && _appendedRow is not null && ReferenceEquals(v[v.Count - 1].Row, _appendedRow) && IsBlankAppended(_appendedRow);
+
+    private bool IsBlankAppended(DataRow row) =>
+        ReferenceEquals(row, _appendedRow) && row.RowState == DataRowState.Added && IsBlank(row);
+
+    private static bool IsBlank(DataRow row)
+    {
+        var version = row.HasVersion(DataRowVersion.Proposed) ? DataRowVersion.Proposed : DataRowVersion.Current;
+        var values = new List<object?>(row.Table.Columns.Count);
+        foreach (DataColumn c in row.Table.Columns) values.Add(row[c, version]);
+        return NewRecordRules.IsBlank(values);
+    }
+
+    /// <summary>
+    /// ↓ on the last row: appends an empty record (every field NULL) and makes it current. It is discarded when the
+    /// user moves away without typing anything; with values it is inserted on Post. Returns false when not possible.
+    /// </summary>
+    public bool AppendRecord()
+    {
+        if (_table is null || _view is null || !CanModify) return false;
+        if (!NewRecordRules.ShouldAppendOnDown(CurrentIndex, RowCount, CanModify, LastRowIsBlankAppended)) return false;
+        var row = _table.NewRow();
+        _table.Rows.Add(row);
+        _appendedRow = row;
+        var idx = RowCount - 1;
+        for (var i = 0; i < RowCount; i++)
+            if (ReferenceEquals(_view[i].Row, row)) { idx = i; break; }
+        CurrentIndex = idx;
+        RaiseCounters();
+        _setStatus("Novo registro: preencha os campos e grave com Post (vazio é descartado ao sair da linha).");
+        return true;
+    }
+
+    /// <summary>
+    /// Drops the appended record when it is no longer current and still blank (nothing typed). A filled record stays as
+    /// a pending INSERT (Post / Cancel). Called by the grid after the current row changed.
+    /// </summary>
+    public bool DiscardBlankAppendedRecord(bool force = false)
+    {
+        var row = _appendedRow;
+        if (row is null || _table is null) return false;
+        if (row.RowState != DataRowState.Added)
+        {
+            _appendedRow = null; // posted, cancelled or deleted meanwhile
+            return false;
+        }
+        var isCurrent = !force && ReferenceEquals(CurrentRowView?.Row, row);
+        var blank = IsBlank(row);
+        if (!NewRecordRules.ShouldDiscard(isAppended: true, isStillNew: true, isBlank: blank, isCurrent: isCurrent))
+        {
+            if (!isCurrent) _appendedRow = null; // filled in and left: stays as a pending INSERT
+            return false;
+        }
+        if (row.HasVersion(DataRowVersion.Proposed)) row.CancelEdit();
+        _appendedRow = null;
+        _table.Rows.Remove(row);
+        RaiseCounters();
+        return true;
+    }
+
+    /// <summary>Status bar text from the view (calculator rounding etc.).</summary>
+    public void ShowStatus(string text) => _setStatus(text);
+
     private async Task DeleteCurrentAsync()
     {
         if (_table is null || _schema is null || IsReadOnly) return;
@@ -404,6 +479,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         if (row.RowState == DataRowState.Added)
         {
             // Never posted: just drop it.
+            if (ReferenceEquals(row, _appendedRow)) _appendedRow = null;
             _table.Rows.Remove(row);
             RaiseCounters();
             _setStatus("Registro novo descartado.");
@@ -437,6 +513,8 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         if (_table is null || _schema is null) return true;
         CommitEditRequested?.Invoke();
         if (IsReadOnly) return true;
+        // An appended record nobody filled in is not an INSERT of NULLs: drop it.
+        DiscardBlankAppendedRecord(force: true);
 
         var pending = new List<(DataRow Row, RowChange Change)>();
         var noOp = new List<DataRow>();
@@ -516,6 +594,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
     {
         CancelEditRequested?.Invoke();
         if (_table is null) return;
+        _appendedRow = null;
         _table.RejectChanges();
         RaiseCounters();
         _setStatus("Alterações canceladas.");

@@ -30,6 +30,9 @@ internal class NullAwareTextColumn : DataGridTextColumn
 
     public string? SideButtonToolTip { get; init; }
 
+    /// <summary>Numeric column whose "▾" opens the calculator (Alt+↓ / F4 also on a selected cell).</summary>
+    public bool IsCalculator { get; init; }
+
     /// <summary>Keyboard gesture that also runs <see cref="SideAction"/> (in the editor and on a selected cell).</summary>
     public Func<KeyEventArgs, bool>? SideGesture { get; init; }
 

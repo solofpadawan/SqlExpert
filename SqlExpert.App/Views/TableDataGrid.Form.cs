@@ -220,6 +220,24 @@ public partial class TableDataGrid
                 host.MinWidth = 160;
                 return (host, editor);
             }
+            case FormFieldKind.Number when !spec.IsReadOnly && col is not null:
+            {
+                // Same calculator as the Data grid "▾"; "=" writes the result (rounded to the column scale).
+                tb.MaxWidth = double.PositiveInfinity;
+                var button = SideButton("▾", "Calculadora (Alt+↓ / F4)");
+                var host = WithSideButton(tb, button);
+                button.Click += (_, _) => OpenFormCalculator(spec, col, tb, host);
+                tb.PreviewKeyDown += (_, e) =>
+                {
+                    if (!ForeignKeyTextColumn.IsLookupGesture(e)) return;
+                    OpenFormCalculator(spec, col, tb, host);
+                    e.Handled = true;
+                };
+                host.MaxWidth = 290;
+                host.MinWidth = 150;
+                host.HorizontalAlignment = HorizontalAlignment.Left;
+                return (host, editor);
+            }
             case FormFieldKind.Time:
                 tb.MaxWidth = 200;
                 tb.MinWidth = 120;
@@ -347,6 +365,40 @@ public partial class TableDataGrid
             tb.Focus();
         };
         _calendar = popup;
+        popup.Open(anchor);
+    }
+
+    /// <summary>Calculator of a numeric field: "=" writes the fitted result into the record (pending until Post).</summary>
+    private void OpenFormCalculator(FormFieldSpec spec, SqlExpert.App.ViewModels.GridColumnSpec col, TextBox tb, FrameworkElement anchor)
+    {
+        if (spec.IsReadOnly) return;
+        if (_calculator is { IsOpen: true })
+        {
+            CloseLookup();
+            return;
+        }
+        UpdateIfDirty(tb);
+        var current = CurrentValue(spec);
+        CalculatorPopup? popup = null;
+        popup = new CalculatorPopup(CalculatorStart(current), CultureInfo.CurrentCulture, result =>
+        {
+            var value = FitCalculatorResult(col, result, out var error);
+            if (error is not null) return error;
+            if (ReferenceEquals(_calculator, popup)) _calculator = null;
+            if (value is not null && !Equals(value, current)) SetValue(spec, value);
+            tb.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+            foreach (var e in _formEditors)
+                if (e.Spec.Field == spec.Field) e.Text?.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+            tb.Focus();
+            tb.SelectAll();
+            return null;
+        });
+        popup.Cancelled += () =>
+        {
+            if (ReferenceEquals(_calculator, popup)) _calculator = null;
+            tb.Focus();
+        };
+        _calculator = popup;
         popup.Open(anchor);
     }
 

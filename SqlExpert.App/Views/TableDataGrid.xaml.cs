@@ -23,6 +23,7 @@ public partial class TableDataGrid : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        Grid.LoadingRow += Grid_OnLoadingRow;
         FormGrid.DataContextChanged += (_, _) => FormGrid.IsEnabled = FormGrid.DataContext is System.Data.DataRowView;
         FormGrid.IsEnabled = false;
         IsVisibleChanged += (_, _) =>
@@ -143,7 +144,11 @@ public partial class TableDataGrid : UserControl
         MarkPrintStale();
     }
 
-    private void OnDataChanged() => MarkPrintStale();
+    private void OnDataChanged()
+    {
+        MarkPrintStale();
+        QueueRowHeaderRefresh();
+    }
 
     // ===== Bottom view tabs =====
 
@@ -223,14 +228,18 @@ public partial class TableDataGrid : UserControl
             {
                 // NULL shows the red "<null>"; the editor starts empty and leaves NULL alone when left blank.
                 // Date columns: pt-BR text + "▾" calendar (Alt+↓ / F4); text columns: "..." memo window (Ctrl+Enter).
+                // Numeric columns: "▾" calculator (Alt+↓ / F4); "=" writes the result respecting precision/scale.
                 var dateKind = DateValueText.KindOf(spec.Info);
                 var isMemo = dateKind == DateColumnKind.None && IsMemoColumn(spec);
+                var isCalc = dateKind == DateColumnKind.None && !isMemo && IsCalculatorColumn(spec);
                 column = new NullAwareTextColumn(spec.DataType, dateKind)
                 {
-                    SideButtonText = dateKind != DateColumnKind.None ? "▾" : isMemo ? "..." : null,
-                    SideButtonToolTip = dateKind != DateColumnKind.None ? "Calendário (Alt+↓ / F4)" : isMemo ? "Editar o texto (Ctrl+Enter)" : null,
-                    SideGesture = dateKind != DateColumnKind.None ? ForeignKeyTextColumn.IsLookupGesture : isMemo ? IsMemoGesture : null,
-                    SideAction = dateKind != DateColumnKind.None ? OpenGridCalendar : isMemo ? OpenGridMemo : null,
+                    IsCalculator = isCalc,
+                    SideButtonText = dateKind != DateColumnKind.None || isCalc ? "▾" : isMemo ? "..." : null,
+                    SideButtonToolTip = dateKind != DateColumnKind.None ? "Calendário (Alt+↓ / F4)"
+                        : isCalc ? "Calculadora (Alt+↓ / F4)" : isMemo ? "Editar o texto (Ctrl+Enter)" : null,
+                    SideGesture = dateKind != DateColumnKind.None || isCalc ? ForeignKeyTextColumn.IsLookupGesture : isMemo ? IsMemoGesture : null,
+                    SideAction = dateKind != DateColumnKind.None ? OpenGridCalendar : isCalc ? OpenGridCalculator : isMemo ? OpenGridMemo : null,
                     Binding = new Binding(spec.Field)
                     {
                         Converter = new CellValueConverter(spec.DataType, dateKind),
@@ -274,6 +283,70 @@ public partial class TableDataGrid : UserControl
         var calendar = _calendar;
         _calendar = null;
         calendar?.Close();
+        var calculator = _calculator;
+        _calculator = null;
+        calculator?.Close();
+    }
+
+    // ===== Numeric columns: "▾" calculator =====
+
+    private CalculatorPopup? _calculator;
+
+    private bool IsCalculatorColumn(GridColumnSpec spec) =>
+        _vm is { IsReadOnly: false } && !spec.IsReadOnly && NumericFit.IsCalculatorType(spec.DataType);
+
+    /// <summary>Value the calculator starts from: the typed text if it parses, else the cell value (NULL = 0).</summary>
+    internal static decimal? CalculatorStart(object? value)
+    {
+        if (DataValueText.IsNull(value)) return null;
+        try { return Convert.ToDecimal(value, System.Globalization.CultureInfo.InvariantCulture); }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>
+    /// Fits a calculator result to the column (rounds to its scale / integer, rejects overflow). Returns the typed value
+    /// or sets <paramref name="error"/>; rounding is reported on the status bar.
+    /// </summary>
+    private object? FitCalculatorResult(GridColumnSpec spec, decimal result, out string? error)
+    {
+        var fit = NumericFit.Fit(result, spec.DataType, spec.Info, System.Globalization.CultureInfo.CurrentCulture);
+        error = fit.Status == NumericFitStatus.Overflow ? fit.Message : null;
+        if (fit.Status == NumericFitStatus.Rounded) _vm?.ShowStatus(fit.Message);
+        return fit.Value;
+    }
+
+    /// <summary>"▾" / Alt+↓ / F4 in a numeric cell editor: calculator under the cell; "=" puts the result in the cell.</summary>
+    private void OpenGridCalculator(NullAwareTextColumn column, DataGridCell cell, TextBox tb)
+    {
+        if (_vm is null || SpecOf(column) is not { } spec) return;
+        if (_calculator is { IsOpen: true })
+        {
+            CloseLookup();
+            return;
+        }
+        object? current;
+        try { current = CellValueConverter.ParseCellText(tb.Text, column.DataType, column.DateKind); }
+        catch (Exception) { current = NullAwareTextColumn.EditorConverter(tb)?.Original; }
+
+        CalculatorPopup? popup = null;
+        popup = new CalculatorPopup(CalculatorStart(current), System.Globalization.CultureInfo.CurrentCulture, result =>
+        {
+            var value = FitCalculatorResult(spec, result, out var error);
+            if (error is not null) return error;
+            if (ReferenceEquals(_calculator, popup)) _calculator = null;
+            tb.Text = DataValueText.EditorText(value, System.Globalization.CultureInfo.CurrentCulture);
+            try { Grid.CommitEdit(DataGridEditingUnit.Cell, true); } catch (InvalidOperationException) { }
+            Grid.Focus();
+            cell.Focus();
+            return null;
+        });
+        popup.Cancelled += () =>
+        {
+            if (ReferenceEquals(_calculator, popup)) _calculator = null;
+            tb.Focus();
+        };
+        _calculator = popup;
+        popup.Open(cell);
     }
 
     // ===== Date columns: "▾" calendar =====
@@ -449,6 +522,18 @@ public partial class TableDataGrid : UserControl
             }, System.Windows.Threading.DispatcherPriority.Background);
             return true;
         }
+        if (Grid.CurrentCell.Column is NullAwareTextColumn { IsCalculator: true, IsReadOnly: false } calcColumn
+            && Grid.CurrentCell.Item is DataRowView calcItem)
+        {
+            if (!Grid.BeginEdit()) return false;
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (calcColumn.GetCellContent(calcItem) is FrameworkElement content && content.Parent is DataGridCell cell
+                    && NullAwareTextColumn.EditorTextBox(content) is { } tb)
+                    OpenGridCalculator(calcColumn, cell, tb);
+            }, System.Windows.Threading.DispatcherPriority.Background);
+            return true;
+        }
         if (Grid.CurrentCell.Column is not ForeignKeyTextColumn fk || Grid.CurrentCell.Item is not DataRowView item) return false;
         if (!Grid.BeginEdit()) return false;
         Dispatcher.BeginInvoke(() =>
@@ -510,6 +595,65 @@ public partial class TableDataGrid : UserControl
     {
         if (Grid.SelectedItem is not null)
             Grid.ScrollIntoView(Grid.SelectedItem);
+        // Left an empty appended record: drop it (after the grid finished moving / committing).
+        Dispatcher.BeginInvoke(() => _vm?.DiscardBlankAppendedRecord(), System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    // ===== ↓ on the last row: new record =====
+
+    /// <summary>
+    /// ↓ on the last row (or in an empty grid) appends an empty record marked "*" with every field &lt;null&gt;, keeping
+    /// the column. A cell being edited is committed first (an invalid value keeps the editor open and adds nothing).
+    /// ↓ on an untouched new record does nothing.
+    /// </summary>
+    private bool TryAppendOnDown()
+    {
+        if (_vm is null || _mode != DataViewMode.Grid || !_vm.CanModify) return false;
+        var count = Grid.Items.Count;
+        var current = Grid.CurrentCell.Item is DataRowView rv ? Grid.Items.IndexOf(rv) : Grid.SelectedIndex;
+        if (count > 0 && current != count - 1) return false;
+        if (_vm.LastRowIsBlankAppended) return true; // swallow: the empty new record is already there
+        var column = Grid.CurrentCell.Column ?? Grid.Columns.FirstOrDefault(c => !c.IsReadOnly) ?? Grid.Columns.FirstOrDefault();
+        try
+        {
+            if (!Grid.CommitEdit(DataGridEditingUnit.Cell, true) || !Grid.CommitEdit(DataGridEditingUnit.Row, true)) return true;
+        }
+        catch (InvalidOperationException) { }
+        if (!_vm.AppendRecord()) return false;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_vm?.CurrentRowView is not { } item) return;
+            Grid.SelectedItem = item;
+            Grid.ScrollIntoView(item);
+            if (column is null) return;
+            Grid.CurrentCell = new DataGridCellInfo(item, column);
+            Grid.Focus();
+            if (column.GetCellContent(item)?.Parent is DataGridCell cell) cell.Focus();
+        }, System.Windows.Threading.DispatcherPriority.Background);
+        return true;
+    }
+
+    /// <summary>Row header "*" on records that are not in the database yet.</summary>
+    private void Grid_OnLoadingRow(object? sender, DataGridRowEventArgs e) =>
+        e.Row.Header = TableDataViewModel.IsNewRow(e.Row.Item as DataRowView) ? NewRecordRules.NewRowMarker : null;
+
+    private bool _rowHeadersQueued;
+
+    /// <summary>Post / Cancel / append change which rows are new: refresh the "*" of the realized rows (coalesced).</summary>
+    private void QueueRowHeaderRefresh()
+    {
+        if (_rowHeadersQueued) return;
+        _rowHeadersQueued = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            _rowHeadersQueued = false;
+            for (var i = 0; i < Grid.Items.Count; i++)
+            {
+                if (Grid.ItemContainerGenerator.ContainerFromIndex(i) is not DataGridRow row) continue;
+                var header = TableDataViewModel.IsNewRow(row.Item as DataRowView) ? NewRecordRules.NewRowMarker : null;
+                if (!Equals(row.Header, header)) row.Header = header;
+            }
+        }, System.Windows.Threading.DispatcherPriority.Background);
     }
 
     private void Grid_OnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -526,6 +670,10 @@ public partial class TableDataGrid : UserControl
             e.Handled = true;
         }
         else if (!editing && TryOpenLookupFromSelection(e))
+        {
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Down && Keyboard.Modifiers == ModifierKeys.None && TryAppendOnDown())
         {
             e.Handled = true;
         }

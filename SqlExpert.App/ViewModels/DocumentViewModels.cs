@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using SqlExpert.Core.Abstractions;
 using SqlExpert.Core.Documents;
+using SqlExpert.Core.Explorer;
 using SqlExpert.Core.Services;
 
 namespace SqlExpert.App.ViewModels;
@@ -37,6 +38,8 @@ public abstract class DocumentViewModel : INotifyPropertyChanged
     /// <summary>Short label of the Windows-bar tab (object name).</summary>
     public abstract string ShortName { get; }
     public virtual string ToolTip => Title;
+    /// <summary>Vector icon of the Windows-bar tab and title strip (same key as the object's Explorer node).</summary>
+    public abstract string IconKey { get; }
 
     public bool IsActive
     {
@@ -93,6 +96,7 @@ public sealed class TableDocumentViewModel : DocumentViewModel
 
     public override string Caption => WindowTitles.TableCaption(Schema, Table);
     public override string ShortName => Table;
+    public override string IconKey => ObjectIcons.For(Core.Models.ObjectKind.Table);
     public override string ToolTip => $"[{Schema}].[{Table}] : {Database}";
 
     public ObservableCollection<FieldRow> SampleColumns { get; } = new();

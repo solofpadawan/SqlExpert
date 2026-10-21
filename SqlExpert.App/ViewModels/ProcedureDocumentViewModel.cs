@@ -171,6 +171,7 @@ public sealed class ProcedureDocumentViewModel : DocumentViewModel
 
     public override string Caption => WindowTitles.ProcedureCaption(Schema, ObjectName);
     public override string Title => $"{Caption}{(IsModified ? " *" : "")} : {Database}";
+    public override string IconKey => SqlExpert.Core.Explorer.ObjectIcons.For(SqlExpert.Core.Models.ObjectKind.Procedure);
     public override string ShortName => ObjectName + (IsModified ? " *" : "");
     public override string ToolTip => $"[{Schema}].[{ObjectName}] : {_connectionLabel} : {Database}";
 

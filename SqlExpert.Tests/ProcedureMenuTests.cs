@@ -203,7 +203,7 @@ public class ProcedureMenuTests
         foreach (var sub in new[] { "Input Parameters", "Output Parameters", "Variables", "Cursors" })
             Assert.Contains($"<TabItem Header=\"{sub}\">", xaml);
         // Print is visible but bound to the always-disabled command.
-        Assert.Matches("Content=\"🖨\"[^>]*Command=\"\\{Binding DisabledCommand\\}\"", xaml);
+        Assert.Matches("ToolTip=\"Print[^\"]*\" Command=\"\\{Binding DisabledCommand\\}\"><views:IconImage Icon=\"\\{StaticResource Icon.Print\\}\"", xaml);
     }
 
     [Fact]

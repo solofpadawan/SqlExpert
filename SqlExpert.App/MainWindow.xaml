@@ -15,24 +15,6 @@
     <SolidColorBrush x:Key="PanelHeaderBg" Color="#D6DBE9"/>
     <SolidColorBrush x:Key="PanelHeaderBorder" Color="#A0A8B8"/>
 
-    <!-- Small original database icon (cylinder), drawn in XAML. Green when connected. -->
-    <ControlTemplate x:Key="DbIconTemplate" TargetType="ContentControl">
-      <Viewbox Width="16" Height="16">
-        <Canvas Width="16" Height="16">
-          <Path x:Name="Body" Fill="#E3B341" Stroke="#7A5A10" StrokeThickness="0.8"
-                Data="M2.5,4 L2.5,12.5 A5.5,2 0 0 0 13.5,12.5 L13.5,4 Z"/>
-          <Path Stroke="#7A5A10" StrokeThickness="0.6" Data="M2.5,8.2 A5.5,2 0 0 0 13.5,8.2"/>
-          <Ellipse x:Name="Top" Canvas.Left="2.5" Canvas.Top="2" Width="11" Height="4"
-                   Fill="#F8DC80" Stroke="#7A5A10" StrokeThickness="0.8"/>
-        </Canvas>
-      </Viewbox>
-      <ControlTemplate.Triggers>
-        <DataTrigger Binding="{Binding IsActive}" Value="True">
-          <Setter TargetName="Body" Property="Fill" Value="#5DB548"/>
-          <Setter TargetName="Top" Property="Fill" Value="#A6E08F"/>
-        </DataTrigger>
-      </ControlTemplate.Triggers>
-    </ControlTemplate>
 
     <Style x:Key="PanelCloseButton" TargetType="Button">
       <Setter Property="Width" Value="18"/>
@@ -59,7 +41,8 @@
               <Button DockPanel.Dock="Right" Content="✕" ToolTip="Fechar (Ctrl+F4)"
                       Style="{StaticResource PanelCloseButton}"
                       Command="{Binding Shell.CloseDocumentCommand}" CommandParameter="{Binding}"/>
-              <TextBlock Margin="8,3" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Title}"/>
+              <views:IconImage DockPanel.Dock="Left" Margin="6,0,0,0" VerticalAlignment="Center" Icon="{Binding IconKey, Mode=OneWay, Converter={StaticResource IconKeyToImage}}"/>
+              <TextBlock Margin="6,3" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Title}"/>
             </DockPanel>
           </Border>
             <TabControl Margin="4" SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
@@ -250,7 +233,8 @@
               <Button DockPanel.Dock="Right" Content="✕" ToolTip="Fechar (Ctrl+F4)"
                       Style="{StaticResource PanelCloseButton}"
                       Command="{Binding Shell.CloseDocumentCommand}" CommandParameter="{Binding}"/>
-              <TextBlock Margin="8,3" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Title, Mode=OneWay}"/>
+              <views:IconImage DockPanel.Dock="Left" Margin="6,0,0,0" VerticalAlignment="Center" Icon="{Binding IconKey, Mode=OneWay, Converter={StaticResource IconKeyToImage}}"/>
+              <TextBlock Margin="6,3" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Title, Mode=OneWay}"/>
             </DockPanel>
           </Border>
           <views:SqlEditorView/>
@@ -271,7 +255,8 @@
               <Button DockPanel.Dock="Right" Content="✕" ToolTip="Fechar (Ctrl+F4)"
                       Style="{StaticResource PanelCloseButton}"
                       Command="{Binding Shell.CloseDocumentCommand}" CommandParameter="{Binding}"/>
-              <TextBlock Margin="8,3" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Title, Mode=OneWay}"/>
+              <views:IconImage DockPanel.Dock="Left" Margin="6,0,0,0" VerticalAlignment="Center" Icon="{Binding IconKey, Mode=OneWay, Converter={StaticResource IconKeyToImage}}"/>
+              <TextBlock Margin="6,3" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Title, Mode=OneWay}"/>
             </DockPanel>
           </Border>
           <views:ProcedureEditorView/>
@@ -330,14 +315,14 @@
     <Menu DockPanel.Dock="Top">
       <!-- Database -->
       <MenuItem Header="_Database">
-        <MenuItem Header="Database Registration Info..." Command="{Binding Stub}" CommandParameter="Database Registration Info..."/>
+        <MenuItem Header="Database Registration Info..." Command="{Binding Stub}" CommandParameter="Database Registration Info..."><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.DatabaseRegistrationInfo}"/></MenuItem.Icon></MenuItem>
         <Separator/>
-        <MenuItem Header="Register Database" InputGestureText="Shift+Alt+R" Command="{Binding Stub}" CommandParameter="Register Database"/>
-        <MenuItem Header="Unregister Database" InputGestureText="Shift+Alt+U" Command="{Binding Stub}" CommandParameter="Unregister Database"/>
+        <MenuItem Header="Register Database" InputGestureText="Shift+Alt+R" Command="{Binding Stub}" CommandParameter="Register Database"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.RegisterDatabase}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="Unregister Database" InputGestureText="Shift+Alt+U" Command="{Binding Stub}" CommandParameter="Unregister Database"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.UnregisterDatabase}"/></MenuItem.Icon></MenuItem>
         <Separator/>
-        <MenuItem Header="Connect to Database" InputGestureText="Shift+Ctrl+C" Command="{Binding Stub}" CommandParameter="Connect to Database"/>
-        <MenuItem Header="Reconnect" Command="{Binding StubRequiresConnection}" CommandParameter="Reconnect"/>
-        <MenuItem Header="Disconnect from Database" Command="{Binding StubRequiresConnection}" CommandParameter="Disconnect from Database"/>
+        <MenuItem Header="Connect to Database" InputGestureText="Shift+Ctrl+C" Command="{Binding Stub}" CommandParameter="Connect to Database"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.ConnectDatabase}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="Reconnect" Command="{Binding StubRequiresConnection}" CommandParameter="Reconnect"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.ReconnectDatabase}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="Disconnect from Database" Command="{Binding StubRequiresConnection}" CommandParameter="Disconnect from Database"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.DisconnectDatabase}"/></MenuItem.Icon></MenuItem>
         <Separator/>
         <MenuItem Header="Create Database..." Command="{Binding Stub}" CommandParameter="Create Database..."/>
         <MenuItem Header="Drop Database" Command="{Binding StubRequiresConnection}" CommandParameter="Drop Database"/>
@@ -353,44 +338,44 @@
                   ToolTip="SQL Server: sp_refreshsqlmodule em cada trigger (DML e DDL de database)"
                   Command="{Binding StubRequiresConnection}" CommandParameter="Recompile All Triggers"/>
         <Separator/>
-        <MenuItem Header="New Domain" ToolTip="SQL Server: User-Defined Type (CREATE TYPE)" Command="{Binding StubRequiresConnection}" CommandParameter="New Domain"/>
-        <MenuItem Header="New Table" Command="{Binding StubRequiresConnection}" CommandParameter="New Table"/>
-        <MenuItem Header="New View" Command="{Binding StubRequiresConnection}" CommandParameter="New View"/>
-        <MenuItem Header="New Procedure" Command="{Binding StubRequiresConnection}" CommandParameter="New Procedure"/>
-        <MenuItem Header="New Trigger" Command="{Binding StubRequiresConnection}" CommandParameter="New Trigger"/>
-        <MenuItem Header="New Generator" ToolTip="SQL Server: SEQUENCE" Command="{Binding StubRequiresConnection}" CommandParameter="New Generator"/>
-        <MenuItem Header="New Exception" ToolTip="SQL Server: sp_addmessage / THROW" Command="{Binding StubRequiresConnection}" CommandParameter="New Exception"/>
-        <MenuItem Header="New UDF" ToolTip="SQL Server: Function (scalar/TVF)" Command="{Binding StubRequiresConnection}" CommandParameter="New UDF"/>
-        <MenuItem Header="New Role" Command="{Binding StubRequiresConnection}" CommandParameter="New Role"/>
+        <MenuItem Header="New Domain" ToolTip="SQL Server: User-Defined Type (CREATE TYPE)" Command="{Binding StubRequiresConnection}" CommandParameter="New Domain"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.NewUserDefinedType}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="New Table" Command="{Binding StubRequiresConnection}" CommandParameter="New Table"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.NewTable}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="New View" Command="{Binding StubRequiresConnection}" CommandParameter="New View"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.NewView}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="New Procedure" Command="{Binding StubRequiresConnection}" CommandParameter="New Procedure"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.NewProcedure}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="New Trigger" Command="{Binding StubRequiresConnection}" CommandParameter="New Trigger"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.NewTrigger}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="New Generator" ToolTip="SQL Server: SEQUENCE" Command="{Binding StubRequiresConnection}" CommandParameter="New Generator"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.NewSequence}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="New Exception" ToolTip="SQL Server: sp_addmessage / THROW" Command="{Binding StubRequiresConnection}" CommandParameter="New Exception"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.NewCustomMessage}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="New UDF" ToolTip="SQL Server: Function (scalar/TVF)" Command="{Binding StubRequiresConnection}" CommandParameter="New UDF"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.NewFunction}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="New Role" Command="{Binding StubRequiresConnection}" CommandParameter="New Role"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.NewRole}"/></MenuItem.Icon></MenuItem>
         <Separator/>
-        <MenuItem Header="Exit" InputGestureText="Alt+F4" Command="{Binding ExitCommand}"/>
+        <MenuItem Header="Exit" InputGestureText="Alt+F4" Command="{Binding ExitCommand}"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.Exit}"/></MenuItem.Icon></MenuItem>
       </MenuItem>
 
       <!-- Edit -->
       <MenuItem Header="_Edit">
-        <MenuItem Header="Load from File" InputGestureText="Ctrl+O" Command="{Binding Stub}" CommandParameter="Load from File">
+        <MenuItem Header="Load from File" InputGestureText="Ctrl+O" Command="{Binding Stub}" CommandParameter="Load from File"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.LoadFromFile}"/></MenuItem.Icon>
           <MenuItem Header="SQL Script..." Command="{Binding Stub}" CommandParameter="Load from File: SQL Script"/>
           <MenuItem Header="Text..." Command="{Binding Stub}" CommandParameter="Load from File: Text"/>
         </MenuItem>
-        <MenuItem Header="Save to File" InputGestureText="Ctrl+S" Command="{Binding Stub}" CommandParameter="Save to File">
+        <MenuItem Header="Save to File" InputGestureText="Ctrl+S" Command="{Binding Stub}" CommandParameter="Save to File"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.SaveToFile}"/></MenuItem.Icon>
           <MenuItem Header="SQL Script..." Command="{Binding Stub}" CommandParameter="Save to File: SQL Script"/>
           <MenuItem Header="Text..." Command="{Binding Stub}" CommandParameter="Save to File: Text"/>
         </MenuItem>
-        <MenuItem Header="Save as..." Command="{Binding Stub}" CommandParameter="Save as..."/>
+        <MenuItem Header="Save as..." Command="{Binding Stub}" CommandParameter="Save as..."><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.SaveAs}"/></MenuItem.Icon></MenuItem>
         <Separator/>
-        <MenuItem Header="Cut" InputGestureText="Ctrl+X" Command="ApplicationCommands.Cut"/>
-        <MenuItem Header="Copy" InputGestureText="Ctrl+C" Command="ApplicationCommands.Copy"/>
-        <MenuItem Header="Paste" InputGestureText="Ctrl+V" Command="ApplicationCommands.Paste"/>
+        <MenuItem Header="Cut" InputGestureText="Ctrl+X" Command="ApplicationCommands.Cut"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.Cut}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="Copy" InputGestureText="Ctrl+C" Command="ApplicationCommands.Copy"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.Copy}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="Paste" InputGestureText="Ctrl+V" Command="ApplicationCommands.Paste"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.Paste}"/></MenuItem.Icon></MenuItem>
         <MenuItem Header="Select All" InputGestureText="Ctrl+A" Command="ApplicationCommands.SelectAll"/>
         <Separator/>
-        <MenuItem Header="Find" InputGestureText="Ctrl+F" Command="{Binding Stub}" CommandParameter="Find"/>
-        <MenuItem Header="Search Again" InputGestureText="F3" Command="{Binding Stub}" CommandParameter="Search Again"/>
-        <MenuItem Header="Replace" InputGestureText="Ctrl+R / Ctrl+H" Command="{Binding Stub}" CommandParameter="Replace"/>
+        <MenuItem Header="Find" InputGestureText="Ctrl+F" Command="{Binding Stub}" CommandParameter="Find"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.Find}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="Search Again" InputGestureText="F3" Command="{Binding Stub}" CommandParameter="Search Again"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.SearchAgain}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="Replace" InputGestureText="Ctrl+R / Ctrl+H" Command="{Binding Stub}" CommandParameter="Replace"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.Replace}"/></MenuItem.Icon></MenuItem>
         <MenuItem Header="Incremental Search" Command="{Binding Stub}" CommandParameter="Incremental Search"/>
         <MenuItem Header="Go to..." InputGestureText="Ctrl+G" Command="{Binding Stub}" CommandParameter="Go to..."/>
         <Separator/>
         <MenuItem Header="Print preview" Command="{Binding Stub}" CommandParameter="Print preview"/>
-        <MenuItem Header="Print" Command="{Binding Stub}" CommandParameter="Print"/>
+        <MenuItem Header="Print" Command="{Binding Stub}" CommandParameter="Print"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.Print}"/></MenuItem.Icon></MenuItem>
         <MenuItem Header="Page setup" Command="{Binding Stub}" CommandParameter="Page setup"/>
       </MenuItem>
 
@@ -434,16 +419,16 @@
 
       <!-- Tools -->
       <MenuItem Header="_Tools">
-        <MenuItem Header="SQL Editor" InputGestureText="F12" Command="{Binding Stub}" CommandParameter="SQL Editor"/>
-        <MenuItem Header="New SQL Editor" InputGestureText="Shift+F12" Command="{Binding Stub}" CommandParameter="New SQL Editor"/>
-        <MenuItem Header="Query builder" Command="{Binding StubRequiresConnection}" CommandParameter="Query builder"/>
+        <MenuItem Header="SQL Editor" InputGestureText="F12" Command="{Binding Stub}" CommandParameter="SQL Editor"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.SqlEditor}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="New SQL Editor" InputGestureText="Shift+F12" Command="{Binding Stub}" CommandParameter="New SQL Editor"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.NewSqlEditor}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="Query builder" Command="{Binding StubRequiresConnection}" CommandParameter="Query builder"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.QueryBuilder}"/></MenuItem.Icon></MenuItem>
         <Separator/>
         <MenuItem Header="Data Analysis / OLAP" Command="{Binding StubRequiresConnection}" CommandParameter="Data Analysis / OLAP"/>
         <Separator/>
-        <MenuItem Header="Script Executive" InputGestureText="Ctrl+F12" Command="{Binding StubRequiresConnection}" CommandParameter="Script Executive"/>
+        <MenuItem Header="Script Executive" InputGestureText="Ctrl+F12" Command="{Binding StubRequiresConnection}" CommandParameter="Script Executive"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.ScriptExecutive}"/></MenuItem.Icon></MenuItem>
         <MenuItem Header="Copy database object" Command="{Binding StubRequiresConnection}" CommandParameter="Copy database object"/>
         <Separator/>
-        <MenuItem Header="SQL Monitor" InputGestureText="Ctrl+M" ToolTip="SQL Server: Extended Events / Profiler-like" Command="{Binding StubRequiresConnection}" CommandParameter="SQL Monitor"/>
+        <MenuItem Header="SQL Monitor" InputGestureText="Ctrl+M" ToolTip="SQL Server: Extended Events / Profiler-like" Command="{Binding StubRequiresConnection}" CommandParameter="SQL Monitor"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.SqlMonitor}"/></MenuItem.Icon></MenuItem>
         <MenuItem Header="Dependencies Viewer" Command="{Binding StubRequiresConnection}" CommandParameter="Dependencies Viewer"/>
         <MenuItem Header="SP/Triggers/Views Analyzer" Command="{Binding StubRequiresConnection}" CommandParameter="SP/Triggers/Views Analyzer"/>
         <MenuItem Header="Database Comparer" Command="{Binding StubRequiresConnection}" CommandParameter="Database Comparer"/>
@@ -453,12 +438,12 @@
         <MenuItem Header="Import data" Command="{Binding StubRequiresConnection}" CommandParameter="Import data"/>
         <Separator/>
         <MenuItem Header="Search in Metadata" InputGestureText="Shift+Alt+F" Command="{Binding StubRequiresConnection}" CommandParameter="Search in Metadata"/>
-        <MenuItem Header="Extract Metadata" Command="{Binding StubRequiresConnection}" CommandParameter="Extract Metadata"/>
-        <MenuItem Header="Print Metadata" Command="{Binding StubRequiresConnection}" CommandParameter="Print Metadata"/>
+        <MenuItem Header="Extract Metadata" Command="{Binding StubRequiresConnection}" CommandParameter="Extract Metadata"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.ExtractMetadata}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="Print Metadata" Command="{Binding StubRequiresConnection}" CommandParameter="Print Metadata"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.PrintMetadata}"/></MenuItem.Icon></MenuItem>
         <MenuItem Header="Generate HTML Documentation" Command="{Binding StubRequiresConnection}" CommandParameter="Generate HTML Documentation"/>
         <Separator/>
-        <MenuItem Header="User Manager" ToolTip="SQL Server: logins / database users" Command="{Binding StubRequiresConnection}" CommandParameter="User Manager"/>
-        <MenuItem Header="Grant Manager" ToolTip="SQL Server: roles / GRANT / DENY" Command="{Binding StubRequiresConnection}" CommandParameter="Grant Manager"/>
+        <MenuItem Header="User Manager" ToolTip="SQL Server: logins / database users" Command="{Binding StubRequiresConnection}" CommandParameter="User Manager"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.UserManager}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="Grant Manager" ToolTip="SQL Server: roles / GRANT / DENY" Command="{Binding StubRequiresConnection}" CommandParameter="Grant Manager"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.GrantManager}"/></MenuItem.Icon></MenuItem>
         <MenuItem Header="Secondary Files Manager" ToolTip="SQL Server: database files / filegroups" Command="{Binding StubRequiresConnection}" CommandParameter="Secondary Files Manager"/>
         <Separator/>
         <MenuItem Header="To-do list" Command="{Binding Stub}" CommandParameter="To-do list"/>
@@ -466,8 +451,8 @@
         <MenuItem Header="Localize SQL Server Messages" Command="{Binding Stub}" CommandParameter="Localize SQL Server Messages"/>
         <MenuItem Header="Localize SqlExpert" Command="{Binding Stub}" CommandParameter="Localize SqlExpert"/>
         <Separator/>
-        <MenuItem Header="Report Manager" Command="{Binding Stub}" CommandParameter="Report Manager"/>
-        <MenuItem Header="Blob Viewer/Editor" IsEnabled="False" Command="{Binding Stub}" CommandParameter="Blob Viewer/Editor"/>
+        <MenuItem Header="Report Manager" Command="{Binding Stub}" CommandParameter="Report Manager"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.ReportManager}"/></MenuItem.Icon></MenuItem>
+        <MenuItem Header="Blob Viewer/Editor" IsEnabled="False" Command="{Binding Stub}" CommandParameter="Blob Viewer/Editor"><MenuItem.Icon><views:IconImage Icon="{StaticResource Icon.BlobViewer}"/></MenuItem.Icon></MenuItem>
         <Separator/>
         <MenuItem Header="Database designer" Command="{Binding StubRequiresConnection}" CommandParameter="Database designer"/>
         <MenuItem Header="Test data generator" Command="{Binding StubRequiresConnection}" CommandParameter="Test data generator"/>
@@ -545,57 +530,57 @@
     <!-- ===== TOOLBAR (classic-style groups) ===== -->
     <ToolBarTray DockPanel.Dock="Top" Background="{StaticResource ToolbarBg}">
       <ToolBar Band="0" BandIndex="0" ToolTip="Database">
-        <Button Content="＋DB" ToolTip="Register Database" Command="{Binding Stub}" CommandParameter="Register Database"/>
-        <Button Content="－DB" ToolTip="Unregister Database" Command="{Binding Stub}" CommandParameter="Unregister Database"/>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Register Database" Command="{Binding Stub}" CommandParameter="Register Database"><views:IconImage Icon="{StaticResource Icon.RegisterDatabase}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Unregister Database" Command="{Binding Stub}" CommandParameter="Unregister Database"><views:IconImage Icon="{StaticResource Icon.UnregisterDatabase}"/></Button>
         <Separator/>
-        <Button Content="⚡" ToolTip="Connect to Database" Command="{Binding Stub}" CommandParameter="Connect to Database"/>
-        <Button Content="⏏" ToolTip="Disconnect from Database" Command="{Binding StubRequiresConnection}" CommandParameter="Disconnect from Database"/>
-        <Button Content="↻" ToolTip="Reconnect" Command="{Binding StubRequiresConnection}" CommandParameter="Reconnect"/>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Connect to Database" Command="{Binding Stub}" CommandParameter="Connect to Database"><views:IconImage Icon="{StaticResource Icon.ConnectDatabase}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Disconnect from Database" Command="{Binding StubRequiresConnection}" CommandParameter="Disconnect from Database"><views:IconImage Icon="{StaticResource Icon.DisconnectDatabase}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Reconnect" Command="{Binding StubRequiresConnection}" CommandParameter="Reconnect"><views:IconImage Icon="{StaticResource Icon.ReconnectDatabase}"/></Button>
         <Separator/>
-        <Button Content="ℹ" ToolTip="Database Registration Info..." Command="{Binding Stub}" CommandParameter="Database Registration Info..."/>
-        <Button Content="🚪" ToolTip="Exit" Command="{Binding ExitCommand}"/>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Database Registration Info..." Command="{Binding Stub}" CommandParameter="Database Registration Info..."><views:IconImage Icon="{StaticResource Icon.DatabaseRegistrationInfo}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Exit" Command="{Binding ExitCommand}"><views:IconImage Icon="{StaticResource Icon.Exit}"/></Button>
       </ToolBar>
       <ToolBar Band="0" BandIndex="1" ToolTip="SQL / Scripts">
-        <Button Content="SQL" ToolTip="SQL Editor" Command="{Binding Stub}" CommandParameter="SQL Editor"/>
-        <Button Content="SQL+" ToolTip="New SQL Editor" Command="{Binding Stub}" CommandParameter="New SQL Editor"/>
-        <Button Content="QB" ToolTip="Query builder" Command="{Binding StubRequiresConnection}" CommandParameter="Query builder"/>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="SQL Editor" Command="{Binding Stub}" CommandParameter="SQL Editor"><views:IconImage Icon="{StaticResource Icon.SqlEditor}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="New SQL Editor" Command="{Binding Stub}" CommandParameter="New SQL Editor"><views:IconImage Icon="{StaticResource Icon.NewSqlEditor}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Query builder" Command="{Binding StubRequiresConnection}" CommandParameter="Query builder"><views:IconImage Icon="{StaticResource Icon.QueryBuilder}"/></Button>
         <Separator/>
-        <Button Content="Scr" ToolTip="Script Executive" Command="{Binding StubRequiresConnection}" CommandParameter="Script Executive"/>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Script Executive" Command="{Binding StubRequiresConnection}" CommandParameter="Script Executive"><views:IconImage Icon="{StaticResource Icon.ScriptExecutive}"/></Button>
         <Separator/>
-        <Button Content="Mon" ToolTip="SQL Monitor" Command="{Binding StubRequiresConnection}" CommandParameter="SQL Monitor"/>
-        <Button Content="Ext" ToolTip="Extract Metadata" Command="{Binding StubRequiresConnection}" CommandParameter="Extract Metadata"/>
-        <Button Content="Prn" ToolTip="Print Metadata" Command="{Binding StubRequiresConnection}" CommandParameter="Print Metadata"/>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="SQL Monitor" Command="{Binding StubRequiresConnection}" CommandParameter="SQL Monitor"><views:IconImage Icon="{StaticResource Icon.SqlMonitor}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Extract Metadata" Command="{Binding StubRequiresConnection}" CommandParameter="Extract Metadata"><views:IconImage Icon="{StaticResource Icon.ExtractMetadata}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Print Metadata" Command="{Binding StubRequiresConnection}" CommandParameter="Print Metadata"><views:IconImage Icon="{StaticResource Icon.PrintMetadata}"/></Button>
       </ToolBar>
       <ToolBar Band="0" BandIndex="2" ToolTip="Security">
-        <Button Content="Usr" ToolTip="User Manager" Command="{Binding StubRequiresConnection}" CommandParameter="User Manager"/>
-        <Button Content="Grnt" ToolTip="Grant Manager" Command="{Binding StubRequiresConnection}" CommandParameter="Grant Manager"/>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="User Manager" Command="{Binding StubRequiresConnection}" CommandParameter="User Manager"><views:IconImage Icon="{StaticResource Icon.UserManager}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Grant Manager" Command="{Binding StubRequiresConnection}" CommandParameter="Grant Manager"><views:IconImage Icon="{StaticResource Icon.GrantManager}"/></Button>
         <Separator/>
-        <Button Content="Rpt" ToolTip="Report Manager" Command="{Binding Stub}" CommandParameter="Report Manager"/>
-        <Button Content="Blob" ToolTip="Blob Viewer/Editor" IsEnabled="False"/>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Report Manager" Command="{Binding Stub}" CommandParameter="Report Manager"><views:IconImage Icon="{StaticResource Icon.ReportManager}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Blob Viewer/Editor" IsEnabled="False"><views:IconImage Icon="{StaticResource Icon.BlobViewer}"/></Button>
       </ToolBar>
       <ToolBar Band="0" BandIndex="3" ToolTip="Edit">
-        <Button Content="📂" ToolTip="Load from File" Command="{Binding Stub}" CommandParameter="Load from File"/>
-        <Button Content="💾" ToolTip="Save to File" Command="{Binding Stub}" CommandParameter="Save to File"/>
-        <Button Content="Save" ToolTip="Save" Command="{Binding Stub}" CommandParameter="Save to File"/>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Load from File" Command="{Binding Stub}" CommandParameter="Load from File"><views:IconImage Icon="{StaticResource Icon.LoadFromFile}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Save to File" Command="{Binding Stub}" CommandParameter="Save to File"><views:IconImage Icon="{StaticResource Icon.SaveToFile}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Save as..." Command="{Binding Stub}" CommandParameter="Save as..."><views:IconImage Icon="{StaticResource Icon.SaveAs}"/></Button>
         <Separator/>
-        <Button Content="✂" ToolTip="Cut" Command="ApplicationCommands.Cut"/>
-        <Button Content="📋" ToolTip="Copy" Command="ApplicationCommands.Copy"/>
-        <Button Content="📄" ToolTip="Paste" Command="ApplicationCommands.Paste"/>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Cut" Command="ApplicationCommands.Cut"><views:IconImage Icon="{StaticResource Icon.Cut}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Copy" Command="ApplicationCommands.Copy"><views:IconImage Icon="{StaticResource Icon.Copy}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Paste" Command="ApplicationCommands.Paste"><views:IconImage Icon="{StaticResource Icon.Paste}"/></Button>
         <Separator/>
-        <Button Content="🔍" ToolTip="Find" Command="{Binding Stub}" CommandParameter="Find"/>
-        <Button Content="F3" ToolTip="Search Again" Command="{Binding Stub}" CommandParameter="Search Again"/>
-        <Button Content="↔" ToolTip="Replace" Command="{Binding Stub}" CommandParameter="Replace"/>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Find" Command="{Binding Stub}" CommandParameter="Find"><views:IconImage Icon="{StaticResource Icon.Find}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Search Again" Command="{Binding Stub}" CommandParameter="Search Again"><views:IconImage Icon="{StaticResource Icon.SearchAgain}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="Replace" Command="{Binding Stub}" CommandParameter="Replace"><views:IconImage Icon="{StaticResource Icon.Replace}"/></Button>
       </ToolBar>
       <ToolBar Band="0" BandIndex="4" ToolTip="New objects">
-        <Button Content="Dom" ToolTip="New Domain (UDT)" Command="{Binding StubRequiresConnection}" CommandParameter="New Domain"/>
-        <Button Content="Tbl" ToolTip="New Table" Command="{Binding StubRequiresConnection}" CommandParameter="New Table"/>
-        <Button Content="Vw" ToolTip="New View" Command="{Binding StubRequiresConnection}" CommandParameter="New View"/>
-        <Button Content="Proc" ToolTip="New Procedure" Command="{Binding StubRequiresConnection}" CommandParameter="New Procedure"/>
-        <Button Content="Trg" ToolTip="New Trigger" Command="{Binding StubRequiresConnection}" CommandParameter="New Trigger"/>
-        <Button Content="Gen" ToolTip="New Generator (Sequence)" Command="{Binding StubRequiresConnection}" CommandParameter="New Generator"/>
-        <Button Content="Exc" ToolTip="New Exception" Command="{Binding StubRequiresConnection}" CommandParameter="New Exception"/>
-        <Button Content="UDF" ToolTip="New UDF (Function)" Command="{Binding StubRequiresConnection}" CommandParameter="New UDF"/>
-        <Button Content="Role" ToolTip="New Role" Command="{Binding StubRequiresConnection}" CommandParameter="New Role"/>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="New Domain (UDT)" Command="{Binding StubRequiresConnection}" CommandParameter="New Domain"><views:IconImage Icon="{StaticResource Icon.NewUserDefinedType}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="New Table" Command="{Binding StubRequiresConnection}" CommandParameter="New Table"><views:IconImage Icon="{StaticResource Icon.NewTable}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="New View" Command="{Binding StubRequiresConnection}" CommandParameter="New View"><views:IconImage Icon="{StaticResource Icon.NewView}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="New Procedure" Command="{Binding StubRequiresConnection}" CommandParameter="New Procedure"><views:IconImage Icon="{StaticResource Icon.NewProcedure}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="New Trigger" Command="{Binding StubRequiresConnection}" CommandParameter="New Trigger"><views:IconImage Icon="{StaticResource Icon.NewTrigger}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="New Generator (Sequence)" Command="{Binding StubRequiresConnection}" CommandParameter="New Generator"><views:IconImage Icon="{StaticResource Icon.NewSequence}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="New Exception" Command="{Binding StubRequiresConnection}" CommandParameter="New Exception"><views:IconImage Icon="{StaticResource Icon.NewCustomMessage}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="New UDF (Function)" Command="{Binding StubRequiresConnection}" CommandParameter="New UDF"><views:IconImage Icon="{StaticResource Icon.NewFunction}"/></Button>
+        <Button Style="{StaticResource IconToolButton}" ToolTip="New Role" Command="{Binding StubRequiresConnection}" CommandParameter="New Role"><views:IconImage Icon="{StaticResource Icon.NewRole}"/></Button>
       </ToolBar>
     </ToolBarTray>
 
@@ -633,7 +618,11 @@
             <Button Style="{StaticResource WindowsBarTab}" ToolTip="{Binding ToolTip}"
                     Command="{Binding Shell.ActivateDocumentCommand}" CommandParameter="{Binding}"
                     MouseUp="WindowsBarTab_OnMouseUp">
-              <TextBlock Text="{Binding ShortName}" TextTrimming="CharacterEllipsis"/>
+              <StackPanel Orientation="Horizontal">
+                <views:IconImage Margin="0,0,4,0" VerticalAlignment="Center"
+                                 Icon="{Binding IconKey, Mode=OneWay, Converter={StaticResource IconKeyToImage}}"/>
+                <TextBlock Text="{Binding ShortName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+              </StackPanel>
               <Button.ContextMenu>
                 <ContextMenu>
                   <MenuItem Header="Close" InputGestureText="Ctrl+F4"
@@ -728,8 +717,9 @@
                       <Border Width="4" Height="14" Margin="0,0,3,0" VerticalAlignment="Center"
                               Background="{Binding ColorMark, Converter={StaticResource ColorMarkBrush}}"
                               Visibility="{Binding ColorMark, Converter={StaticResource ColorMarkVisibility}}"/>
-                      <ContentControl x:Name="DbIcon" Width="16" Height="16" Margin="0,0,4,0" Focusable="False"
-                                      Visibility="Collapsed" Template="{StaticResource DbIconTemplate}"/>
+                      <!-- Vector icon of the node type (Themes/Icons.xaml): folder and objects share it -->
+                      <views:IconImage x:Name="NodeIcon" Margin="0,0,4,0" VerticalAlignment="Center"
+                                       Icon="{Binding IconKey, Mode=OneWay, Converter={StaticResource IconKeyToImage}}"/>
                       <!-- Name with the filter match in bold (prefix / match / suffix runs; no whitespace between runs) -->
                       <TextBlock x:Name="NodeLabel" VerticalAlignment="Center"><Run Text="{Binding NamePrefix, Mode=OneWay}"/><Run Text="{Binding NameMatch, Mode=OneWay}" FontWeight="Bold"/><Run Text="{Binding NameSuffix, Mode=OneWay}"/></TextBlock>
                       <!-- Object count " (505)" in blue; selection foreground on the focused highlight -->
@@ -753,11 +743,8 @@
                                  MaxWidth="400" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                     <HierarchicalDataTemplate.Triggers>
-                      <DataTrigger Binding="{Binding NodeKind}" Value="Profile">
-                        <Setter TargetName="DbIcon" Property="Visibility" Value="Visible"/>
-                      </DataTrigger>
-                      <DataTrigger Binding="{Binding NodeKind}" Value="Database">
-                        <Setter TargetName="DbIcon" Property="Visibility" Value="Visible"/>
+                      <DataTrigger Binding="{Binding IconKey}" Value="{x:Null}">
+                        <Setter TargetName="NodeIcon" Property="Visibility" Value="Collapsed"/>
                       </DataTrigger>
                       <DataTrigger Binding="{Binding IsActive}" Value="True">
                         <Setter TargetName="NodeLabel" Property="FontWeight" Value="Bold"/>

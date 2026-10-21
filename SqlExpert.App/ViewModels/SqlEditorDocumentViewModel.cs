@@ -138,6 +138,7 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
 
     public override string Caption => WindowTitles.SqlEditorCaption(Number, FileName);
     public override string Title => $"{Caption}{(IsModified ? " *" : "")} : {_connectionLabel} : {CurrentDatabase}";
+    public override string IconKey => SqlExpert.Core.Explorer.ObjectIcons.SqlEditor;
     public override string ShortName => (Number <= 1 ? "SQL Editor" : $"SQL Editor {Number}") + (IsModified ? " *" : "");
     public override string ToolTip => (_filePath is null ? "" : _filePath + "\n") + $"{_connectionLabel} : {CurrentDatabase}";
     public override string CurrentDatabase => _session.CurrentDatabase ?? Database;

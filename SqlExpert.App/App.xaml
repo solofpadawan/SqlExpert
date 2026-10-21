@@ -8,11 +8,19 @@
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="Resources/CommandMenuTemplates.xaml"/>
         <ResourceDictionary Source="Resources/Branding.xaml"/>
+        <ResourceDictionary Source="Themes/Icons.xaml"/>
       </ResourceDictionary.MergedDictionaries>
     <SolidColorBrush x:Key="ExplorerBg" Color="#F0F0F0"/>
     <views:ColorMarkBrushConverter x:Key="ColorMarkBrush"/>
     <views:ColorMarkVisibilityConverter x:Key="ColorMarkVisibility"/>
     <SolidColorBrush x:Key="ToolbarBg" Color="#E8E8E8"/>
+    <views:IconKeyConverter x:Key="IconKeyToImage"/>
+    <!-- Toolbar button that shows one vector icon (views:IconImage); the old caption is the tooltip. -->
+    <Style x:Key="IconToolButton" TargetType="Button" BasedOn="{StaticResource {x:Static ToolBar.ButtonStyleKey}}">
+      <Setter Property="Padding" Value="3"/>
+      <Setter Property="Margin" Value="1,0"/>
+      <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+    </Style>
     <Style TargetType="MenuItem">
       <Setter Property="Padding" Value="6,3"/>
     </Style>

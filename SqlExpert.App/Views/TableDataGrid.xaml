@@ -1,6 +1,7 @@
 <UserControl x:Class="SqlExpert.App.Views.TableDataGrid"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:SqlExpert.App.Views"
              xmlns:svc="clr-namespace:SqlExpert.App.Services">
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVisLocal"/>
@@ -49,18 +50,18 @@
     <!-- Navigator -->
     <ToolBarTray DockPanel.Dock="Top" IsLocked="True">
       <ToolBar ToolBarTray.IsLocked="True">
-        <Button Style="{StaticResource NavButton}" Content="|◀" ToolTip="First" Command="{Binding FirstCommand}"/>
-        <Button Style="{StaticResource NavButton}" Content="◀" ToolTip="Prior" Command="{Binding PriorCommand}"/>
-        <Button Style="{StaticResource NavButton}" Content="▶" ToolTip="Next" Command="{Binding NextCommand}"/>
-        <Button Style="{StaticResource NavButton}" Content="▶|" ToolTip="Last" Command="{Binding LastCommand}"/>
+        <Button Style="{StaticResource NavButton}" ToolTip="First" Command="{Binding FirstCommand}"><views:IconImage Icon="{StaticResource Icon.First}"/></Button>
+        <Button Style="{StaticResource NavButton}" ToolTip="Prior" Command="{Binding PriorCommand}"><views:IconImage Icon="{StaticResource Icon.Prior}"/></Button>
+        <Button Style="{StaticResource NavButton}" ToolTip="Next" Command="{Binding NextCommand}"><views:IconImage Icon="{StaticResource Icon.Next}"/></Button>
+        <Button Style="{StaticResource NavButton}" ToolTip="Last" Command="{Binding LastCommand}"><views:IconImage Icon="{StaticResource Icon.Last}"/></Button>
         <Separator/>
-        <Button Style="{StaticResource NavButton}" Content="+" FontWeight="Bold" ToolTip="Insert record (Ins)" Command="{Binding InsertCommand}"/>
-        <Button Style="{StaticResource NavButton}" Content="−" FontWeight="Bold" ToolTip="Delete record (Ctrl+Del)" Command="{Binding DeleteCommand}"/>
-        <Button Style="{StaticResource NavButton}" Content="✎" ToolTip="Edit record (F2)" Command="{Binding EditCommand}"/>
-        <Button Style="{StaticResource NavButton}" Content="✓" Foreground="#1E7B1E" FontWeight="Bold" ToolTip="Post (gravar alterações pendentes)" Command="{Binding PostCommand}"/>
-        <Button Style="{StaticResource NavButton}" Content="✗" Foreground="#B22222" FontWeight="Bold" ToolTip="Cancel (descartar alterações pendentes)" Command="{Binding CancelCommand}"/>
+        <Button Style="{StaticResource NavButton}" ToolTip="Insert record (Ins)" Command="{Binding InsertCommand}"><views:IconImage Icon="{StaticResource Icon.InsertRecord}"/></Button>
+        <Button Style="{StaticResource NavButton}" ToolTip="Delete record (Ctrl+Del)" Command="{Binding DeleteCommand}"><views:IconImage Icon="{StaticResource Icon.DeleteRecord}"/></Button>
+        <Button Style="{StaticResource NavButton}" ToolTip="Edit record (F2)" Command="{Binding EditCommand}"><views:IconImage Icon="{StaticResource Icon.EditRecord}"/></Button>
+        <Button Style="{StaticResource NavButton}" ToolTip="Post (gravar alterações pendentes)" Command="{Binding PostCommand}"><views:IconImage Icon="{StaticResource Icon.Post}"/></Button>
+        <Button Style="{StaticResource NavButton}" ToolTip="Cancel (descartar alterações pendentes)" Command="{Binding CancelCommand}"><views:IconImage Icon="{StaticResource Icon.CancelEdit}"/></Button>
         <Separator/>
-        <Button Style="{StaticResource NavButton}" Content="↻" ToolTip="Refresh (recarregar do servidor)" Command="{Binding RefreshCommand}"/>
+        <Button Style="{StaticResource NavButton}" ToolTip="Refresh (recarregar do servidor)" Command="{Binding RefreshCommand}"><views:IconImage Icon="{StaticResource Icon.Refresh}"/></Button>
         <Separator/>
         <TextBlock Text="Rows (TOP):" VerticalAlignment="Center" Margin="4,0,2,0"/>
         <TextBox x:Name="TopBox" Width="64" VerticalContentAlignment="Center" HorizontalContentAlignment="Right"
@@ -136,20 +137,14 @@
           <ToolBar ToolBarTray.IsLocked="True">
             <Button Style="{StaticResource PrintButton}" x:Name="PrintSaveButton" Click="PrintSave_OnClick"
                     ToolTip="Salvar em arquivo (PDF ou XPS)">
-              <StackPanel Orientation="Horizontal">
-                <TextBlock Text="💾" FontFamily="Segoe UI Symbol" VerticalAlignment="Center"/>
-                <TextBlock Text=" Save" VerticalAlignment="Center"/>
-              </StackPanel>
+              <StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.SaveToFile}"/><TextBlock Text="Save" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel>
             </Button>
             <Button Style="{StaticResource PrintButton}" x:Name="PrintPrintButton" Click="PrintPrint_OnClick"
                     ToolTip="Imprimir (escolher impressora)">
-              <StackPanel Orientation="Horizontal">
-                <TextBlock Text="⎙" FontFamily="Segoe UI Symbol" VerticalAlignment="Center"/>
-                <TextBlock Text=" Print" VerticalAlignment="Center"/>
-              </StackPanel>
+              <StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.Print}"/><TextBlock Text="Print" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel>
             </Button>
-            <Button Style="{StaticResource PrintButton}" Content="↻" FontFamily="Segoe UI Symbol" Click="PrintRefresh_OnClick"
-                    ToolTip="Gerar a pré-visualização novamente"/>
+            <Button Style="{StaticResource PrintButton}" Click="PrintRefresh_OnClick"
+                    ToolTip="Gerar a pré-visualização novamente"><views:IconImage Icon="{StaticResource Icon.Refresh}"/></Button>
             <Separator/>
             <TextBlock Text="Scale:" VerticalAlignment="Center" Margin="4,0,3,0"/>
             <ComboBox x:Name="ScaleBox" Width="96" SelectedIndex="2" SelectionChanged="ScaleBox_OnSelectionChanged">
