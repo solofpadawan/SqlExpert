@@ -17,7 +17,14 @@ public enum SqlMessageKind
 /// (e.g. a compile error of CREATE PROCEDURE); null when the server sent no line.</param>
 public sealed record SqlMessage(SqlMessageKind Kind, string Text, int? EditorLine = null, int? Number = null, int? Severity = null, int? TextLine = null);
 
-public sealed record SqlResultColumn(string Name, string DataTypeName, Type ClrType);
+public sealed record SqlResultColumn(string Name, string DataTypeName, Type ClrType)
+{
+    /// <summary>Size reported by the server (characters/bytes; -1 or int.MaxValue for MAX types), when known.</summary>
+    public int? Size { get; init; }
+    public int? Precision { get; init; }
+    public int? Scale { get; init; }
+    public bool? AllowDbNull { get; init; }
+}
 
 /// <summary>One result set: at most MaxRows rows are kept; <see cref="TotalRowCount"/> counts every row the server sent.</summary>
 public sealed class SqlResultSet
@@ -28,6 +35,12 @@ public sealed class SqlResultSet
     public bool HasMoreRows => TotalRowCount > Rows.Count;
     /// <summary>1-based batch number in the executed text.</summary>
     public int BatchNumber { get; init; }
+    /// <summary>Statement that produced this result (with the DECLAREs before it), when it is known for sure.</summary>
+    public string? StatementText { get; set; }
+    /// <summary>Source of each column (sp_describe_first_result_set, browse mode); null when not described.</summary>
+    public IReadOnlyList<DescribedColumn>? Described { get; set; }
+    /// <summary>Why the source could not be described (shown as the read-only note).</summary>
+    public string? SourceNote { get; set; }
 }
 
 public sealed class SqlExecutionRequest
@@ -40,6 +53,11 @@ public sealed class SqlExecutionRequest
     public bool StopOnError { get; init; } = true;
     /// <summary>0 = no timeout (cancel with Stop).</summary>
     public int CommandTimeoutSeconds { get; init; }
+    /// <summary>Collect the actual execution plans (SET STATISTICS XML) for the Plan / Performance info messages.
+    /// The plan result sets are never shown as results.</summary>
+    public bool CapturePlan { get; init; }
+    /// <summary>Describe the source table/key of each result set after the run (editable results).</summary>
+    public bool DescribeResults { get; init; }
 }
 
 public sealed class SqlExecutionResult
@@ -58,5 +76,11 @@ public sealed class SqlExecutionResult
     public int TranCount { get; set; }
     public string? CurrentDatabase { get; set; }
     public long RowsFetched => ResultSets.Sum(r => (long)r.Rows.Count);
+    /// <summary>SHOWPLAN XML documents received (CapturePlan).</summary>
+    public List<string> Showplans { get; } = new();
+    /// <summary>True when the plans were requested and SET STATISTICS XML was accepted.</summary>
+    public bool PlanCaptured { get; set; }
+    /// <summary>Why the plan could not be captured (no SHOWPLAN permission…), or null.</summary>
+    public string? PlanNote { get; set; }
     public bool HasMoreRows => ResultSets.Any(r => r.HasMoreRows);
 }

@@ -80,6 +80,8 @@ public sealed class SqlEditorSession : IDisposable
             }
 
             await Task.Run(() => RunBatches(conn, batches, request, result, cancellationToken), CancellationToken.None).ConfigureAwait(false);
+            if (request.DescribeResults && !result.Cancelled)
+                await DescribeResultsAsync(conn, result, cancellationToken).ConfigureAwait(false);
             await RefreshStateAsync(result).ConfigureAwait(false);
             return result;
         }
@@ -124,8 +126,12 @@ public sealed class SqlEditorSession : IDisposable
     private void RunBatches(SqlConnection conn, IReadOnlyList<SqlBatch> batches, SqlExecutionRequest request, SqlExecutionResult result, CancellationToken ct)
     {
         lock (_sinkLock) { _sink = result.Messages; _sinkStartLine = request.StartLine; _sinkBatchStart = 1; }
+        var capturing = false;
         try
         {
+            if (request.CapturePlan && batches.Count > 0)
+                capturing = TryEnablePlanCapture(conn, result);
+
             if (!Autocommit && batches.Count > 0)
             {
                 using var begin = conn.CreateCommand();
@@ -160,8 +166,88 @@ public sealed class SqlEditorSession : IDisposable
         }
         finally
         {
+            if (capturing) DisablePlanCapture(conn);
             lock (_sinkLock) _sink = null;
         }
+    }
+
+    /// <summary>
+    /// SET STATISTICS XML ON for the user's batches (actual plans for the Plan / Performance info messages). Only when
+    /// the login has SHOWPLAN in the current database: without it every statement would fail.
+    /// </summary>
+    private static bool TryEnablePlanCapture(SqlConnection conn, SqlExecutionResult result)
+    {
+        try
+        {
+            using (var check = conn.CreateCommand())
+            {
+                check.CommandText = "SELECT HAS_PERMS_BY_NAME(DB_NAME(), 'DATABASE', 'SHOWPLAN');";
+                check.CommandTimeout = 15;
+                if (Convert.ToInt32(check.ExecuteScalar() ?? 0) != 1)
+                {
+                    result.PlanNote = "Plano indisponível: o login não tem a permissão SHOWPLAN neste database.";
+                    return false;
+                }
+            }
+            using var on = conn.CreateCommand();
+            on.CommandText = "SET STATISTICS XML ON;";
+            on.CommandTimeout = 15;
+            on.ExecuteNonQuery();
+            result.PlanCaptured = true;
+            return true;
+        }
+        catch (Exception ex) when (ex is SqlException or InvalidOperationException)
+        {
+            result.PlanNote = "Plano indisponível: " + ex.Message;
+            return false;
+        }
+    }
+
+    private static void DisablePlanCapture(SqlConnection conn)
+    {
+        if (conn.State != ConnectionState.Open) return;
+        try
+        {
+            using var off = conn.CreateCommand();
+            off.CommandText = "SET STATISTICS XML OFF;";
+            off.CommandTimeout = 15;
+            off.ExecuteNonQuery();
+        }
+        catch (Exception ex) when (ex is SqlException or InvalidOperationException) { /* broken connection: dropped later */ }
+    }
+
+    /// <summary>Most result sets described per execution (sp_describe_first_result_set is one round trip each).</summary>
+    public const int MaxDescribedResults = 20;
+
+    /// <summary>Source table / key columns of each result set whose statement is known (editable results).</summary>
+    private async Task DescribeResultsAsync(SqlConnection conn, SqlExecutionResult result, CancellationToken ct)
+    {
+        var n = 0;
+        foreach (var set in result.ResultSets)
+        {
+            if (set.StatementText is not { } text) continue;
+            if (++n > MaxDescribedResults || conn.State != ConnectionState.Open || ct.IsCancellationRequested) break;
+            try
+            {
+                set.Described = await ResultSourceAnalyzer.DescribeAsync(conn, text, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is SqlException or InvalidOperationException)
+            {
+                set.SourceNote = "Somente leitura: não foi possível identificar a origem do resultado (" + ex.Message + ").";
+            }
+        }
+    }
+
+    /// <summary>Links the result sets one batch produced to its SELECT statements (only when the count matches).</summary>
+    private static void MapStatements(string batchText, SqlExecutionResult result, int firstSet)
+    {
+        var added = result.ResultSets.Count - firstSet;
+        if (added <= 0) return;
+        IReadOnlyList<string?>? texts;
+        try { texts = ResultSourceAnalyzer.ResultStatements(batchText); }
+        catch (Exception) { texts = null; }
+        if (texts is null || texts.Count != added) return;
+        for (var i = 0; i < added; i++) result.ResultSets[firstSet + i].StatementText = texts[i];
     }
 
     /// <summary>Runs one batch; false when it raised an error.</summary>
@@ -170,8 +256,13 @@ public sealed class SqlEditorSession : IDisposable
         using var cmd = conn.CreateCommand();
         cmd.CommandText = batch.Text;
         cmd.CommandTimeout = Math.Max(0, request.CommandTimeoutSeconds);
+        // Each plan result set (SET STATISTICS XML) ends with its own "1 row" completion: skipped, the user never sees it.
+        var planCompletions = 0;
         cmd.StatementCompleted += (_, e) =>
+        {
+            if (planCompletions > 0 && e.RecordCount == 1) { planCompletions--; return; }
             AddMessage(new SqlMessage(SqlMessageKind.RowsAffected, $"({e.RecordCount} {(e.RecordCount == 1 ? "row" : "rows")} affected)"));
+        };
 
         using var registration = ct.Register(() =>
         {
@@ -180,13 +271,26 @@ public sealed class SqlEditorSession : IDisposable
 
         try
         {
+            var firstSet = result.ResultSets.Count;
             using var reader = cmd.ExecuteReader();
             do
             {
-                if (reader.FieldCount > 0)
-                    result.ResultSets.Add(ReadResultSet(reader, request.MaxRows, batchNumber, ct));
+                planCompletions = 0; // the previous plan set is fully read by now (SET NOCOUNT ON sends no count)
+                if (reader.FieldCount <= 0) continue;
+                if (request.CapturePlan && reader.FieldCount == 1
+                    && string.Equals(reader.GetName(0), ShowplanSummary.ShowplanColumnName, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Actual plan of the statement just run: kept for the Messages panel, never shown as a result.
+                    planCompletions++;
+                    while (reader.Read())
+                        if (!reader.IsDBNull(0) && reader.GetValue(0)?.ToString() is { } xml) result.Showplans.Add(xml);
+                    continue;
+                }
+                result.ResultSets.Add(ReadResultSet(reader, request.MaxRows, batchNumber, ct));
             } while (reader.NextResult());
             reader.Close();
+            if (request.DescribeResults && batch.RepeatCount == 1)
+                MapStatements(batch.Text, result, firstSet);
             // RecordsAffected counts INSERT/UPDATE/DELETE/MERGE only (SELECT row counts are not included).
             if (reader.RecordsAffected >= 0)
                 result.RowsAffected = Math.Max(0, result.RowsAffected) + reader.RecordsAffected;
@@ -232,6 +336,9 @@ public sealed class SqlEditorSession : IDisposable
     {
         var n = reader.FieldCount;
         var columns = new List<SqlResultColumn>(n);
+        System.Collections.ObjectModel.ReadOnlyCollection<System.Data.Common.DbColumn> schema;
+        try { schema = reader.GetColumnSchema(); }
+        catch (Exception) { schema = new System.Collections.ObjectModel.ReadOnlyCollection<System.Data.Common.DbColumn>(Array.Empty<System.Data.Common.DbColumn>()); }
         for (var i = 0; i < n; i++)
         {
             Type type;
@@ -241,7 +348,13 @@ public sealed class SqlEditorSession : IDisposable
             try { typeName = reader.GetDataTypeName(i); }
             catch (Exception) { typeName = "?"; }
             var name = reader.GetName(i);
-            columns.Add(new SqlResultColumn(string.IsNullOrEmpty(name) ? "(No column name)" : name, typeName, type));
+            columns.Add(new SqlResultColumn(string.IsNullOrEmpty(name) ? "(No column name)" : name, typeName, type)
+            {
+                Size = i < schema.Count ? schema[i].ColumnSize : null,
+                Precision = i < schema.Count ? schema[i].NumericPrecision : null,
+                Scale = i < schema.Count ? schema[i].NumericScale : null,
+                AllowDbNull = i < schema.Count ? schema[i].AllowDBNull : null
+            });
         }
 
         var set = new SqlResultSet { Columns = columns, BatchNumber = batchNumber };

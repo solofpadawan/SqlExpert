@@ -90,6 +90,32 @@ public static class CommandAvailability
         "proceditor.drop_procedure",
     };
 
+    /// <summary>
+    /// SQL Editor pages, panels and editor features that are not menu commands (no <see cref="CommandCatalog"/> entry).
+    /// Plan Analyzer, Performance Analysis and Logs are not listed, so their tabs stay greyed.
+    /// </summary>
+    public static IReadOnlySet<string> SqlEditorFeatureIds { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "sqleditor.page.edit",
+        "sqleditor.page.results",
+        "sqleditor.page.history",
+        "sqleditor.panel.messages",
+        "sqleditor.panel.query_columns",
+        "sqleditor.code_completion",
+        "sqleditor.object_links",
+    };
+
+    /// <summary>Upper page tabs of the SQL Editor in classic order (id, caption).</summary>
+    public static IReadOnlyList<(string Id, string Caption)> SqlEditorPages { get; } = new[]
+    {
+        ("sqleditor.page.edit", "Edit"),
+        ("sqleditor.page.results", "Results"),
+        ("sqleditor.page.history", "History"),
+        ("sqleditor.page.plan_analyzer", "Plan Analyzer"),
+        ("sqleditor.page.performance_analysis", "Performance Analysis"),
+        ("sqleditor.page.logs", "Logs"),
+    };
+
     /// <summary>Main-menu captions (CommandParameter of the Stub commands) handled by MainViewModel.HandleMenuAction.</summary>
     public static IReadOnlySet<string> ImplementedMenuActions { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -129,7 +155,7 @@ public static class CommandAvailability
         "Replace",
     };
 
-    public static bool IsImplemented(string id) => ImplementedIds.Contains(id);
+    public static bool IsImplemented(string id) => ImplementedIds.Contains(id) || SqlEditorFeatureIds.Contains(id);
 
     public static bool IsMenuActionImplemented(string? caption) =>
         caption is not null && ImplementedMenuActions.Contains(caption);

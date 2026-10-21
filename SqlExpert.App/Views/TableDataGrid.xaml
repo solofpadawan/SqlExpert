@@ -63,8 +63,10 @@
         <Separator/>
         <Button Style="{StaticResource NavButton}" ToolTip="Refresh (recarregar do servidor)" Command="{Binding RefreshCommand}"><views:IconImage Icon="{StaticResource Icon.Refresh}"/></Button>
         <Separator/>
-        <TextBlock Text="Rows (TOP):" VerticalAlignment="Center" Margin="4,0,2,0"/>
+        <TextBlock Text="Rows (TOP):" VerticalAlignment="Center" Margin="4,0,2,0"
+                   Visibility="{Binding IsTableMode, Converter={StaticResource BoolToVisLocal}}"/>
         <TextBox x:Name="TopBox" Width="64" VerticalContentAlignment="Center" HorizontalContentAlignment="Right"
+                 Visibility="{Binding IsTableMode, Converter={StaticResource BoolToVisLocal}}"
                  ToolTip="Quantidade de registros lidos (SELECT TOP n). Enter recarrega."
                  Text="{Binding TopRows, UpdateSourceTrigger=LostFocus, ValidatesOnExceptions=True}"
                  KeyDown="TopBox_OnKeyDown"/>

@@ -8,6 +8,7 @@ using SqlExpert.App.Commands;
 using SqlExpert.Core.Abstractions;
 using SqlExpert.Core.DataForms;
 using SqlExpert.Core.Models;
+using SqlExpert.Core.SqlEditor;
 
 namespace SqlExpert.App.ViewModels;
 
@@ -19,6 +20,12 @@ public sealed record GridColumnSpec(string Field, string Header, Type DataType, 
 
     /// <summary>True when editing this cell can open the FK lookup popup.</summary>
     public bool HasEditableLookup => Lookup is { IsEnabled: true };
+
+    /// <summary>
+    /// The column is a column of the edited table (<see cref="Info"/> is its schema). False for a SQL Editor result
+    /// column computed by an expression or repeated: read-only, never sent in INSERT/UPDATE.
+    /// </summary>
+    public bool IsBaseColumn { get; init; } = true;
 }
 
 /// <summary>
@@ -51,6 +58,11 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
     private readonly Dictionary<string, LookupData> _lookupCache = new(StringComparer.Ordinal);
     /// <summary>Record appended by ↓ on the last row, while it is still untouched (discarded when left blank).</summary>
     private DataRow? _appendedRow;
+    /// <summary>SQL Editor result shown in this grid (no SELECT TOP / Refresh; edits go to the result's base table).</summary>
+    private bool _resultMode;
+    private string? _resultTitle;
+    /// <summary>Per grid column: index in the schema columns (ordinal order) of the row re-read after Post; -1 = none.</summary>
+    private int[] _schemaIndex = Array.Empty<int>();
 
     public TableDataViewModel(ITableDataService service, Action<string> setStatus)
     {
@@ -66,7 +78,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         EditCommand = new RelayCommand(_ => EditRequested?.Invoke(), _ => CanModify && CurrentRowView is not null);
         PostCommand = new RelayCommand(_ => RunSafe(async () => await PostAsync().ConfigureAwait(true)), _ => _table is not null && !IsBusy && !IsReadOnly);
         CancelCommand = new RelayCommand(_ => CancelChanges(), _ => _table is not null && !IsBusy);
-        RefreshCommand = new RelayCommand(_ => RunSafe(RefreshAsync), _ => _tableName is not null && !IsBusy);
+        RefreshCommand = new RelayCommand(_ => RunSafe(RefreshAsync), _ => _tableName is not null && !IsBusy && !_resultMode);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -178,7 +190,12 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
     /// <summary>Raised after rows change (edit, insert, delete, post, reload): the print preview becomes stale.</summary>
     public event Action? DataChanged;
 
-    public string? TableTitle => _tableName is null ? null : $"[{_schemaName}].[{_tableName}]";
+    public string? TableTitle => _resultMode ? _resultTitle : _tableName is null ? null : $"[{_schemaName}].[{_tableName}]";
+
+    /// <summary>True when the grid shows a SQL Editor result (the Rows (TOP) box and Refresh do not apply).</summary>
+    public bool IsResultMode => _resultMode;
+
+    public bool IsTableMode => !_resultMode;
 
     /// <summary>Set by the view: true while the Data tab is visible. Loads lazily on first activation.</summary>
     public bool IsViewActive
@@ -187,7 +204,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         set
         {
             _isViewActive = value;
-            if (value && !_isLoaded && _tableName is not null && !IsBusy)
+            if (value && !_isLoaded && !_resultMode && _tableName is not null && !IsBusy)
                 RunSafe(LoadAsync);
         }
     }
@@ -195,6 +212,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
     /// <summary>Called when a table is opened in the editor. Data is only read when the Data tab is shown.</summary>
     public void SetTable(string profileId, string database, string schema, string table)
     {
+        SetResultMode(false, null);
         _profileId = profileId;
         _database = database;
         _schemaName = schema;
@@ -207,6 +225,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
 
     public void Clear()
     {
+        SetResultMode(false, null);
         _profileId = _database = _schemaName = _tableName = null;
         ResetData();
         OnPropertyChanged(nameof(TableTitle));
@@ -275,6 +294,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
 
     private async Task LoadAsync()
     {
+        if (_resultMode) return;
         if (_profileId is null || _database is null || _schemaName is null || _tableName is null) return;
         var profileId = _profileId; var database = _database; var schemaName = _schemaName; var tableName = _tableName;
         var version = ++_loadVersion;
@@ -346,6 +366,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
 
         _table = table;
         _columns = specs;
+        _schemaIndex = Enumerable.Range(0, specs.Count).ToArray();
         IsReadOnly = tableReadOnly;
         Info = IsReadOnly ? "Tabela sem chave primária: somente leitura." : "";
 
@@ -392,6 +413,140 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         CurrentIndex = idx;
         RaiseCounters();
         EditRequested?.Invoke();
+    }
+
+    // ===== SQL Editor results =====
+
+    private void SetResultMode(bool on, string? title)
+    {
+        _resultMode = on;
+        _resultTitle = title;
+        OnPropertyChanged(nameof(IsResultMode));
+        OnPropertyChanged(nameof(IsTableMode));
+        OnPropertyChanged(nameof(TableTitle));
+    }
+
+    /// <summary>
+    /// Shows a SQL Editor result set. It is read-only unless <paramref name="decision"/> names a base table; then the
+    /// table schema is read (off the UI thread) and, when its key columns are in the result, the grid becomes editable
+    /// like the Data tab (Post / Cancel / ↓ new record / FK lookup / memo / calendar / calculator).
+    /// </summary>
+    public async Task ShowResultAsync(string title, SqlResultSet set, ResultEditDecision decision, string profileId, string database)
+    {
+        _profileId = _database = _schemaName = _tableName = null;
+        ResetData();
+        SetResultMode(true, title);
+        _isLoaded = true;
+        var version = _loadVersion;
+        var reason = decision.Reason ?? set.SourceNote ?? ResultEditability.NoSourceReason;
+        if (!decision.IsEditable || decision.Target is not { } target)
+        {
+            ApplyResult(null, set, null, set.SourceNote ?? reason);
+            return;
+        }
+
+        ApplyResult(null, set, null, "Somente leitura (verificando a chave da tabela...)");
+        var db = target.Database ?? database;
+        TableDataSchema? keyed;
+        string? why;
+        try
+        {
+            var schema = await Task.Run(() => _service.GetSchemaAsync(profileId, db, target.Schema, target.Table)).ConfigureAwait(true);
+            keyed = ResultEditability.ApplyKey(schema, target, out why);
+        }
+        catch (Exception ex)
+        {
+            keyed = null;
+            why = "Somente leitura: não foi possível ler a estrutura de " + $"[{target.Schema}].[{target.Table}]: " + ex.Message;
+        }
+        if (version != _loadVersion) return; // another result arrived meanwhile
+        if (keyed is null)
+        {
+            Info = why ?? ResultEditability.NoKeyReason;
+            return;
+        }
+        _profileId = profileId;
+        _database = db;
+        _schemaName = target.Schema;
+        _tableName = target.Table;
+        ApplyResult(keyed, set, target.BaseColumns, null);
+    }
+
+    private static bool IsSimpleType(Type t) =>
+        t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime) || t == typeof(DateTimeOffset)
+        || t == typeof(TimeSpan) || t == typeof(Guid) || t == typeof(byte[]);
+
+    private void ApplyResult(TableDataSchema? schema, SqlResultSet set, IReadOnlyList<string?>? baseColumns, string? readOnlyReason)
+    {
+        DetachTable();
+        _appendedRow = null;
+        _lookupCache.Clear();
+        _schema = schema;
+        var ordered = schema?.Columns.OrderBy(c => c.Ordinal).ToList();
+        var table = new DataTable("Result") { Locale = System.Globalization.CultureInfo.CurrentCulture };
+        var specs = new List<GridColumnSpec>();
+        var map = new int[set.Columns.Count];
+        for (var i = 0; i < set.Columns.Count; i++)
+        {
+            var col = set.Columns[i];
+            var type = IsSimpleType(col.ClrType) ? col.ClrType : typeof(object);
+            var field = "c" + i;
+            table.Columns.Add(new DataColumn(field, type) { Caption = col.Name, AllowDBNull = true });
+            var baseName = baseColumns is not null && i < baseColumns.Count ? baseColumns[i] : null;
+            var si = ordered is not null && baseName is not null
+                ? ordered.FindIndex(c => string.Equals(c.Name, baseName, StringComparison.OrdinalIgnoreCase))
+                : -1;
+            map[i] = si;
+            DataColumnInfo info = si >= 0
+                ? ordered![si]
+                : new DataColumnInfo
+                {
+                    Ordinal = i + 1,
+                    Name = col.Name,
+                    TypeName = col.DataTypeName,
+                    BaseTypeName = col.DataTypeName,
+                    IsNullable = col.AllowDbNull ?? true,
+                    MaxLength = col.Size is > 0 and < int.MaxValue ? col.Size.Value : col.Size is null ? 0 : -1,
+                    Precision = col.Precision ?? 0,
+                    Scale = col.Scale ?? 0
+                };
+            var readOnlyType = type == typeof(byte[]) || type == typeof(object);
+            specs.Add(new GridColumnSpec(field, col.Name, type, si < 0 || !info.IsWritable || readOnlyType, info.IsNullable, info) { IsBaseColumn = si >= 0 });
+        }
+
+        table.BeginLoadData();
+        foreach (var row in set.Rows)
+        {
+            var values = new object[row.Length];
+            for (var i = 0; i < row.Length; i++) values[i] = row[i] ?? DBNull.Value;
+            table.LoadDataRow(values, LoadOption.OverwriteChanges);
+        }
+        table.EndLoadData();
+        table.AcceptChanges();
+
+        var readOnly = schema is null;
+        if (schema is not null)
+        {
+            var targets = ForeignKeyLookup.ResolveTargets(schema.ForeignKeys,
+                specs.Select(sp => new LookupLocalColumn(sp.IsBaseColumn ? sp.Info.Name : "\u0001" + sp.Field, sp.IsBaseColumn && !sp.IsReadOnly, sp.IsNullable)).ToList());
+            specs = specs.Select(sp => sp.IsBaseColumn && targets.TryGetValue(sp.Info.Name, out var t) ? sp with { Lookup = t } : sp).ToList();
+        }
+
+        _table = table;
+        _columns = specs;
+        _schemaIndex = map;
+        IsReadOnly = readOnly;
+        Info = readOnly
+            ? readOnlyReason ?? ResultEditability.NoSourceReason
+            : $"Editável: [{schema!.Schema}].[{schema.Table}] (Post grava, Cancel descarta)";
+
+        var view = new DataView(table) { AllowNew = false, AllowDelete = !readOnly, AllowEdit = !readOnly };
+        view.ListChanged += OnViewListChanged;
+        table.RowChanged += OnRowChanged;
+        View = view;
+        _currentIndex = view.Count > 0 ? 0 : -1;
+        RaiseCounters();
+        DataReloaded?.Invoke();
     }
 
     // ===== ↓ on the last row: new empty record (classic style) =====
@@ -560,12 +715,13 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
             {
                 var row = pending[i].Row;
                 var fresh = i < results.Count ? results[i] : null;
-                if (fresh is not null && fresh.Length == _table.Columns.Count)
+                if (fresh is not null && (_resultMode || fresh.Length == _table.Columns.Count))
                 {
-                    for (var c = 0; c < fresh.Length; c++)
-                        row[c] = fresh[c] ?? DBNull.Value;
+                    for (var c = 0; c < _table.Columns.Count && c < _schemaIndex.Length; c++)
+                        if (_schemaIndex[c] is var si && si >= 0 && si < fresh.Length)
+                            row[c] = fresh[si] ?? DBNull.Value;
                 }
-                else if (pending[i].Change.Kind == RowChangeKind.Insert)
+                else if (pending[i].Change.Kind == RowChangeKind.Insert && !_resultMode)
                 {
                     needReload = true;
                 }
@@ -603,7 +759,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
     private IReadOnlyDictionary<string, object?> AllValues(DataRow row)
     {
         var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var spec in _columns)
+        foreach (var spec in _columns.Where(c => c.IsBaseColumn))
             d[spec.Info.Name] = row[spec.Field];
         return d;
     }
@@ -613,7 +769,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         if (!row.HasVersion(DataRowVersion.Original) || !row.HasVersion(DataRowVersion.Current))
             return d;
-        foreach (var spec in _columns)
+        foreach (var spec in _columns.Where(c => c.IsBaseColumn))
         {
             var o = row[spec.Field, DataRowVersion.Original];
             var n = row[spec.Field, DataRowVersion.Current];
@@ -633,7 +789,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
     {
         var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         var v = row.HasVersion(version) ? version : DataRowVersion.Current;
-        foreach (var spec in _columns.Where(c => c.Info.IsPrimaryKey))
+        foreach (var spec in _columns.Where(c => c.IsBaseColumn && c.Info.IsPrimaryKey))
             d[spec.Info.Name] = row[spec.Field, v];
         return d;
     }
@@ -768,7 +924,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
     }
 
     private GridColumnSpec? ColumnByName(string name) =>
-        _columns.FirstOrDefault(c => string.Equals(c.Header, name, StringComparison.OrdinalIgnoreCase));
+        _columns.FirstOrDefault(c => c.IsBaseColumn && string.Equals(c.Info.Name, name, StringComparison.OrdinalIgnoreCase));
 
     private static async void RunSafe(Func<Task> action)
     {

@@ -15,7 +15,10 @@ using SqlExpert.Core.SqlEditor;
 
 namespace SqlExpert.App.Views;
 
-/// <summary>SQL Editor view: AvalonEdit + result tabs (built per execution) + Messages + History.</summary>
+/// <summary>
+/// SQL Editor view: pages Edit | Results | History (| Plan Analyzer | Performance Analysis | Logs, greyed) and the
+/// bottom panel Messages | Query columns. Results use the table Data grid; the editor has code completion and object links.
+/// </summary>
 public partial class SqlEditorView : UserControl, ISqlEditorHost
 {
     private SqlEditorDocumentViewModel? _vm;
@@ -23,6 +26,7 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
     private readonly ErrorLineRenderer _errorLine = new();
     private readonly ListBox _messages;
     private ReplaceWindow? _replace;
+    private readonly SqlEditorAssist _assist;
 
     public SqlEditorView()
     {
@@ -52,6 +56,14 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
         _messages.MouseDoubleClick += Messages_OnMouseDoubleClick;
         _messages.CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, (_, _) => CopyMessages(), (_, e) => e.CanExecute = _messages.SelectedItems.Count > 0));
 
+        _assist = new SqlEditorAssist(Editor,
+            () => _vm is null ? null : new SqlAssistTarget(_vm.Shell, _vm.ProfileId, _vm.CurrentDatabase),
+            s => { if (_vm is not null) _vm.StatusLine = s; });
+
+        // Standing rule: pages without a handler stay visible but greyed.
+        foreach (var tab in PageTabs.Items.OfType<TabItem>().Concat(BottomTabs.Items.OfType<TabItem>()))
+            if (tab.Tag is string id) tab.IsEnabled = Core.Commands.CommandAvailability.IsImplemented(id);
+
         ShowFontSize();
         UiSettings.Instance.PropertyChanged += (_, e) =>
         {
@@ -60,14 +72,14 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
         DataContextChanged += OnDataContextChanged;
         // Activating the document (Windows bar, F12, Ctrl+Tab) puts the caret in the editor.
         IsVisibleChanged += (_, e) => { if (e.NewValue is true) FocusEditor(); };
-        RebuildResultTabs();
+        RebuildResults();
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (_vm is not null)
         {
-            _vm.ResultsChanged -= RebuildResultTabs;
+            _vm.ResultsChanged -= OnResultsChanged;
             if (ReferenceEquals(_vm.Host, this)) _vm.Host = null;
         }
         _vm = DataContext as SqlEditorDocumentViewModel;
@@ -75,9 +87,10 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
         if (_vm is not null)
         {
             _vm.Host = this;
-            _vm.ResultsChanged += RebuildResultTabs;
+            _vm.ResultsChanged += OnResultsChanged;
         }
-        RebuildResultTabs();
+        _assist.TargetChanged();
+        RebuildResults();
         UpdateCaret();
     }
 
@@ -155,29 +168,52 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
 
     // ===== Results =====
 
-    private void RebuildResultTabs()
+    private void OnResultsChanged()
     {
-        ResultTabs.Items.Clear();
-        if (_vm is not null)
+        _assist.TargetChanged(); // USE may have changed the database
+        RebuildResults();
+    }
+
+    /// <summary>Results page: the Data grid of the result (one tab per result set when there are several) + Messages.</summary>
+    private void RebuildResults()
+    {
+        var results = _vm?.Results.ToList() ?? new List<SqlQueryResultViewModel>();
+        if (results.Count == 0)
         {
-            foreach (var tab in _vm.Results)
-                ResultTabs.Items.Add(new TabItem { Header = new TextBlock { Text = tab.Header }, Content = BuildResultGrid(this, tab), Tag = tab });
+            ResultsHost.Content = new TextBlock
+            {
+                Text = "Nenhum resultado. Execute um SELECT (F9 / Ctrl+Enter) na página Edit.",
+                Foreground = new SolidColorBrush(Color.FromRgb(0x60, 0x60, 0x60)),
+                Margin = new Thickness(8)
+            };
         }
+        else if (results.Count == 1)
+        {
+            ResultsHost.Content = new TableDataGrid { DataContext = results[0].Data };
+        }
+        else
+        {
+            var tabs = new TabControl { TabStripPlacement = Dock.Bottom, Padding = new Thickness(0) };
+            foreach (var r in results)
+                tabs.Items.Add(new TabItem { Header = r.Header, Content = new TableDataGrid { DataContext = r.Data }, ToolTip = r.Data.Info });
+            tabs.SelectedIndex = Math.Clamp(_vm?.SelectedResultIndex ?? 0, 0, results.Count - 1);
+            tabs.SelectionChanged += (_, e) =>
+            {
+                if (ReferenceEquals(e.OriginalSource, tabs) && _vm is not null && tabs.SelectedIndex >= 0) _vm.SelectedResultIndex = tabs.SelectedIndex;
+            };
+            ResultsHost.Content = tabs;
+        }
+
         var hasErrors = _vm?.Messages.Any(m => m.Kind == SqlMessageKind.Error) == true;
         var header = new TextBlock { Text = "Messages" };
         if (hasErrors) { header.Foreground = new SolidColorBrush(Color.FromRgb(0xB0, 0, 0)); header.FontWeight = FontWeights.Bold; }
-        // The Messages list is reused: detach it from the previous tab first.
-        if (_messages.Parent is TabItem old) old.Content = null;
-        ResultTabs.Items.Add(new TabItem { Header = header, Content = _messages });
-        var index = _vm?.SelectedResultTab ?? 0;
-        ResultTabs.SelectedIndex = Math.Clamp(index, 0, ResultTabs.Items.Count - 1);
-        if (_messages.Items.Count > 0) _messages.ScrollIntoView(_messages.Items[^1]);
-    }
-
-    private void ResultTabs_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!ReferenceEquals(e.OriginalSource, ResultTabs) || _vm is null || ResultTabs.SelectedIndex < 0) return;
-        _vm.SelectedResultTab = ResultTabs.SelectedIndex;
+        MessagesTab.Header = header;
+        if (!ReferenceEquals(MessagesTab.Content, _messages))
+        {
+            if (_messages.Parent is TabItem old) old.Content = null;
+            MessagesTab.Content = _messages;
+        }
+        if (_messages.Items.Count > 0) _messages.ScrollIntoView(_messages.Items[0]);
     }
 
     private static bool IsNumeric(Type t) =>

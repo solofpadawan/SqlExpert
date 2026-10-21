@@ -45,6 +45,14 @@ public static class SqlEditorStatus
         return $"Result {index} ({count})";
     }
 
+    private static readonly System.Text.RegularExpressions.Regex SchemaChange = new(
+        @"\b(CREATE|ALTER|DROP)\s+(TABLE|VIEW|PROC|PROCEDURE|FUNCTION|TRIGGER|SEQUENCE|SYNONYM|TYPE|SCHEMA)\b(?!\s+(IF\s+EXISTS\s+)?#)|\bsp_rename\b|\bCREATE\s+OR\s+ALTER\b",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>True when the executed text creates/changes/drops objects (code completion reads the catalog again).</summary>
+    public static bool ChangesSchema(string? sql) =>
+        !string.IsNullOrEmpty(sql) && SchemaChange.IsMatch(SqlTextAnalyzer.StripCommentsAndLiterals(sql));
+
     public static string TransactionText(bool autocommit, int tranCount) =>
         tranCount > 0
             ? $"Transação ABERTA (@@TRANCOUNT = {tranCount})"

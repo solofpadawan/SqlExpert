@@ -11,6 +11,7 @@ using Microsoft.Win32;
 using SqlExpert.App.Commands;
 using SqlExpert.App.Services;
 using SqlExpert.Core.Documents;
+using SqlExpert.Core.Models;
 using SqlExpert.Core.SqlEditor;
 
 namespace SqlExpert.App.ViewModels;
@@ -65,6 +66,63 @@ public sealed class SqlResultTab
     public IReadOnlyList<SqlResultColumn> Columns => Set.Columns;
 }
 
+/// <summary>One row of the "Query columns" tab: a result column with its type and source table.</summary>
+/// <summary>Placeholder data service for result grids without a real one (read-only results only).</summary>
+internal sealed class NullTableDataService : Core.Abstractions.ITableDataService
+{
+    public static readonly NullTableDataService Instance = new();
+    private static Exception Fail() => new NotSupportedException("Edição de resultados indisponível.");
+    public Task<TableDataSchema> GetSchemaAsync(string connectionProfileId, string database, string schema, string table, CancellationToken ct = default) => Task.FromException<TableDataSchema>(Fail());
+    public Task<TableDataPage> LoadAsync(string connectionProfileId, string database, TableDataSchema schema, int top, CancellationToken ct = default) => Task.FromException<TableDataPage>(Fail());
+    public Task<IReadOnlyList<object[]?>> ApplyChangesAsync(string connectionProfileId, string database, TableDataSchema schema, IReadOnlyList<RowChange> changes, CancellationToken ct = default) => Task.FromException<IReadOnlyList<object[]?>>(Fail());
+    public Task<IReadOnlyList<ForeignKeyInfo>> GetForeignKeysAsync(string connectionProfileId, string database, string schema, string table, CancellationToken ct = default) => Task.FromException<IReadOnlyList<ForeignKeyInfo>>(Fail());
+    public Task<LookupData> GetLookupDataAsync(string connectionProfileId, string database, ForeignKeyInfo fk, int top, IReadOnlyList<object?>? currentKey, CancellationToken ct = default) => Task.FromException<LookupData>(Fail());
+}
+
+public sealed record QueryColumnRow(int Index, string Name, string Type, string Size, string Nullable, string Source, string Key);
+
+/// <summary>
+/// One SQL Editor result set on the Results page: shown in the same grid as a table's Data tab (navigator,
+/// Grid View / Form View / Print Data), editable when it comes from one base table with its key.
+/// </summary>
+public sealed class SqlQueryResultViewModel
+{
+    public SqlQueryResultViewModel(int index, SqlResultSet set, TableDataViewModel data)
+    {
+        Index = index;
+        Set = set;
+        Data = data;
+        Header = SqlEditorStatus.ResultHeader(index, set);
+        Columns = BuildColumns(set);
+    }
+
+    public int Index { get; }
+    public SqlResultSet Set { get; }
+    public string Header { get; }
+    public TableDataViewModel Data { get; }
+    public IReadOnlyList<QueryColumnRow> Columns { get; }
+
+    public static IReadOnlyList<QueryColumnRow> BuildColumns(SqlResultSet set)
+    {
+        var visible = set.Described?.Where(c => !c.IsHidden).OrderBy(c => c.Ordinal).ToList();
+        if (visible is not null && visible.Count != set.Columns.Count) visible = null;
+        var rows = new List<QueryColumnRow>(set.Columns.Count);
+        for (var i = 0; i < set.Columns.Count; i++)
+        {
+            var c = set.Columns[i];
+            var d = visible?[i];
+            var type = d?.TypeName ?? Core.Services.CompletionCatalogLoader.FormatType(c.DataTypeName,
+                c.Size is { } sz && sz > 0 && sz < int.MaxValue ? (c.DataTypeName.StartsWith("n", StringComparison.OrdinalIgnoreCase) ? sz * 2 : sz) : -1,
+                c.Precision ?? 0, c.Scale ?? 0);
+            var size = c.Size is { } n && n > 0 && n < int.MaxValue ? n.ToString(System.Globalization.CultureInfo.CurrentCulture) : "";
+            var nullable = (d?.IsNullable ?? c.AllowDbNull) switch { true => "Yes", false => "No", _ => "" };
+            var key = d is null ? "" : d.IsPartOfUniqueKey ? "Key" : d.IsIdentity ? "Identity" : d.IsComputed ? "Computed" : "";
+            rows.Add(new QueryColumnRow(i + 1, c.Name, type, size, nullable, d?.SourceText ?? (d is null ? "" : "(expressão)"), key));
+        }
+        return rows;
+    }
+}
+
 /// <summary>
 /// SQL Editor document (F12): AvalonEdit text, execution on its own session (connection kept open),
 /// one tab per result set + Messages, Fetch first N / Fetch all, autocommit or explicit transaction with
@@ -74,6 +132,10 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
 {
     private readonly SqlEditorSession _session;
     private readonly QueryHistoryStore _historyStore;
+    private readonly Core.Abstractions.ITableDataService? _tableData;
+    private int _selectedResultIndex;
+    private int _selectedBottomTab;
+    private bool _capturePlan = true;
     private readonly string _connectionLabel;
     private readonly DispatcherTimer _timer;
     private readonly System.Diagnostics.Stopwatch _runClock = new();
@@ -87,15 +149,15 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
     private Encoding? _fileEncoding;
     private string _statusLine = "Pronto. F9 ou Ctrl+Enter executa (a seleção, se houver).";
     private string _caretText = "1 : 1";
-    private int _selectedResultTab;
     private int _selectedPage;
     private int _fetchRows;
     private QueryHistoryEntry? _selectedHistory;
 
     public SqlEditorDocumentViewModel(MainViewModel shell, string profileId, string database, int number, string connectionLabel,
-        SqlEditorSession session, QueryHistoryStore historyStore, int? fetchRows = null)
+        SqlEditorSession session, QueryHistoryStore historyStore, int? fetchRows = null, Core.Abstractions.ITableDataService? tableData = null)
         : base(shell, DocumentKeys.SqlEditor(profileId, number), profileId, database)
     {
+        _tableData = tableData;
         Number = number;
         _connectionLabel = connectionLabel;
         _session = session;
@@ -208,18 +270,44 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
     public bool InTransaction => _session.InTransaction;
     public string TransactionText => SqlEditorStatus.TransactionText(_session.Autocommit, _session.TranCount);
 
-    public ObservableCollection<SqlResultTab> Results { get; } = new();
+    /// <summary>Result sets of the last execution (Results page).</summary>
+    public ObservableCollection<SqlQueryResultViewModel> Results { get; } = new();
+
+    /// <summary>Result set shown on the Results page (several: one tab each); its columns fill "Query columns".</summary>
+    public int SelectedResultIndex
+    {
+        get => _selectedResultIndex;
+        set
+        {
+            _selectedResultIndex = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(QueryColumns));
+        }
+    }
+
+    public IReadOnlyList<QueryColumnRow> QueryColumns =>
+        _selectedResultIndex >= 0 && _selectedResultIndex < Results.Count ? Results[_selectedResultIndex].Columns : Array.Empty<QueryColumnRow>();
+
+    /// <summary>Bottom panel tab: 0 = Messages, 1 = Query columns.</summary>
+    public int SelectedBottomTab
+    {
+        get => _selectedBottomTab;
+        set { _selectedBottomTab = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Collect the actual plan and server figures (Plan / Performance info in Messages).</summary>
+    public bool CapturePlan
+    {
+        get => _capturePlan;
+        set { _capturePlan = value; OnPropertyChanged(); }
+    }
     public ObservableCollection<SqlMessage> Messages { get; } = new();
     public ObservableCollection<QueryHistoryEntry> History { get; } = new();
 
-    /// <summary>Selected bottom tab: 0..Results.Count-1 = result sets, Results.Count = Messages.</summary>
-    public int SelectedResultTab
-    {
-        get => _selectedResultTab;
-        set { _selectedResultTab = value; OnPropertyChanged(); }
-    }
+    /// <summary>Page indexes of the upper tabs (classic order: Edit, Results, History, Plan Analyzer, …).</summary>
+    public const int EditPage = 0, ResultsPage = 1, HistoryPage = 2;
 
-    /// <summary>Edit (0) / History (1) page.</summary>
+    /// <summary>Edit (0) / Results (1) / History (2) page.</summary>
     public int SelectedPage
     {
         get => _selectedPage;
@@ -318,14 +406,23 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
             StatusLine = "Nada para executar.";
             return;
         }
+        // Edited result rows not posted yet: Post / discard / cancel before they are replaced.
+        foreach (var r in Results.ToList())
+            if (!await r.Data.ConfirmLeaveAsync().ConfigureAwait(true))
+            {
+                SelectedPage = ResultsPage;
+                return;
+            }
 
         var request = new SqlExecutionRequest
         {
             Sql = text,
             StartLine = startLine,
-            MaxRows = rerun is not null ? 0 : FetchRows
+            MaxRows = rerun is not null ? 0 : FetchRows,
+            CapturePlan = CapturePlan,
+            DescribeResults = _tableData is not null
         };
-        _lastRequest = rerun is not null ? new SqlExecutionRequest { Sql = text, StartLine = startLine, MaxRows = FetchRows } : request;
+        _lastRequest = new SqlExecutionRequest { Sql = text, StartLine = startLine, MaxRows = FetchRows, CapturePlan = CapturePlan, DescribeResults = request.DescribeResults };
 
         _cts = new CancellationTokenSource();
         IsExecuting = true;
@@ -351,25 +448,56 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
             IsExecuting = false;
         }
 
-        ShowResult(result);
+        ShowResult(result, request.CapturePlan);
         AddHistory(text, result);
+        if (!result.Cancelled && SqlEditorStatus.ChangesSchema(text))
+            Shell.InvalidateCompletionCatalogs(ProfileId, CurrentDatabase);
     }
 
-    private void ShowResult(SqlExecutionResult result)
+    private void ShowResult(SqlExecutionResult result, bool planRequested)
     {
         Results.Clear();
         var i = 1;
         foreach (var set in result.ResultSets)
-            Results.Add(new SqlResultTab(i++, set));
+        {
+            var data = new TableDataViewModel(_tableData ?? NullTableDataService.Instance, s => StatusLine = s)
+            {
+                LookupFetchRows = FetchRows
+            };
+            var vm = new SqlQueryResultViewModel(i, set, data);
+            Results.Add(vm);
+            var decision = _tableData is null
+                ? ResultEditDecision.ReadOnly(ResultEditability.NoSourceReason)
+                : ResultEditability.Decide(set.Described, set.Columns.Count, _session.InTransaction || result.TranCount > 0);
+            var title = $"Result {i}";
+            Run(() => data.ShowResultAsync(title, set, decision, ProfileId, CurrentDatabase));
+            i++;
+        }
 
         Messages.Clear();
+        if (planRequested && !result.Cancelled)
+        {
+            if (result.PlanNote is { } note) Messages.Add(new SqlMessage(SqlMessageKind.Status, note));
+            var stats = result.PlanCaptured ? ShowplanSummary.Summarize(result.Showplans) : null;
+            var (plan, perf) = ShowplanSummary.Format(stats, result.RowsFetched, result.Elapsed);
+            if (!result.HasErrors || stats is { Statements: > 0 })
+            {
+                Messages.Add(new SqlMessage(SqlMessageKind.Info, plan));
+                Messages.Add(new SqlMessage(SqlMessageKind.Info, perf));
+            }
+        }
         foreach (var m in result.Messages)
             Messages.Add(m);
         var summary = SqlEditorStatus.Summarize(result);
         Messages.Add(new SqlMessage(SqlMessageKind.Status, summary));
 
         _lastHasMore = result.HasMoreRows;
-        SelectedResultTab = result.HasErrors || result.Cancelled || Results.Count == 0 ? Results.Count : 0;
+        _selectedResultIndex = 0;
+        OnPropertyChanged(nameof(SelectedResultIndex));
+        OnPropertyChanged(nameof(QueryColumns));
+        SelectedBottomTab = 0;
+        if (Results.Count > 0 && !result.HasErrors && !result.Cancelled) SelectedPage = ResultsPage;
+        else if (SelectedPage == ResultsPage && Results.Count == 0) SelectedPage = EditPage;
         StatusLine = summary;
         ResultsChanged?.Invoke();
         RaiseTransaction();
@@ -441,7 +569,7 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
     {
         foreach (var m in r.Messages) Messages.Add(m);
         StatusLine = r.Messages.LastOrDefault()?.Text.Replace(Environment.NewLine, " ") ?? "";
-        if (r.HasErrors) SelectedResultTab = Results.Count;
+        if (r.HasErrors) SelectedBottomTab = 0;
         ResultsChanged?.Invoke();
         RaiseTransaction();
     }
@@ -529,7 +657,8 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
 
     // ===== Document lifecycle =====
 
-    public override bool HasUnsavedChanges => IsExecuting || _session.InTransaction || (IsModified && Document.TextLength > 0);
+    public override bool HasUnsavedChanges => IsExecuting || _session.InTransaction || (IsModified && Document.TextLength > 0)
+                                              || Results.Any(r => r.Data.HasPendingChanges);
 
     public override async Task<bool> ConfirmCloseAsync()
     {
@@ -554,6 +683,13 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
             else await RollbackAsync().ConfigureAwait(true);
             if (_session.InTransaction) return false; // commit failed: keep it open so the user sees the error
         }
+
+        foreach (var r in Results.ToList())
+            if (!await r.Data.ConfirmLeaveAsync().ConfigureAwait(true))
+            {
+                SelectedPage = ResultsPage;
+                return false;
+            }
 
         return ConfirmDiscardOrSave("fechar");
     }

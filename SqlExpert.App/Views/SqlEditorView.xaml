@@ -60,6 +60,10 @@
                  KeyDown="FetchBox_OnKeyDown"/>
         <Button Style="{StaticResource SqlTbButton}" ToolTip="Executa de novo sem limite de registros" Command="{Binding FetchAllCommand}"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.FetchAll}"/><TextBlock Text="Fetch all" Margin="4,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
         <Separator/>
+        <CheckBox Content="Plan" VerticalAlignment="Center" Margin="4,0"
+                  ToolTip="Coleta o plano de execução real e os números do servidor (Plan / Performance info na aba Messages)"
+                  IsChecked="{Binding CapturePlan, Mode=TwoWay}" IsEnabled="{Binding IsIdle, Mode=OneWay}"/>
+        <Separator/>
         <Button Style="{StaticResource SqlTbButton}" ToolTip="Load from File (Ctrl+O)" Command="{Binding OpenCommand}"><views:IconImage Icon="{StaticResource Icon.LoadFromFile}"/></Button>
         <Button Style="{StaticResource SqlTbButton}" ToolTip="Save to File (Ctrl+S)" Command="{Binding SaveCommand}"><views:IconImage Icon="{StaticResource Icon.SaveToFile}"/></Button>
         <Button Style="{StaticResource SqlTbButton}" ToolTip="Save as..." Command="{Binding SaveAsCommand}"><views:IconImage Icon="{StaticResource Icon.SaveAs}"/></Button>
@@ -117,26 +121,28 @@
       </StatusBarItem>
     </StatusBar>
 
-    <TabControl SelectedIndex="{Binding SelectedPage, Mode=TwoWay}" Margin="2">
-      <TabItem Header="Edit">
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="*" MinHeight="60"/>
-            <RowDefinition Height="5"/>
-            <RowDefinition Height="230" MinHeight="60"/>
-          </Grid.RowDefinitions>
-          <ae:TextEditor x:Name="Editor" Grid.Row="0"
+    <Grid Margin="2">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="*" MinHeight="80"/>
+        <RowDefinition Height="5"/>
+        <RowDefinition Height="200" MinHeight="50"/>
+      </Grid.RowDefinitions>
+
+      <!-- Upper pages (classic order). Plan Analyzer / Performance Analysis / Logs: layout only, greyed (CommandAvailability). -->
+      <TabControl x:Name="PageTabs" Grid.Row="0" SelectedIndex="{Binding SelectedPage, Mode=TwoWay}">
+        <TabItem Header="Edit" Tag="sqleditor.page.edit" ToolTip="Texto SQL (Ctrl+Espaço completa nomes; duplo clique num nome sublinhado abre o objeto)">
+          <ae:TextEditor x:Name="Editor"
                          Document="{Binding Document, Mode=OneWay}"
                          FontFamily="Consolas"
                          FontSize="{Binding Source={x:Static svc:UiSettings.Instance}, Path=SqlEditorFontSizePx, Mode=OneWay}"
                          ShowLineNumbers="True" WordWrap="False"
                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                          PreviewMouseWheel="Editor_OnPreviewMouseWheel"/>
-          <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" ResizeDirection="Rows" Background="#D4D4D4"/>
-          <TabControl x:Name="ResultTabs" Grid.Row="2" SelectionChanged="ResultTabs_OnSelectionChanged"/>
-        </Grid>
-      </TabItem>
-      <TabItem Header="History">
+        </TabItem>
+        <TabItem Header="Results" Tag="sqleditor.page.results" ToolTip="Resultado do último SELECT (editável quando vem de uma tabela com chave)">
+          <ContentControl x:Name="ResultsHost" Focusable="False"/>
+        </TabItem>
+      <TabItem Header="History" Tag="sqleditor.page.history" ToolTip="Últimos comandos executados nesta conexão">
         <DockPanel>
           <ToolBar DockPanel.Dock="Top">
             <Button Style="{StaticResource SqlTbButton}" Content="Inserir no editor" ToolTip="Insere o comando na posição do cursor (Enter / duplo clique)"
@@ -165,6 +171,33 @@
           </DataGrid>
         </DockPanel>
       </TabItem>
-    </TabControl>
+        <TabItem Header="Plan Analyzer" Tag="sqleditor.page.plan_analyzer" IsEnabled="False" ToolTipService.ShowOnDisabled="True" ToolTip="Plan Analyzer: ainda não implementado"/>
+        <TabItem Header="Performance Analysis" Tag="sqleditor.page.performance_analysis" IsEnabled="False" ToolTipService.ShowOnDisabled="True" ToolTip="Performance Analysis: ainda não implementado"/>
+        <TabItem Header="Logs" Tag="sqleditor.page.logs" IsEnabled="False" ToolTipService.ShowOnDisabled="True" ToolTip="Logs: ainda não implementado"/>
+      </TabControl>
+
+      <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" ResizeDirection="Rows" Background="#D4D4D4"/>
+
+      <!-- Bottom panel: Messages (plan, performance info, server messages) | Query columns of the shown result. -->
+      <TabControl x:Name="BottomTabs" Grid.Row="2" SelectedIndex="{Binding SelectedBottomTab, Mode=TwoWay}">
+        <TabItem x:Name="MessagesTab" Header="Messages" Tag="sqleditor.panel.messages"/>
+        <TabItem Header="Query columns" Tag="sqleditor.panel.query_columns" ToolTip="Colunas do resultado mostrado: tipo, tamanho, NULL e tabela de origem">
+          <DataGrid x:Name="QueryColumnsGrid" ItemsSource="{Binding QueryColumns, Mode=OneWay}"
+                    AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False"
+                    SelectionMode="Extended" SelectionUnit="FullRow" HeadersVisibility="Column" GridLinesVisibility="All"
+                    BorderThickness="0">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="#" Binding="{Binding Index, Mode=OneWay}" Width="34"/>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="180"/>
+              <DataGridTextColumn Header="Type" Binding="{Binding Type, Mode=OneWay}" Width="140"/>
+              <DataGridTextColumn Header="Size" Binding="{Binding Size, Mode=OneWay}" Width="60"/>
+              <DataGridTextColumn Header="Nullable" Binding="{Binding Nullable, Mode=OneWay}" Width="60"/>
+              <DataGridTextColumn Header="Key" Binding="{Binding Key, Mode=OneWay}" Width="70"/>
+              <DataGridTextColumn Header="Source" Binding="{Binding Source, Mode=OneWay}" Width="*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </TabItem>
+      </TabControl>
+    </Grid>
   </DockPanel>
 </UserControl>

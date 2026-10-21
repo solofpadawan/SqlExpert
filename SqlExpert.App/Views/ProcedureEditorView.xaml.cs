@@ -31,6 +31,7 @@ public partial class ProcedureEditorView : UserControl, IProcedureEditorHost
     private readonly ErrorLineRenderer _errorLine = new();
     private readonly ListBox _messages;
     private readonly SearchPanel? _search;
+    private readonly SqlEditorAssist _assist;
 
     public ProcedureEditorView()
     {
@@ -69,6 +70,11 @@ public partial class ProcedureEditorView : UserControl, IProcedureEditorHost
             var text = string.Join(Environment.NewLine, _messages.SelectedItems.OfType<SqlMessage>().Select(m => m.Text));
             if (text.Length > 0) Clipboard.SetText(text);
         }, (_, e) => e.CanExecute = _messages.SelectedItems.Count > 0));
+
+        // Body editor: Ctrl+Space code completion and object links, like the SQL Editor.
+        _assist = new SqlEditorAssist(Editor,
+            () => _vm is null ? null : new SqlAssistTarget(_vm.Shell, _vm.ProfileId, _vm.Database),
+            s => { if (_vm is not null) _vm.StatusLine = s; });
 
         BuildParameterColumns();
         DataContextChanged += OnDataContextChanged;
@@ -157,6 +163,7 @@ public partial class ProcedureEditorView : UserControl, IProcedureEditorHost
             _vm.ResultsChanged += RebuildResultTabs;
             _vm.PropertyChanged += OnVmPropertyChanged;
         }
+        _assist.TargetChanged();
         ShowDocument();
         DdlEditor.Text = _vm?.Ddl ?? "";
         HistoryEditor.Text = _vm?.HistoryText ?? "";

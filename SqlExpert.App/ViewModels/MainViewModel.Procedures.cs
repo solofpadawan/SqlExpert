@@ -108,6 +108,7 @@ public partial class MainViewModel
     /// <summary>After a compile/drop committed on the server: refreshes the Procedures folder (list + count) of that database.</summary>
     public async Task OnProcedureChangedAsync(string profileId, string database, string schema, string name, bool created)
     {
+        InvalidateCompletionCatalogs(profileId, database);
         if (!IsProfileConnected(profileId)) return;
         var folder = FindProceduresFolder(profileId, database);
         if (folder is null) return;

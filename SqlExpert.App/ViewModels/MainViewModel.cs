@@ -1063,7 +1063,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
             // Registration defaults (Database Properties > Additional > SQL Editor).
             Autocommit = profile.SqlEditorAutocommit
         };
-        var doc = new SqlEditorDocumentViewModel(this, profileId, database, number, label, session, _queryHistory, profile.SqlEditorFetchRows);
+        var doc = new SqlEditorDocumentViewModel(this, profileId, database, number, label, session, _queryHistory, profile.SqlEditorFetchRows, _tableDataService);
         _docs.OpenOrActivate(doc.Key, () => doc);
         doc.Host?.FocusEditor();
         StatusText = $"{doc.ShortName} aberto em {database} — F9 / Ctrl+Enter executa.";
@@ -1215,6 +1215,8 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
     private async Task RefreshExplorerFromServerAsync()
     {
         if (_activeProfileId is null) return;
+        // Code completion / object links read the catalog again after a refresh (or a new connection).
+        InvalidateCompletionCatalogs(_activeProfileId);
 
         var profile = FindProfile(_activeProfileId);
         if (profile is null) return;
