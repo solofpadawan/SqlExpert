@@ -23,6 +23,8 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        // Same icon on every window and dialog (splash, main window, editors, updater).
+        AppIcon.ApplyToAllWindows();
         DispatcherUnhandledException += (_, args) => { ReportError(args.Exception); args.Handled = true; };
         AppDomain.CurrentDomain.UnhandledException += (_, args) => { if (args.ExceptionObject is Exception ex) ReportError(ex); };
         TaskScheduler.UnobservedTaskException += (_, args) => { ReportError(args.Exception); args.SetObserved(); };

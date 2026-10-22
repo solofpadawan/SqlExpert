@@ -9,6 +9,8 @@
     <RootNamespace>SqlExpert.App</RootNamespace>
     <AssemblyName>SqlExpert</AssemblyName>
     <ApplicationTitle>SqlExpert</ApplicationTitle>
+    <!-- Exe / shortcut / taskbar icon (original artwork, sources in tools/icons/appicon). -->
+    <ApplicationIcon>Assets\sqlexpert.ico</ApplicationIcon>
     <!-- Product version shown on the splash screen and in Help > About (read back via ProductVersionInfo). -->
     <Version>1.0.2</Version>
     <Product>SqlExpert</Product>
@@ -27,6 +29,10 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Window icons (pack://application:,,,/SqlExpert;component/Assets/sqlexpert.ico) -->
+    <Resource Include="Assets\sqlexpert.ico" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\TSql.xshd" LogicalName="SqlExpert.App.Resources.TSql.xshd" />

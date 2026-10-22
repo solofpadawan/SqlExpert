@@ -5,6 +5,7 @@
         xmlns:vm="clr-namespace:SqlExpert.App.ViewModels"
         xmlns:services="clr-namespace:SqlExpert.App.Services"
         Title="{Binding WindowTitle}"
+        Icon="pack://application:,,,/SqlExpert;component/Assets/sqlexpert.ico"
         PreviewKeyDown="Window_OnPreviewKeyDown"
         Height="800" Width="1280" MinWidth="640" MinHeight="400"
         WindowStartupLocation="CenterScreen"
