@@ -20,6 +20,8 @@ public sealed class UiSettings : INotifyPropertyChanged
     private bool _hideDisconnectedDatabases;
     private bool _showObjectsDescription;
     private bool _checkForUpdatesOnStartup = true;
+    private bool _confirmOnExit = true;
+    private bool _restoreOpenTabs = true;
     private bool? _includePreReleases;
     private string? _skippedUpdateVersion;
 
@@ -42,6 +44,8 @@ public sealed class UiSettings : INotifyPropertyChanged
         _hideDisconnectedDatabases = loaded.HideDisconnectedDatabases;
         _showObjectsDescription = loaded.ShowObjectsDescription;
         _checkForUpdatesOnStartup = loaded.CheckForUpdatesOnStartup;
+        _confirmOnExit = loaded.ConfirmOnExit;
+        _restoreOpenTabs = loaded.RestoreOpenTabs;
         _includePreReleases = loaded.IncludePreReleases;
         _skippedUpdateVersion = loaded.SkippedUpdateVersion;
         OnPropertyChanged(nameof(DataGridFontSize));
@@ -53,6 +57,8 @@ public sealed class UiSettings : INotifyPropertyChanged
         OnPropertyChanged(nameof(HideDisconnectedDatabases));
         OnPropertyChanged(nameof(ShowObjectsDescription));
         OnPropertyChanged(nameof(CheckForUpdatesOnStartup));
+        OnPropertyChanged(nameof(ConfirmOnExit));
+        OnPropertyChanged(nameof(RestoreOpenTabs));
         OnPropertyChanged(nameof(IncludePreReleasesSetting));
         OnPropertyChanged(nameof(IncludePreReleases));
     }
@@ -62,6 +68,20 @@ public sealed class UiSettings : INotifyPropertyChanged
     {
         get => _checkForUpdatesOnStartup;
         set { if (value == _checkForUpdatesOnStartup) return; _checkForUpdatesOnStartup = value; OnPropertyChanged(); Persist(); }
+    }
+
+    /// <summary>Options "Confirm on exit": the Yes/No confirmation before the program quits.</summary>
+    public bool ConfirmOnExit
+    {
+        get => _confirmOnExit;
+        set { if (value == _confirmOnExit) return; _confirmOnExit = value; OnPropertyChanged(); Persist(); }
+    }
+
+    /// <summary>Options "Restore open windows on connect": reopen the saved document tabs of a database on connect.</summary>
+    public bool RestoreOpenTabs
+    {
+        get => _restoreOpenTabs;
+        set { if (value == _restoreOpenTabs) return; _restoreOpenTabs = value; OnPropertyChanged(); Persist(); }
     }
 
     /// <summary>"Receber versões de teste (pre-release)" as saved (null = never chosen; the caller applies the default).</summary>
@@ -172,6 +192,8 @@ public sealed class UiSettings : INotifyPropertyChanged
                 HideDisconnectedDatabases = _hideDisconnectedDatabases,
                 ShowObjectsDescription = _showObjectsDescription,
                 CheckForUpdatesOnStartup = _checkForUpdatesOnStartup,
+                ConfirmOnExit = _confirmOnExit,
+                RestoreOpenTabs = _restoreOpenTabs,
                 IncludePreReleases = _includePreReleases,
                 SkippedUpdateVersion = _skippedUpdateVersion,
                 MainWindow = placement

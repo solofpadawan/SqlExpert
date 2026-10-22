@@ -94,6 +94,9 @@ public sealed class TableDocumentViewModel : DocumentViewModel
     public string Schema { get; }
     public string Table { get; }
 
+    /// <summary>Number of editor tabs (Fields … To-do); a restored <see cref="SelectedTabIndex"/> stays below it.</summary>
+    public const int TabCount = 13;
+
     public override string Caption => WindowTitles.TableCaption(Schema, Table);
     public override string ShortName => Table;
     public override string IconKey => ObjectIcons.For(Core.Models.ObjectKind.Table);

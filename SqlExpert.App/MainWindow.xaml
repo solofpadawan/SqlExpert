@@ -356,6 +356,13 @@
         <MenuItem Header="Receber versões de teste (pre-release)" IsCheckable="True"
                   ToolTip="Também oferece versões marcadas como pre-release no GitHub"
                   IsChecked="{Binding Source={x:Static services:UiSettings.Instance}, Path=IncludePreReleases, Mode=TwoWay}"/>
+        <Separator/>
+        <MenuItem Header="Confirm on exit" IsCheckable="True"
+                  ToolTip="Pergunta antes de fechar o SqlExpert (janela, File | Exit, Alt+F4)"
+                  IsChecked="{Binding Source={x:Static services:UiSettings.Instance}, Path=ConfirmOnExit, Mode=TwoWay}"/>
+        <MenuItem Header="Restore open windows on connect" IsCheckable="True"
+                  ToolTip="Ao conectar um database, reabre as abas (tabelas, procedures, SQL Editors) que estavam abertas na última vez"
+                  IsChecked="{Binding Source={x:Static services:UiSettings.Instance}, Path=RestoreOpenTabs, Mode=TwoWay}"/>
       </MenuItem>
 
       <!-- Tools -->

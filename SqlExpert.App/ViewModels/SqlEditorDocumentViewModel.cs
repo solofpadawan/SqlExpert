@@ -641,6 +641,50 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
         };
     }
 
+    // ===== Saved session (open tabs restored on the next connect) =====
+
+    /// <summary>State kept when the tab is saved with the open windows of its database: number, database, text, file.</summary>
+    public SessionTab CaptureSessionTab() => new()
+    {
+        Kind = SessionTabKind.SqlEditor,
+        Number = Number,
+        Database = CurrentDatabase,
+        SqlText = Document.Text,
+        FilePath = _filePath,
+        IsModified = IsModified,
+        SelectedTab = SelectedPage == HistoryPage ? HistoryPage : EditPage
+    };
+
+    /// <summary>
+    /// Puts back the text of a reopened editor; nothing is executed. An unmodified editor whose file still exists
+    /// reloads the file; otherwise the saved text comes back (still marked modified when it was).
+    /// </summary>
+    public void RestoreSessionText(SessionTab tab)
+    {
+        string? fileText = null;
+        Encoding? encoding = null;
+        var path = string.IsNullOrWhiteSpace(tab.FilePath) ? null : tab.FilePath;
+        if (path is not null && File.Exists(path))
+        {
+            try { (fileText, encoding) = SqlFileText.Read(path); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { fileText = null; }
+        }
+
+        var useFile = fileText is not null && (!tab.IsModified || tab.SqlText is null);
+        var text = useFile ? fileText! : tab.SqlText ?? "";
+        var modified = !useFile && (tab.IsModified || path is not null) && text.Length > 0;
+
+        Document.Text = text;
+        Document.UndoStack.ClearAll();
+        if (!modified) Document.UndoStack.MarkAsOriginalFile();
+        _filePath = path;
+        _fileEncoding = path is null ? null : encoding ?? SqlFileText.DefaultEncoding;
+        IsModified = modified;
+        SelectedPage = tab.SelectedTab == HistoryPage ? HistoryPage : EditPage;
+        RaiseTitles();
+        StatusLine = "Reaberto da última sessão (o SQL não foi executado).";
+    }
+
     // ===== History =====
 
     private void UseHistory(object? p, bool replace)

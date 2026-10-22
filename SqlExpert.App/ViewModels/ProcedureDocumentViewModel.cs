@@ -226,6 +226,9 @@ public sealed class ProcedureDocumentViewModel : DocumentViewModel
     public string? Options => _options;
     public bool ForReplication => _forReplication;
 
+    /// <summary>Number of editor tabs (Edit … To-do); a restored <see cref="SelectedTabIndex"/> stays below it.</summary>
+    public const int TabCount = 10;
+
     public int SelectedTabIndex
     {
         get => _selectedTabIndex;

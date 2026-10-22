@@ -709,6 +709,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
             if (!await CloseDocumentsAsync(DocumentsOf(profile.Id)).ConfigureAwait(true)) return;
             await DisconnectAsync().ConfigureAwait(true);
         }
+        DeleteSavedTabs(profile.Id);
 
         if (!string.IsNullOrEmpty(profile.PasswordSecretId))
             await _credentials.DeleteSecretAsync(profile.PasswordSecretId).ConfigureAwait(true);
@@ -752,10 +753,11 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
 
         if (IsConnected)
         {
-            if (!await CloseDocumentsAsync(DocumentsOf(_activeProfileId)).ConfigureAwait(true)) return;
+            if (!await CloseProfileDocumentsAsync(_activeProfileId).ConfigureAwait(true)) return;
             await DisconnectAsync().ConfigureAwait(true);
         }
 
+        var connected = false;
         _busy = true;
         StatusText = $"Conectando a {ProfileLabel(profile)}...";
         try
@@ -778,6 +780,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
             StatusText = $"Conectado: {ProfileLabel(profile)} ({profile.Server})";
             if (RegistrationScripts.HasScript(profile.AfterConnectScript))
                 await RunRegistrationScriptAsync(profile, profile.AfterConnectScript, "After Connect").ConfigureAwait(true);
+            connected = true;
         }
         catch (Exception ex)
         {
@@ -793,6 +796,10 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(ConnectionStatusText));
             Registry.RaiseCanExecuteChanged();
         }
+
+        // Open windows of the last session of this registration (tables, procedures, SQL Editors; nothing is executed).
+        if (connected && IsProfileConnected(profile.Id))
+            await RestoreOpenTabsAsync(profile).ConfigureAwait(true);
     }
 
     private async Task ReconnectAsync()
@@ -804,7 +811,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
             return;
         }
 
-        if (!await CloseDocumentsAsync(DocumentsOf(profile.Id)).ConfigureAwait(true)) return;
+        if (!await CloseProfileDocumentsAsync(profile.Id).ConfigureAwait(true)) return;
         await DisconnectAsync().ConfigureAwait(true);
         SelectProfileNode(profile.Id);
         await ConnectAsync().ConfigureAwait(true);
@@ -829,7 +836,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
     private async Task DisconnectInteractiveAsync()
     {
         if (!IsConnected) return;
-        if (!await CloseDocumentsAsync(DocumentsOf(_activeProfileId)).ConfigureAwait(true)) return;
+        if (!await CloseProfileDocumentsAsync(_activeProfileId).ConfigureAwait(true)) return;
         await DisconnectAsync().ConfigureAwait(true);
     }
 
@@ -1123,6 +1130,15 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         var number = 1;
         while (used.Contains(number)) number++;
 
+        var doc = CreateSqlEditorDocument(profile, database, number);
+        _docs.OpenOrActivate(doc.Key, () => doc);
+        doc.Host?.FocusEditor();
+        StatusText = $"{doc.ShortName} aberto em {database} — F9 / Ctrl+Enter executa.";
+    }
+
+    private SqlEditorDocumentViewModel CreateSqlEditorDocument(ConnectionProfile profile, string database, int number)
+    {
+        var profileId = profile.Id;
         var server = string.IsNullOrWhiteSpace(profile.Instance) ? profile.Server : $"{profile.Server}\\{profile.Instance}";
         var label = $"{ProfileLabel(profile)} ({server})";
         var session = new SqlEditorSession(ct => _connections.CreateOpenConnectionAsync(profileId, ct), database)
@@ -1130,14 +1146,21 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
             // Registration defaults (Database Properties > Additional > SQL Editor).
             Autocommit = profile.SqlEditorAutocommit
         };
-        var doc = new SqlEditorDocumentViewModel(this, profileId, database, number, label, session, _queryHistory, profile.SqlEditorFetchRows, _tableDataService);
-        _docs.OpenOrActivate(doc.Key, () => doc);
-        doc.Host?.FocusEditor();
-        StatusText = $"{doc.ShortName} aberto em {database} — F9 / Ctrl+Enter executa.";
+        return new SqlEditorDocumentViewModel(this, profileId, database, number, label, session, _queryHistory, profile.SqlEditorFetchRows, _tableDataService);
     }
 
-    /// <summary>Closes every document, asking about unsaved edits / open transactions. False = the user cancelled.</summary>
-    public Task<bool> CloseAllForExitAsync() => CloseDocumentsAsync(_docs.All());
+    /// <summary>
+    /// Closes every document, asking about unsaved edits / open transactions, and saves the open tabs of each
+    /// registration for the next connect. False = the user cancelled (nothing is saved then).
+    /// </summary>
+    public async Task<bool> CloseAllForExitAsync()
+    {
+        foreach (var profileId in ProfilesWithTabs())
+            if (!await CloseProfileDocumentsAsync(profileId).ConfigureAwait(true))
+                return false;
+        _tabsSavedForExit = true;
+        return true;
+    }
 
     public bool AnyDocumentNeedsConfirmation => _docs.Documents.Any(d => d.HasUnsavedChanges);
 
@@ -1190,9 +1213,9 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
     }
 
     /// <summary>Opens the table editor document, or activates it when that table is already open.</summary>
-    private async Task OpenTableDocumentAsync(string database, string schema, string table)
+    private async Task<TableDocumentViewModel?> OpenTableDocumentAsync(string database, string schema, string table)
     {
-        if (!IsConnected || _activeProfileId is null) return;
+        if (!IsConnected || _activeProfileId is null) return null;
         var profileId = _activeProfileId;
         var key = DocumentKeys.Table(profileId, database, schema, table);
         var (doc, created) = _docs.OpenOrActivate(key, () => new TableDocumentViewModel(
@@ -1204,7 +1227,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         if (!created)
         {
             StatusText = $"Ativado: [{schema}].[{table}]";
-            return;
+            return doc as TableDocumentViewModel;
         }
 
         if (doc is TableDocumentViewModel tableDoc)
@@ -1213,6 +1236,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
             if (FindProfile(profileId) is { } p && p.DefaultTableTab != DefaultObjectTab.Fields)
                 tableDoc.SelectedTabIndex = TableDocumentViewModel.TabIndexFor(p.DefaultTableTab);
         }
+        return doc as TableDocumentViewModel;
     }
 
     private ConnectionProfile? GetActiveProfile() =>

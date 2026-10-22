@@ -140,6 +140,35 @@ public class WindowPlacementTests
     }
 
     [Fact]
+    public void ConfirmOnExitAndRestoreTabs_DefaultOn_AndRoundTrip()
+    {
+        var path = TempPath();
+        var store = new UserSettingsStore(path);
+        var d = store.Load();
+        Assert.True(d.ConfirmOnExit);
+        Assert.True(d.RestoreOpenTabs);
+
+        store.Save(new UserSettings { ConfirmOnExit = false, RestoreOpenTabs = false });
+        var loaded = store.Load();
+        Assert.False(loaded.ConfirmOnExit);
+        Assert.False(loaded.RestoreOpenTabs);
+        var json = JsonNode.Parse(File.ReadAllText(path))!;
+        Assert.False((bool)json["confirmOnExit"]!);
+        Assert.False((bool)json["restoreOpenTabs"]!);
+    }
+
+    [Fact]
+    public void ConfirmOnExit_NonBooleanValue_KeepsDefault()
+    {
+        var path = TempPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, "{\"confirmOnExit\": \"no\", \"restoreOpenTabs\": 0}");
+        var loaded = new UserSettingsStore(path).Load();
+        Assert.True(loaded.ConfirmOnExit);
+        Assert.True(loaded.RestoreOpenTabs);
+    }
+
+    [Fact]
     public void MainWindowXaml_DoesNotForceMaximized()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

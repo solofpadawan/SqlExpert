@@ -35,6 +35,12 @@ public sealed class UserSettings
     /// <summary>Check GitHub for a newer release when the program starts (Options).</summary>
     public bool CheckForUpdatesOnStartup { get; set; } = true;
 
+    /// <summary>Options "Confirm on exit": ask before quitting the program.</summary>
+    public bool ConfirmOnExit { get; set; } = true;
+
+    /// <summary>Options "Restore open windows on connect": reopen the document tabs of a database when it is connected again.</summary>
+    public bool RestoreOpenTabs { get; set; } = true;
+
     /// <summary>"Receber versões de teste (pre-release)"; null = never chosen (see ReleaseSelector.DefaultIncludePreReleases).</summary>
     public bool? IncludePreReleases { get; set; }
 

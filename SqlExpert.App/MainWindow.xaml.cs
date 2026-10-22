@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using SqlExpert.App.Services;
 using SqlExpert.App.ViewModels;
+using SqlExpert.App.Views;
 using SqlExpert.Core.Models;
 using SqlExpert.Core.Services;
 
@@ -22,40 +23,74 @@ public partial class MainWindow : Window
         ApplyStartupPlacement();
         StateChanged += (_, _) => { if (WindowState != WindowState.Minimized) _lastShownState = WindowState; };
         Closing += OnClosing;
+        if (Application.Current is { } app)
+        {
+            app.SessionEnding += OnSessionEnding;
+            Closed += (_, _) => app.SessionEnding -= OnSessionEnding;
+        }
     }
 
     private bool _closeConfirmed;
+    private bool _closeInProgress;
+    private bool _sessionEnding;
 
     /// <summary>
-    /// Before closing: unsaved SQL Editor text, open transactions, running queries and pending Data edits
-    /// are confirmed document by document (Cancel keeps the app open). Then the window placement is saved.
+    /// Before closing (window X, File | Exit, Alt+F4): "Are you sure you wish to quit SqlExpert?" (Options | Confirm on exit;
+    /// not asked when closing to install a downloaded update), then unsaved SQL Editor text, open transactions, running
+    /// queries and pending Data edits are confirmed document by document (Cancel/No keeps the app open). Then the window
+    /// placement and the open windows of each registration are saved.
     /// </summary>
     private void OnClosing(object? sender, CancelEventArgs e)
     {
-        if (!_closeConfirmed && _vm is not null && _vm.AnyDocumentNeedsConfirmation)
+        if (!_closeConfirmed && _vm is not null)
         {
-            e.Cancel = true;
-            Dispatcher.BeginInvoke(async () =>
+            if (_closeInProgress)
             {
-                try
+                e.Cancel = true;
+                return;
+            }
+            var ask = UiSettings.Instance.ConfirmOnExit && UpdateService.Pending is null && !_sessionEnding;
+            var vm = _vm;
+            if (ask || vm.AnyDocumentNeedsConfirmation)
+            {
+                e.Cancel = true;
+                _closeInProgress = true;
+                Dispatcher.BeginInvoke(async () =>
                 {
-                    if (!await _vm.CloseAllForExitAsync().ConfigureAwait(true)) return;
-                    _closeConfirmed = true;
-                    Close();
-                }
-                catch (Exception ex)
-                {
-                    App.ReportError(ex);
-                }
-            });
-            return;
+                    try
+                    {
+                        if (ask && !QuitConfirmationWindow.Ask(this)) return;
+                        if (vm.AnyDocumentNeedsConfirmation && !await vm.CloseAllForExitAsync().ConfigureAwait(true)) return;
+                        _closeConfirmed = true;
+                        Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        App.ReportError(ex);
+                    }
+                    finally
+                    {
+                        _closeInProgress = false;
+                    }
+                });
+                return;
+            }
         }
         SavePlacement();
         if (_vm is not null)
         {
+            _vm.SaveOpenTabsForExit();
             // Release editor sessions (connections) of documents that needed no confirmation.
             foreach (var d in _vm.Documents.ToList()) d.OnClosed();
         }
+    }
+
+    /// <summary>Windows log-off / shutdown does not raise Closing: keep the open windows of each registration anyway.</summary>
+    private void OnSessionEnding(object? sender, SessionEndingCancelEventArgs e)
+    {
+        _sessionEnding = true;
+        try { _vm?.SaveOpenTabsForExit(); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { System.Diagnostics.Debug.WriteLine(ex); } // no dialogs while Windows is ending
     }
 
     // ===== Window placement (normal on first run; last bounds/state restored afterwards) =====

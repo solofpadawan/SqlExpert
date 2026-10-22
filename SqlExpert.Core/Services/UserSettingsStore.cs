@@ -21,6 +21,8 @@ public sealed class UserSettingsStore
     private const string CheckUpdatesKey = "checkForUpdatesOnStartup";
     private const string PreReleasesKey = "includePreReleases";
     private const string SkippedVersionKey = "skippedUpdateVersion";
+    private const string ConfirmOnExitKey = "confirmOnExit";
+    private const string RestoreOpenTabsKey = "restoreOpenTabs";
     private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
 
     public UserSettingsStore(string? path = null)
@@ -57,6 +59,10 @@ public sealed class UserSettingsStore
             settings.ShowObjectsDescription = ReadBool(node?[ShowDescriptionKey]);
             if (node?[CheckUpdatesKey] is JsonValue cu && cu.TryGetValue<bool>(out var cub))
                 settings.CheckForUpdatesOnStartup = cub;
+            if (node?[ConfirmOnExitKey] is JsonValue ce && ce.TryGetValue<bool>(out var ceb))
+                settings.ConfirmOnExit = ceb;
+            if (node?[RestoreOpenTabsKey] is JsonValue rt && rt.TryGetValue<bool>(out var rtb))
+                settings.RestoreOpenTabs = rtb;
             if (node?[PreReleasesKey] is JsonValue pr && pr.TryGetValue<bool>(out var prb))
                 settings.IncludePreReleases = prb;
             if (node?[SkippedVersionKey] is JsonValue sk && sk.TryGetValue<string>(out var sks) && !string.IsNullOrWhiteSpace(sks))
@@ -106,6 +112,8 @@ public sealed class UserSettingsStore
         root[HideDisconnectedKey] = settings.HideDisconnectedDatabases;
         root[ShowDescriptionKey] = settings.ShowObjectsDescription;
         root[CheckUpdatesKey] = settings.CheckForUpdatesOnStartup;
+        root[ConfirmOnExitKey] = settings.ConfirmOnExit;
+        root[RestoreOpenTabsKey] = settings.RestoreOpenTabs;
         if (settings.IncludePreReleases is bool pre) root[PreReleasesKey] = pre; else root.Remove(PreReleasesKey);
         if (string.IsNullOrWhiteSpace(settings.SkippedUpdateVersion)) root.Remove(SkippedVersionKey);
         else root[SkippedVersionKey] = settings.SkippedUpdateVersion;
