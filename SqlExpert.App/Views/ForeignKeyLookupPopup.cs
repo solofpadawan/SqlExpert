@@ -15,11 +15,14 @@ namespace SqlExpert.App.Views;
 /// field of the Form View: navigator, "N records fetched", read-only grid of the referenced rows (current value
 /// preselected), filter box, "Fetch all", "(null)" for nullable FKs. Enter / double-click picks; Esc / X closes.
 /// The Popup has no logical parent, so its keys and clicks never reach the edited grid.
+/// Look: same pieces as the Data grid (Themes/Controls.xaml): DocTitleBar title band, InnerToolBarBand +
+/// InnerTrayToolBar navigator with FlatIconButton / IconImage buttons (Icon.First/Prior/Next/Last/Refresh,
+/// same tooltips), "Fetch all" as a FlatToolButton (Icon.FetchAll + caption), Ui.Border outline.
 /// </summary>
 internal sealed class ForeignKeyLookupPopup
 {
     /// <summary>Last size the user dragged to (kept for the session).</summary>
-    private static Size _lastSize = new(500, 220);
+    private static Size _lastSize = new(600, 220);
 
     private readonly Func<bool, bool, CancellationToken, Task<LookupData>> _load;
     private readonly ForeignKeyLookupTarget _target;
@@ -62,13 +65,14 @@ internal sealed class ForeignKeyLookupPopup
         _search = new TextBox
         {
             Width = 120,
-            Margin = new Thickness(6, 1, 2, 1),
+            Margin = new Thickness(0, 0, 2, 0),
             VerticalContentAlignment = VerticalAlignment.Center,
             ToolTip = "Filtrar as linhas (digite parte do código ou da descrição). ↑/↓ escolhem, Enter aplica."
         };
         _search.TextChanged += (_, _) => ApplyFilter(keepKey: SelectedItem?.Key);
 
-        _fetched = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0), FontWeight = FontWeights.SemiBold };
+        // Record count in the toolbar text style of the Data grid's "RecordText".
+        _fetched = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 6, 0) };
         _status = new TextBlock { Margin = new Thickness(4, 1, 4, 1), TextWrapping = TextWrapping.Wrap, Foreground = Brushes.DimGray };
 
         _grid = new DataGrid
@@ -105,60 +109,59 @@ internal sealed class ForeignKeyLookupPopup
             e.Handled = true;
         };
 
-        // ---- title bar ----
+        // ---- title bar (DocTitleBar / DocTitleText / TitleCloseButton, like the document title bars) ----
         var close = new Button
         {
             Content = "✕",
-            Width = 20,
-            Height = 18,
-            Padding = new Thickness(0),
-            Focusable = false,
             ToolTip = "Fechar sem alterar (Esc)",
-            BorderThickness = new Thickness(0),
-            Background = Brushes.Transparent
+            Focusable = false
         };
+        close.SetResourceReference(FrameworkElement.StyleProperty, "TitleCloseButton");
         close.Click += (_, _) => Close();
         var title = new TextBlock
         {
             Text = $"Data of [{target.ForeignKey.ReferencedTitle}]",
-            FontWeight = FontWeights.SemiBold,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(4, 0, 4, 0),
-            TextTrimming = TextTrimming.CharacterEllipsis,
             ToolTip = $"{target.ForeignKey.Name}: ({string.Join(", ", target.LocalColumns)}) → {target.ForeignKey.ReferencedTitle} ({string.Join(", ", target.ForeignKey.ReferencedColumns)})"
         };
-        var titleBar = new DockPanel { Background = new SolidColorBrush(Color.FromRgb(0xE4, 0xE8, 0xEE)), Height = 22 };
+        title.SetResourceReference(FrameworkElement.StyleProperty, "DocTitleText");
+        var titleDock = new DockPanel();
         DockPanel.SetDock(close, Dock.Right);
-        titleBar.Children.Add(close);
-        titleBar.Children.Add(title);
+        titleDock.Children.Add(close);
+        titleDock.Children.Add(title);
+        var titleBar = new Border { Child = titleDock };
+        titleBar.SetResourceReference(FrameworkElement.StyleProperty, "DocTitleBar");
 
-        // ---- navigator / tools ----
-        var tools = new DockPanel { Margin = new Thickness(2, 2, 2, 2), LastChildFill = false };
-        var nav = new StackPanel { Orientation = Orientation.Horizontal };
-        nav.Children.Add(NavButton("|◀", "Primeiro (Ctrl+Home)", () => MoveTo(0)));
-        nav.Children.Add(NavButton("◀", "Anterior (↑)", () => MoveBy(-1)));
-        nav.Children.Add(NavButton("▶", "Próximo (↓)", () => MoveBy(1)));
-        nav.Children.Add(NavButton("▶|", "Último (Ctrl+End)", () => MoveTo(int.MaxValue)));
-        var refresh = NavButton("↻", "Ler de novo do servidor", () => Reload(refresh: true));
-        nav.Children.Add(refresh);
-        _fetchAll = new Button
-        {
-            Content = "Fetch all",
-            Margin = new Thickness(4, 0, 0, 0),
-            Padding = new Thickness(6, 0, 6, 0),
-            Height = 22,
-            Focusable = false,
-            ToolTip = "Ler todas as linhas da tabela referenciada (sem TOP)",
-            IsEnabled = false
-        };
+        // ---- navigator / tools: same toolbar, buttons, icons and tooltips as the Data grid navigator ----
+        var bar = new ToolBar();
+        bar.SetResourceReference(FrameworkElement.StyleProperty, "InnerTrayToolBar");
+        ToolBarTray.SetIsLocked(bar, true);
+        bar.Items.Add(NavButton("Icon.First", "First", () => MoveTo(0)));
+        bar.Items.Add(NavButton("Icon.Prior", "Prior", () => MoveBy(-1)));
+        bar.Items.Add(NavButton("Icon.Next", "Next", () => MoveBy(1)));
+        bar.Items.Add(NavButton("Icon.Last", "Last", () => MoveTo(int.MaxValue)));
+        bar.Items.Add(new Separator());
+        bar.Items.Add(NavButton("Icon.Refresh", "Refresh (recarregar do servidor)", () => Reload(refresh: true)));
+        _fetchAll = ToolButton("Icon.FetchAll", "Fetch all", "Ler todas as linhas da tabela referenciada (sem TOP)");
+        _fetchAll.IsEnabled = false;
         _fetchAll.Click += (_, _) => { _fetchAllRequested = true; Reload(refresh: false); };
-        nav.Children.Add(_fetchAll);
-        nav.Children.Add(new TextBlock { Text = "Filtro:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) });
-        nav.Children.Add(_search);
-        DockPanel.SetDock(nav, Dock.Left);
+        bar.Items.Add(_fetchAll);
+        bar.Items.Add(new Separator());
+        var filterLabel = new TextBlock { Text = "Filtro:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 2, 0) };
+        bar.Items.Add(filterLabel);
+        // Fetch all and the filter stay on the bar when the popup is narrow; the navigator buttons go to the overflow first.
+        ToolBar.SetOverflowMode(_fetchAll, OverflowMode.Never);
+        ToolBar.SetOverflowMode(filterLabel, OverflowMode.Never);
+        ToolBar.SetOverflowMode(_search, OverflowMode.Never);
+        bar.Items.Add(_search);
+        var tray = new ToolBarTray { IsLocked = true, Background = Brushes.Transparent };
+        tray.ToolBars.Add(bar);
+        // The record count sits at the right end of the same band (outside the ToolBar, so it never overflows).
+        var band = new DockPanel();
         DockPanel.SetDock(_fetched, Dock.Right);
-        tools.Children.Add(nav);
-        tools.Children.Add(_fetched);
+        band.Children.Add(_fetched);
+        band.Children.Add(tray);
+        var tools = new Border { Child = band };
+        tools.SetResourceReference(FrameworkElement.StyleProperty, "InnerToolBarBand");
 
         // ---- resize grip + status ----
         var grip = new Thumb
@@ -192,10 +195,10 @@ internal sealed class ForeignKeyLookupPopup
             MinWidth = 320,
             MinHeight = 150,
             Background = SystemColors.WindowBrush,
-            BorderBrush = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80)),
             BorderThickness = new Thickness(1),
             Child = layout
         };
+        _root.SetResourceReference(Border.BorderBrushProperty, "Ui.Border");
         // Same font size as the Data grid (shared "Font size" setting).
         _root.SetBinding(TextBlock.FontSizeProperty, new Binding(nameof(Services.UiSettings.DataGridFontSizePx))
         {
@@ -261,21 +264,28 @@ internal sealed class ForeignKeyLookupPopup
         return t;
     }
 
-    private Button NavButton(string text, string tip, Action action)
+    /// <summary>Icon-only navigator button: FlatIconButton + 16px IconImage, as in the Data grid toolbar.</summary>
+    private Button NavButton(string iconKey, string tip, Action action)
     {
-        var b = new Button
-        {
-            Content = text,
-            MinWidth = 24,
-            Height = 22,
-            Padding = new Thickness(3, 0, 3, 0),
-            Margin = new Thickness(1, 0, 1, 0),
-            FontFamily = new FontFamily("Segoe UI Symbol"),
-            Focusable = false,
-            ToolTip = tip
-        };
+        var icon = new IconImage();
+        icon.SetResourceReference(IconImage.IconProperty, iconKey);
+        var b = new Button { Content = icon, Focusable = false, ToolTip = tip };
+        b.SetResourceReference(FrameworkElement.StyleProperty, "FlatIconButton");
         b.Click += (_, _) => action();
         _navButtons.Add(b);
+        return b;
+    }
+
+    /// <summary>Icon + caption button (FlatToolButton: 16px IconImage, 5px gap, caption).</summary>
+    private static Button ToolButton(string iconKey, string caption, string tip)
+    {
+        var icon = new IconImage { VerticalAlignment = VerticalAlignment.Center };
+        icon.SetResourceReference(IconImage.IconProperty, iconKey);
+        var content = new StackPanel { Orientation = Orientation.Horizontal };
+        content.Children.Add(icon);
+        content.Children.Add(new TextBlock { Text = caption, Margin = new Thickness(5, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+        var b = new Button { Content = content, Focusable = false, ToolTip = tip };
+        b.SetResourceReference(FrameworkElement.StyleProperty, "FlatToolButton");
         return b;
     }
 

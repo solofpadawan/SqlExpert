@@ -30,7 +30,15 @@
   <SolidColorBrush x:Key="GridLineBrush" Color="#DCDCDC"/>
   <SolidColorBrush x:Key="GridBorderBrush" Color="#C8C8C8"/>
   <SolidColorBrush x:Key="GridHeaderSeparatorBrush" Color="#D0D0D0"/>
+  <!-- Current row of a grid that does not have the keyboard focus (WPF "inactive selection"): soft light blue
+       instead of the system light gray; dark text, "<null>" stays red. The focused selection keeps the system
+       highlight (blue, white text). Set in the implicit DataGrid style, so every grid gets it. -->
+  <Color x:Key="GridCurrentRowColor">#DCEBFA</Color>
   <Style TargetType="DataGrid">
+    <Style.Resources>
+      <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="{StaticResource GridCurrentRowColor}"/>
+      <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#1F2B3A"/>
+    </Style.Resources>
     <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource GridLineBrush}"/>
     <Setter Property="VerticalGridLinesBrush" Value="{StaticResource GridLineBrush}"/>
     <Setter Property="BorderBrush" Value="{StaticResource GridBorderBrush}"/>
@@ -46,8 +54,8 @@
 
   <!-- Grid cells: NULL is shown as "<null>" in red, not italic (classic-style). Every cell TextBlock style of the
        Data grid, the SQL Editor results and the FK lookup popup is BasedOn="{StaticResource NullAwareCellText}".
-       In a selected cell the text takes the cell's own selection foreground (white on the blue highlight,
-       black on the gray inactive highlight), so it stays readable. -->
+       In a selected cell of the focused grid the text takes the cell's selection foreground (white on the blue
+       highlight); on the light blue current row of an unfocused grid it stays red. -->
   <SolidColorBrush x:Key="NullValueBrush" Color="#E00000"/>
   <Style x:Key="NullAwareCellText" TargetType="TextBlock">
     <Style.Triggers>
@@ -59,6 +67,7 @@
         <MultiDataTrigger.Conditions>
           <Condition Binding="{Binding Text, RelativeSource={RelativeSource Self}, Mode=OneWay}" Value="&lt;null&gt;"/>
           <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridCell}, Mode=OneWay}" Value="True"/>
+          <Condition Binding="{Binding (Selector.IsSelectionActive), RelativeSource={RelativeSource AncestorType=DataGridCell}, Mode=OneWay}" Value="True"/>
         </MultiDataTrigger.Conditions>
         <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridCell}, Mode=OneWay}"/>
       </MultiDataTrigger>
