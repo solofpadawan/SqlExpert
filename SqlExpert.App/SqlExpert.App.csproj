@@ -12,7 +12,7 @@
     <!-- Exe / shortcut / taskbar icon (original artwork, sources in tools/icons/appicon). -->
     <ApplicationIcon>Assets\sqlexpert.ico</ApplicationIcon>
     <!-- Product version shown on the splash screen and in Help > About (read back via ProductVersionInfo). -->
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <Product>SqlExpert</Product>
     <Copyright>Copyright (c) 2026 Saulo Padovan</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
