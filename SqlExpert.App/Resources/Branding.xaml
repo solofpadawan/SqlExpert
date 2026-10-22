@@ -5,7 +5,8 @@
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+                    xmlns:views="clr-namespace:SqlExpert.App.Views">
   <!-- Logo: cylinder body, cylinder top (lighter) and the white rings on the cylinder. -->
   <SolidColorBrush x:Key="BrandAccentBrush" Color="#CC2927"/>
   <SolidColorBrush x:Key="BrandAccentLightBrush" Color="#E5534B"/>
@@ -34,7 +35,12 @@
     <Setter Property="VerticalGridLinesBrush" Value="{StaticResource GridLineBrush}"/>
     <Setter Property="BorderBrush" Value="{StaticResource GridBorderBrush}"/>
   </Style>
+  <!-- Column headers show column names as plain text. The default header template presents string content with
+       RecognizesAccessKey="True", which treats the first '_' as an access key and hides it (FK_ORDER -> FKORDER).
+       PlainTextTemplateSelector keeps string headers verbatim (a setter, so styles BasedOn this one keep it too);
+       headers that already hold a TextBlock or other element are unaffected. -->
   <Style TargetType="DataGridColumnHeader">
+    <Setter Property="ContentTemplateSelector" Value="{x:Static views:PlainTextTemplateSelector.Instance}"/>
     <Setter Property="SeparatorBrush" Value="{StaticResource GridHeaderSeparatorBrush}"/>
   </Style>
 

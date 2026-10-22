@@ -132,7 +132,8 @@
             <Border x:Name="Bd" CornerRadius="4,4,0,0" BorderThickness="1,1,1,0"
                     BorderBrush="{StaticResource Ui.Border}" Background="{StaticResource Tab.InactiveBackground}"
                     Padding="{TemplateBinding Padding}">
-              <ContentPresenter x:Name="Cp" ContentSource="Header" RecognizesAccessKey="True"
+              <!-- No access keys on tabs: headers carry object/result names (dbo.A_B), whose '_' must stay visible. -->
+              <ContentPresenter x:Name="Cp" ContentSource="Header" RecognizesAccessKey="False"
                                 HorizontalAlignment="Center" VerticalAlignment="Center"
                                 SnapsToDevicePixels="True"/>
             </Border>
