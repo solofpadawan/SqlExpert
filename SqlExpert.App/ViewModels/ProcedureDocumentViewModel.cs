@@ -971,8 +971,9 @@ public sealed class ProcedureDocumentViewModel : DocumentViewModel
         if (IsBusy || !Exists) return;
         if (IsModified)
         {
-            var answer = Ask("A procedure foi alterada e ainda não foi compilada.\n\nSim = compilar e executar   Não = executar a versão do servidor   Cancelar = voltar",
-                MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Yes);
+            var answer = Ask("A procedure foi alterada e ainda não foi compilada.\n\nCompilar antes de executar, ou executar a versão que está no servidor?",
+                MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Yes,
+                new DialogLabels("Compilar e executar", "Executar a do servidor", "Cancelar"));
             if (answer == MessageBoxResult.Cancel) return;
             if (answer == MessageBoxResult.Yes && !await CompileAsync().ConfigureAwait(true)) return;
         }
@@ -1061,8 +1062,8 @@ public sealed class ProcedureDocumentViewModel : DocumentViewModel
         {
             if (value && _session.InTransaction)
             {
-                var answer = Ask("Há uma transação aberta neste editor.\n\nSim = COMMIT   Não = ROLLBACK   Cancelar = continuar em modo transação",
-                    MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
+                var answer = Ask("Há uma transação aberta neste editor.\n\nFinalizar a transação antes de ligar o autocommit?\nCancelar mantém o modo transação.",
+                    MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel, TransactionLabels);
                 if (answer == MessageBoxResult.Cancel) return;
                 if (answer == MessageBoxResult.Yes) await CommitAsync().ConfigureAwait(true);
                 else await RollbackAsync().ConfigureAwait(true);
@@ -1263,16 +1264,17 @@ public sealed class ProcedureDocumentViewModel : DocumentViewModel
 
         if (IsModified)
         {
-            var answer = Ask($"A procedure [{Schema}].[{ObjectName}] foi alterada e não foi compilada.\n\nSim = compilar   Não = descartar as alterações   Cancelar = não fechar",
-                MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
+            var answer = Ask($"A procedure [{Schema}].[{ObjectName}] foi alterada e não foi compilada.\n\nCompilar antes de fechar?",
+                MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel,
+                new DialogLabels("Compilar", "Descartar", "Cancelar"), SqlEditorDocumentViewModel.UnsavedChangesTitle);
             if (answer == MessageBoxResult.Cancel) return false;
             if (answer == MessageBoxResult.Yes && !await CompileAsync().ConfigureAwait(true)) return false;
         }
 
         if (_session.InTransaction)
         {
-            var answer = Ask($"'{ShortName.TrimEnd(' ', '*')}' tem uma transação aberta (@@TRANCOUNT = {_session.TranCount}).\n\nSim = COMMIT   Não = ROLLBACK   Cancelar = não fechar",
-                MessageBoxButton.YesNoCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel);
+            var answer = Ask($"'{ShortName.TrimEnd(' ', '*')}' tem uma transação aberta (@@TRANCOUNT = {_session.TranCount}).\n\nFinalizar a transação antes de fechar?",
+                MessageBoxButton.YesNoCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel, TransactionLabels);
             if (answer == MessageBoxResult.Cancel) return false;
             if (answer == MessageBoxResult.Yes) await CommitAsync().ConfigureAwait(true);
             else await RollbackAsync().ConfigureAwait(true);
@@ -1292,11 +1294,10 @@ public sealed class ProcedureDocumentViewModel : DocumentViewModel
         Host = null;
     }
 
-    private static MessageBoxResult Ask(string text, MessageBoxButton buttons, MessageBoxImage image, MessageBoxResult defaultResult)
-    {
-        var owner = Application.Current?.MainWindow;
-        return owner is not null
-            ? MessageBox.Show(owner, text, "SqlExpert - Procedure", buttons, image, defaultResult)
-            : MessageBox.Show(text, "SqlExpert - Procedure", buttons, image, defaultResult);
-    }
+    /// <summary>Commit / Rollback / Cancelar for an open transaction.</summary>
+    private static readonly DialogLabels TransactionLabels = new("Commit", "Rollback", "Cancelar");
+
+    private static MessageBoxResult Ask(string text, MessageBoxButton buttons, MessageBoxImage image, MessageBoxResult defaultResult,
+        DialogLabels? labels = null, string? title = null) =>
+        MessageDialog.Show(null, text, title ?? "SqlExpert - Procedure", buttons, image, defaultResult, labels);
 }

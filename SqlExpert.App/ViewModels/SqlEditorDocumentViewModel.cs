@@ -13,6 +13,7 @@ using SqlExpert.App.Services;
 using SqlExpert.Core.Documents;
 using SqlExpert.Core.Models;
 using SqlExpert.Core.SqlEditor;
+using SqlExpert.App.Views;
 
 namespace SqlExpert.App.ViewModels;
 
@@ -544,8 +545,8 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
         {
             if (value && _session.InTransaction)
             {
-                var answer = Ask("Há uma transação aberta neste editor.\n\nSim = COMMIT   Não = ROLLBACK   Cancelar = continuar em modo transação",
-                    MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
+                var answer = Ask("Há uma transação aberta neste editor.\n\nFinalizar a transação antes de ligar o autocommit?\nCancelar mantém o modo transação.",
+                    MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel, TransactionLabels);
                 if (answer == MessageBoxResult.Cancel) return;
                 if (answer == MessageBoxResult.Yes) await CommitAsync().ConfigureAwait(true);
                 else await RollbackAsync().ConfigureAwait(true);
@@ -580,7 +581,7 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
 
     private async Task OpenFileAsync()
     {
-        if (!ConfirmDiscardOrSave("Abrir arquivo")) return;
+        if (!ConfirmDiscardOrSave("abrir outro arquivo")) return;
         var dlg = new OpenFileDialog { Filter = FileFilter, Title = "Load from File", CheckFileExists = true };
         if (_filePath is not null) dlg.InitialDirectory = Path.GetDirectoryName(_filePath);
         if (dlg.ShowDialog(Application.Current?.MainWindow) != true) return;
@@ -631,8 +632,9 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
     private bool ConfirmDiscardOrSave(string action)
     {
         if (!IsModified || Document.TextLength == 0) return true;
-        var answer = Ask($"O texto de '{ShortName.TrimEnd(' ', '*')}' foi alterado e não foi salvo.\n\nSalvar antes de continuar ({action})?\n\nSim = salvar   Não = descartar   Cancelar = voltar",
-            MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
+        var answer = Ask($"O texto de '{ShortName.TrimEnd(' ', '*')}' foi alterado e não foi salvo.\n\nSalvar antes de {action}?",
+            MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel,
+            new DialogLabels("Salvar", "Descartar", "Cancelar"), UnsavedChangesTitle);
         return answer switch
         {
             MessageBoxResult.Yes => Save(saveAs: false),
@@ -720,8 +722,8 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
 
         if (_session.InTransaction)
         {
-            var answer = Ask($"'{ShortName.TrimEnd(' ', '*')}' tem uma transação aberta (@@TRANCOUNT = {_session.TranCount}).\n\nSim = COMMIT   Não = ROLLBACK   Cancelar = não fechar",
-                MessageBoxButton.YesNoCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel);
+            var answer = Ask($"'{ShortName.TrimEnd(' ', '*')}' tem uma transação aberta (@@TRANCOUNT = {_session.TranCount}).\n\nFinalizar a transação antes de fechar?",
+                MessageBoxButton.YesNoCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel, TransactionLabels);
             if (answer == MessageBoxResult.Cancel) return false;
             if (answer == MessageBoxResult.Yes) await CommitAsync().ConfigureAwait(true);
             else await RollbackAsync().ConfigureAwait(true);
@@ -747,11 +749,12 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
         Host = null;
     }
 
-    private static MessageBoxResult Ask(string text, MessageBoxButton buttons, MessageBoxImage image, MessageBoxResult defaultResult)
-    {
-        var owner = Application.Current?.MainWindow;
-        return owner is not null
-            ? MessageBox.Show(owner, text, "SqlExpert - SQL Editor", buttons, image, defaultResult)
-            : MessageBox.Show(text, "SqlExpert - SQL Editor", buttons, image, defaultResult);
-    }
+    public const string UnsavedChangesTitle = "Alterações não salvas";
+
+    /// <summary>Commit / Rollback / Cancelar for an open transaction.</summary>
+    private static readonly DialogLabels TransactionLabels = new("Commit", "Rollback", "Cancelar");
+
+    private static MessageBoxResult Ask(string text, MessageBoxButton buttons, MessageBoxImage image, MessageBoxResult defaultResult,
+        DialogLabels? labels = null, string? title = null) =>
+        MessageDialog.Show(null, text, title ?? "SqlExpert - SQL Editor", buttons, image, defaultResult, labels);
 }

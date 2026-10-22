@@ -204,14 +204,14 @@ public partial class DatabasePropertiesWindow : Window
             var version = await RegistrationScripts.GetServerVersionAsync(conn).ConfigureAwait(true);
             Form.ServerVersion = version;
             SetStatus("Conexão OK — " + version, SuccessBrush);
-            MessageBox.Show(this, $"Conexão OK.\n\n{version}\nDatabase: {profile.InitialCatalog}", "Test Connect",
+            MessageDialog.Show(this, $"Conexão OK.\n\n{version}\nDatabase: {profile.InitialCatalog}", "Test Connect",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
             SetStatus("Falha: " + ex.Message, Brushes.DarkRed);
-            MessageBox.Show(this, "Não foi possível conectar.\n\n" + ex.Message, "Test Connect",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageDialog.Show(this, "Não foi possível conectar.", "Test Connect",
+                MessageBoxButton.OK, MessageBoxImage.Warning, detail: ex.Message);
         }
         finally
         {
@@ -310,7 +310,7 @@ public partial class DatabasePropertiesWindow : Window
             SelectPage(first.StartsWith("Color", StringComparison.Ordinal) ? "ColorMark"
                 : first.StartsWith("Additional >", StringComparison.Ordinal) ? "SqlEditor"
                 : "General");
-            MessageBox.Show(this, "Corrija antes de salvar:\n\n• " + string.Join("\n• ", errors), "Database Properties",
+            MessageDialog.Show(this, "Corrija antes de salvar:\n\n• " + string.Join("\n• ", errors), "Database Properties",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -326,7 +326,7 @@ public partial class DatabasePropertiesWindow : Window
         catch (Exception ex) when (ex is FormatException or ArgumentException)
         {
             SelectPage("General");
-            MessageBox.Show(this, ex.Message, "Database Properties", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageDialog.Show(this, ex.Message, "Database Properties", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

@@ -100,7 +100,7 @@ public partial class App : Application
         catch { }
     }
 
-    /// <summary>Test seam for headless checks: when set, errors go here instead of error.log + MessageBox.</summary>
+    /// <summary>Test seam for headless checks: when set, errors go here instead of error.log + error dialog.</summary>
     public static Action<Exception>? ErrorSinkOverride { get; set; }
 
     public static void ReportError(Exception ex)
@@ -119,7 +119,8 @@ public partial class App : Application
             System.IO.File.AppendAllText(System.IO.Path.Combine(dir, "error.log"), $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex}{Environment.NewLine}{Environment.NewLine}");
         }
         catch { }
-        MessageBox.Show(ex.Message, "SqlExpert - Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+        MessageDialog.Show(null, ex.Message, "SqlExpert - Erro", MessageBoxButton.OK, MessageBoxImage.Error,
+            detail: ex.InnerException is { } inner && inner.Message != ex.Message ? inner.Message : null);
     }
 
     protected override void OnExit(ExitEventArgs e)

@@ -9,6 +9,7 @@ using SqlExpert.Core.Abstractions;
 using SqlExpert.Core.DataForms;
 using SqlExpert.Core.Models;
 using SqlExpert.Core.SqlEditor;
+using SqlExpert.App.Views;
 
 namespace SqlExpert.App.ViewModels;
 
@@ -261,11 +262,13 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         CommitEditRequested?.Invoke();
         if (!HasPendingChanges) return true;
 
-        var answer = MessageBox.Show(
-            $"Existem alterações não gravadas em {TableTitle}.\n\nGravar (Post) agora?\n\nSim = gravar   Não = descartar   Cancelar = continuar editando",
-            "SqlExpert - Data",
+        var answer = MessageDialog.Show(
+            $"Existem alterações não gravadas em {TableTitle}.\n\nGravar (Post) agora?",
+            SqlEditorDocumentViewModel.UnsavedChangesTitle,
             MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
+            MessageBoxImage.Question,
+            MessageBoxResult.Yes,
+            new DialogLabels("Gravar", "Descartar", "Cancelar"));
         switch (answer)
         {
             case MessageBoxResult.Yes:
@@ -283,7 +286,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         CommitEditRequested?.Invoke();
         if (HasPendingChanges)
         {
-            var answer = MessageBox.Show("Descartar as alterações não gravadas e recarregar os dados?",
+            var answer = MessageDialog.Show("Descartar as alterações não gravadas e recarregar os dados?",
                 "SqlExpert - Data", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (answer != MessageBoxResult.Yes) return;
             CancelEditRequested?.Invoke();
@@ -627,7 +630,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         if (rowView is null) return;
         var row = rowView.Row;
 
-        if (MessageBox.Show("Excluir o registro atual?", "SqlExpert - Data",
+        if (MessageDialog.Show("Excluir o registro atual?", "SqlExpert - Data",
                 MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
             return;
 

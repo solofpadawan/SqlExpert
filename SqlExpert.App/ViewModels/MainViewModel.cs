@@ -546,11 +546,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
 
     private static void ShowInfo(string message, MessageBoxImage image = MessageBoxImage.Information)
     {
-        var owner = Application.Current?.MainWindow;
-        if (owner is not null)
-            MessageBox.Show(owner, message, "SqlExpert", MessageBoxButton.OK, image);
-        else
-            MessageBox.Show(message, "SqlExpert", MessageBoxButton.OK, image);
+        MessageDialog.Show(null, message, "SqlExpert", MessageBoxButton.OK, image);
     }
 
     private ConnectionProfile? FindDuplicate(ConnectionProfile candidate) =>
@@ -675,7 +671,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         if (!isNew && connectionChanged && IsConnected && _activeProfileId == updated.Id)
         {
             var answer = owner is not null
-                ? MessageBox.Show(owner, $"Os dados de conexão de '{ProfileLabel(updated)}' mudaram.\n\nReconectar agora para usar os novos dados?\n(As janelas deste database serão fechadas.)",
+                ? MessageDialog.Show(owner, $"Os dados de conexão de '{ProfileLabel(updated)}' mudaram.\n\nReconectar agora para usar os novos dados?\n(As janelas deste database serão fechadas.)",
                     "SqlExpert", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.Yes)
                 : MessageBoxResult.No;
             if (answer == MessageBoxResult.Yes)
@@ -696,7 +692,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
             return;
         }
 
-        if (MessageBox.Show(
+        if (MessageDialog.Show(
                 $"Unregister '{ProfileLabel(profile)}'?\n\n{profile.Server}{(string.IsNullOrWhiteSpace(profile.Instance) ? "" : "\\" + profile.Instance)} : {profile.InitialCatalog}\n\n" +
                 "Só o registro sai do SqlExpert: o database NÃO é apagado do servidor.",
                 "SqlExpert",
@@ -989,10 +985,9 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
 
         var stmts = FieldDdlBuilder.BuildDropColumn(structure, row.FieldName);
         var owner = Application.Current?.MainWindow;
-        var msg = $"Excluir o campo [{row.FieldName}] de [{doc.Schema}].[{doc.Table}]?\n\nOs dados deste campo serão perdidos.\n\nSQL:\n{string.Join("\n", stmts)}";
-        var answer = owner is not null
-            ? MessageBox.Show(owner, msg, "SqlExpert - Drop field", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
-            : MessageBox.Show(msg, "SqlExpert - Drop field", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        var msg = $"Excluir o campo [{row.FieldName}] de [{doc.Schema}].[{doc.Table}]?\n\nOs dados deste campo serão perdidos.";
+        var answer = MessageDialog.Show(owner, msg, "SqlExpert - Drop field", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No,
+            detail: "SQL:\n" + string.Join("\n", stmts));
         if (answer != MessageBoxResult.Yes)
         {
             StatusText = "Drop field cancelado.";
@@ -1048,10 +1043,9 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         }
         var sql = PrimaryKeyDdlBuilder.DropConstraint(doc.Schema, doc.Table, row.Name);
         var owner = Application.Current?.MainWindow;
-        var msg = $"Excluir a constraint {kind} [{row.Name}] de [{doc.Schema}].[{doc.Table}]?\n\nSQL:\n{sql}";
-        var answer = owner is not null
-            ? MessageBox.Show(owner, msg, "SqlExpert - Drop constraint", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No)
-            : MessageBox.Show(msg, "SqlExpert - Drop constraint", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        var msg = $"Excluir a constraint {kind} [{row.Name}] de [{doc.Schema}].[{doc.Table}]?";
+        var answer = MessageDialog.Show(owner, msg, "SqlExpert - Drop constraint", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No,
+            detail: "SQL:\n" + sql);
         if (answer != MessageBoxResult.Yes)
         {
             StatusText = "Drop constraint cancelado.";

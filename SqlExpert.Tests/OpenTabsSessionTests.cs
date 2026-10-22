@@ -307,11 +307,10 @@ public class OpenTabsSessionTests
         var dialog = AppText("Views", "QuitConfirmationWindow.cs");
         Assert.Contains("\"Confirmation\"", dialog);
         Assert.Contains("\"Are you sure you wish to quit SqlExpert?\"", dialog);
-        Assert.Matches(new Regex("Content = \"Yes\".*IsDefault = true"), dialog);
-        Assert.Matches(new Regex("Content = \"No\".*IsCancel = true"), dialog);
-        Assert.Contains("WindowStartupLocation.CenterOwner", dialog);
-        Assert.Contains("AppIcon.Image", dialog);
-        Assert.Equal(2, Regex.Matches(dialog, "WithDialogStyle\\(\\)").Count);
+        // Yes (default) / No (Esc) through the shared styled message dialog.
+        Assert.Contains("MessageBoxButton.YesNo, MessageBoxImage.Question,", dialog);
+        Assert.Contains("MessageBoxResult.Yes, DialogLabels.English", dialog);
+        Assert.Contains("MessageDialog.Show(owner,", dialog);
 
         var main = AppText("MainWindow.xaml.cs");
         Assert.Contains("UiSettings.Instance.ConfirmOnExit && UpdateService.Pending is null", main);

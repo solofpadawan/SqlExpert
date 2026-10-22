@@ -249,14 +249,14 @@ public partial class FieldEditorWindow : Window
         if (_busy || _statements.Count == 0 || Result is null) return;
 
         if (_keyPlan.RecreatesExistingKey
-            && MessageBox.Show(this,
+            && MessageDialog.Show(this,
                 _keyPlan.Summary + "\n\nA chave primária será excluída e criada de novo na mesma transação " +
                 "(os índices da tabela são reconstruídos; em tabelas grandes isso pode demorar).\n\nContinuar?",
                 "SqlExpert - Primary key", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
         if (IsNew && FieldDdlBuilder.NeedsRowsWarning(Result, _rowCount)
-            && MessageBox.Show(this,
+            && MessageDialog.Show(this,
                 $"A tabela {SqlText.Qualified(_schema, _table)} tem {_rowCount} registro(s).\n\n" +
                 "Adicionar um campo NOT NULL sem Default deve falhar no SQL Server.\n\nTentar mesmo assim?",
                 "SqlExpert - New field", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)

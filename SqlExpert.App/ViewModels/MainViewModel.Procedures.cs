@@ -381,13 +381,8 @@ public partial class MainViewModel
         return true;
     }
 
-    private static MessageBoxResult AskUser(string text, MessageBoxButton buttons, MessageBoxImage image, MessageBoxResult def)
-    {
-        var owner = Application.Current?.MainWindow;
-        return owner is not null
-            ? MessageBox.Show(owner, text, "SqlExpert", buttons, image, def)
-            : MessageBox.Show(text, "SqlExpert", buttons, image, def);
-    }
+    private static MessageBoxResult AskUser(string text, MessageBoxButton buttons, MessageBoxImage image, MessageBoxResult def) =>
+        MessageDialog.Show(null, text, "SqlExpert", buttons, image, def);
 
     private async Task DropProcedureFromExplorerAsync(ExplorerNode node)
     {

@@ -26,8 +26,8 @@ public static class UpdaterMode
                 if (t.IsFaulted) UpdateLog.Write("[updater] " + t.Exception);
                 win.Close();
                 if (!outcome.Success)
-                    MessageBox.Show(outcome.Message + $"\n\nDetalhes: {UpdateLog.FilePath}", "SqlExpert - Atualização",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageDialog.Show(null, outcome.Message, "SqlExpert - Atualização",
+                        MessageBoxButton.OK, MessageBoxImage.Warning, detail: $"Detalhes: {UpdateLog.FilePath}");
                 if (outcome.RelaunchPath is { } exe)
                 {
                     try

@@ -214,8 +214,8 @@ public static class UpdateService
         catch (Exception ex)
         {
             UpdateLog.Write("não foi possível iniciar o atualizador: " + ex);
-            MessageBox.Show("Não foi possível iniciar a instalação da atualização:\n\n" + ex.Message, "SqlExpert - Atualização",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageDialog.Show(null, "Não foi possível iniciar a instalação da atualização.", "SqlExpert - Atualização",
+                MessageBoxButton.OK, MessageBoxImage.Error, detail: ex.Message);
         }
     }
 
@@ -225,17 +225,11 @@ public static class UpdateService
         catch (Exception ex) { UpdateLog.Write("abrir navegador: " + ex.Message); }
     }
 
-    private static void Info(Window? owner, string text)
-    {
-        if (owner is not null && owner.IsVisible) MessageBox.Show(owner, text, "SqlExpert - Atualização", MessageBoxButton.OK, MessageBoxImage.Information);
-        else MessageBox.Show(text, "SqlExpert - Atualização", MessageBoxButton.OK, MessageBoxImage.Information);
-    }
+    /// <summary>Owner when visible (MessageDialog centres on screen otherwise).</summary>
+    private static void Info(Window? owner, string text) =>
+        MessageDialog.Show(owner is { IsVisible: true } ? owner : null, text, "SqlExpert - Atualização", MessageBoxButton.OK, MessageBoxImage.Information);
 
-    private static bool Ask(Window? owner, string text, MessageBoxImage image)
-    {
-        var r = owner is not null && owner.IsVisible
-            ? MessageBox.Show(owner, text, "SqlExpert - Atualização", MessageBoxButton.YesNo, image)
-            : MessageBox.Show(text, "SqlExpert - Atualização", MessageBoxButton.YesNo, image);
-        return r == MessageBoxResult.Yes;
-    }
+    private static bool Ask(Window? owner, string text, MessageBoxImage image) =>
+        MessageDialog.Show(owner is { IsVisible: true } ? owner : null, text, "SqlExpert - Atualização", MessageBoxButton.YesNo, image)
+        == MessageBoxResult.Yes;
 }
