@@ -16,26 +16,21 @@ public sealed class ChooseRegistrationWindow : Window
         _profiles = profiles;
         Title = title;
         Width = 460;
-        Height = 340;
+        Height = 380;
         MinWidth = 320;
         MinHeight = 220;
         ShowInTaskbar = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ResizeMode = ResizeMode.CanResizeWithGrip;
 
-        var root = new DockPanel { Margin = new Thickness(10) };
-        var text = new TextBlock { Text = prompt, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6) };
-        DockPanel.SetDock(text, Dock.Top);
-        root.Children.Add(text);
+        var header = new DialogHeaderBar(title, "Icon.DatabaseRegistration", prompt);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
-        var ok = new Button { Content = "OK", MinWidth = 75, IsDefault = true }.WithDialogStyle();
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var ok = new Button { Content = "OK", MinWidth = 75, IsDefault = true }.WithPrimaryStyle();
         ok.Click += (_, _) => { if (_list!.SelectedIndex >= 0) DialogResult = true; };
         var cancel = new Button { Content = "Cancel", MinWidth = 75, IsCancel = true, Margin = new Thickness(6, 0, 0, 0) }.WithDialogStyle();
         buttons.Children.Add(ok);
         buttons.Children.Add(cancel);
-        DockPanel.SetDock(buttons, Dock.Bottom);
-        root.Children.Add(buttons);
 
         _list = new ListBox();
         foreach (var p in profiles)
@@ -45,8 +40,7 @@ public sealed class ChooseRegistrationWindow : Window
         }
         if (_list.Items.Count > 0) _list.SelectedIndex = 0;
         _list.MouseDoubleClick += (_, _) => { if (_list.SelectedIndex >= 0) DialogResult = true; };
-        root.Children.Add(_list);
-        Content = root;
+        Content = DialogText.Compose(header, _list, buttons);
     }
 
     /// <summary>Returns the chosen registration or null (cancelled / none).</summary>

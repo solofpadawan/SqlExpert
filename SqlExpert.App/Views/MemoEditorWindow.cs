@@ -147,8 +147,6 @@ internal sealed class ResultGridMemoSource : MemoSource
 /// </summary>
 internal sealed class MemoEditorWindow : Window
 {
-    private static readonly Brush HeaderBackground = Frozen(new SolidColorBrush(Color.FromRgb(0xA0, 0xA0, 0xA0)));
-
     private readonly MemoSource _source;
     private readonly TextBox _text;
     private readonly TextBlock _counter;
@@ -156,8 +154,6 @@ internal sealed class MemoEditorWindow : Window
     private object? _original;
     private bool _edited;
     private bool _loading;
-
-    private static Brush Frozen(Brush b) { b.Freeze(); return b; }
 
     private MemoEditorWindow(MemoSource source)
     {
@@ -216,26 +212,31 @@ internal sealed class MemoEditorWindow : Window
         band.SetResourceReference(StyleProperty, "InnerToolBarBand");
 
         // "Plain text editor" header bar with the live "N chars" counter at the right.
-        var header = new DockPanel { Background = HeaderBackground };
+        var headerRow = new DockPanel();
         DockPanel.SetDock(_counter, Dock.Right);
-        _counter.Margin = new Thickness(4, 2, 6, 2);
-        header.Children.Add(_counter);
-        header.Children.Add(new TextBlock
+        _counter.Margin = new Thickness(4, 0, 2, 0);
+        _counter.WithTone(DialogTone.Muted);
+        headerRow.Children.Add(_counter);
+        headerRow.Children.Add(new TextBlock
         {
             Text = source.IsReadOnly ? "Plain text editor (somente leitura)" : "Plain text editor",
-            FontWeight = FontWeights.Bold,
-            Margin = new Thickness(4, 2, 4, 2)
-        });
+            FontWeight = FontWeights.SemiBold
+        }.WithTone(DialogTone.Normal));
+        var header = new Border { Child = headerRow, BorderThickness = new Thickness(0, 1, 0, 1), Padding = new Thickness(8, 4, 8, 4) };
+        header.SetResourceReference(Border.BackgroundProperty, "DialogHeader.Background");
+        header.SetResourceReference(Border.BorderBrushProperty, "DialogHeader.Border");
 
-        var copy = new Button { Content = "Copy to clipboard", MinWidth = 130, Margin = new Thickness(6), Padding = new Thickness(8, 2, 8, 2) }.WithDialogStyle();
+        var copy = new Button { Content = "Copy to clipboard", MinWidth = 130, Padding = new Thickness(8, 2, 8, 2) }.WithDialogStyle();
         copy.Click += (_, _) => CopyToClipboard();
-        var close = new Button { Content = "Close", MinWidth = 80, Margin = new Thickness(6), Padding = new Thickness(8, 2, 8, 2), IsCancel = true }.WithDialogStyle();
+        var close = new Button { Content = "Close", MinWidth = 80, Padding = new Thickness(8, 2, 8, 2), IsCancel = true }.WithDialogStyle();
         close.Click += (_, _) => Close();
-        var bottom = new DockPanel { Background = SystemColors.ControlBrush };
+        var bottomRow = new DockPanel();
         DockPanel.SetDock(close, Dock.Right);
-        bottom.Children.Add(close);
+        bottomRow.Children.Add(close);
         copy.HorizontalAlignment = HorizontalAlignment.Left;
-        bottom.Children.Add(copy);
+        bottomRow.Children.Add(copy);
+        var bottom = new Border { Child = bottomRow };
+        bottom.SetResourceReference(StyleProperty, "DialogButtonBar");
 
         var root = new DockPanel();
         DockPanel.SetDock(band, Dock.Top);
@@ -244,7 +245,7 @@ internal sealed class MemoEditorWindow : Window
         root.Children.Add(band);
         root.Children.Add(header);
         root.Children.Add(bottom);
-        root.Children.Add(new Border { BorderBrush = Brushes.Gray, BorderThickness = new Thickness(0, 1, 0, 1), Child = _text });
+        root.Children.Add(_text);
         Content = root;
 
         source.CurrentChanged += OnCurrentChanged;

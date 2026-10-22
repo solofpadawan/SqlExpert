@@ -1,6 +1,6 @@
 <!--
-  SqlExpert control styles: folder-style tabs, flat inner toolbars, document title bars, dialog buttons,
-  check boxes and radio buttons.
+  SqlExpert control styles: form inputs (text / password / combo / list boxes), dialog header and button bands,
+  folder-style tabs, flat inner toolbars, document title bars, dialog buttons, check boxes and radio buttons.
   One soft blue-gray palette (no green). Every template snaps to device pixels so lines stay crisp at
   100% / 125% / 150% display scaling.
 -->
@@ -69,6 +69,393 @@
       </DrawingGroup>
     </DrawingBrush.Drawing>
   </DrawingBrush>
+
+  <!-- ================================================================ form inputs (implicit)
+       Text boxes, password boxes, combo boxes, list boxes, group boxes and labels share one look: white field,
+       soft border with 3px corners, hover border, app-blue focus border and a greyed (still readable) disabled
+       state. Single-line fields come out about 24px high from the padding (no fixed height), so explicit Height /
+       MinHeight values in a layout still win. DataGrid cell editors keep the compact system look: the implicit
+       DataGrid style (Resources/Branding.xaml) resets TextBox / ComboBox inside grids, and inner toolbars use the
+       compact variants below. -->
+  <SolidColorBrush x:Key="Input.Background" Color="#FFFFFF"/>
+  <SolidColorBrush x:Key="Input.Border" Color="#C9D3DE"/>
+  <SolidColorBrush x:Key="Input.HoverBorder" Color="#9DB2CC"/>
+  <SolidColorBrush x:Key="Input.FocusBorder" Color="#5B84B8"/>
+  <SolidColorBrush x:Key="Input.ReadOnlyBackground" Color="#F7F9FB"/>
+  <SolidColorBrush x:Key="Input.DisabledBackground" Color="#F3F5F8"/>
+  <SolidColorBrush x:Key="Input.DisabledBorder" Color="#DCE2EA"/>
+  <SolidColorBrush x:Key="Input.DisabledText" Color="#7D8896"/>
+  <SolidColorBrush x:Key="Input.Glyph" Color="#4A5A70"/>
+  <SolidColorBrush x:Key="Input.ItemHoverFill" Color="#E4EDF8"/>
+  <SolidColorBrush x:Key="Input.ItemSelectedFill" Color="#D3E2F4"/>
+  <SolidColorBrush x:Key="Input.PopupBackground" Color="#FFFFFF"/>
+  <!-- Dialog text tones (status lines, notes, hints), header band and button band. -->
+  <SolidColorBrush x:Key="Ui.ErrorText" Color="#A3362E"/>
+  <SolidColorBrush x:Key="Ui.InfoText" Color="#2F5687"/>
+  <SolidColorBrush x:Key="Ui.SuccessText" Color="#1F4E8C"/>
+  <SolidColorBrush x:Key="Ui.NoteText" Color="#30508A"/>
+  <SolidColorBrush x:Key="Ui.MutedText" Color="#66727F"/>
+  <SolidColorBrush x:Key="Dialog.Background" Color="#FFFFFF"/>
+  <SolidColorBrush x:Key="Dialog.PanelBackground" Color="#F7F9FB"/>
+  <SolidColorBrush x:Key="Dialog.PanelBorder" Color="#DCE2EA"/>
+  <LinearGradientBrush x:Key="DialogHeader.Background" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#F8FAFD" Offset="0"/>
+    <GradientStop Color="#EBF0F7" Offset="1"/>
+  </LinearGradientBrush>
+  <SolidColorBrush x:Key="DialogHeader.Border" Color="#D5DDE8"/>
+  <SolidColorBrush x:Key="SqlPreview.Background" Color="#F8FAFC"/>
+
+  <Style x:Key="SqlTextBox" TargetType="TextBox">
+    <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
+    <Setter Property="Background" Value="{StaticResource Input.Background}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Input.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="4,3"/>
+    <Setter Property="KeyboardNavigation.TabNavigation" Value="None"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="AllowDrop" Value="True"/>
+    <Setter Property="ScrollViewer.PanningMode" Value="VerticalFirst"/>
+    <Setter Property="Stylus.IsFlicksEnabled" Value="False"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TextBox">
+          <Border x:Name="Bd" CornerRadius="3" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+            <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsReadOnly" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Input.ReadOnlyBackground}"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Input.HoverBorder}"/>
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Input.FocusBorder}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Input.DisabledBackground}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Input.DisabledBorder}"/>
+              <Setter Property="Foreground" Value="{StaticResource Input.DisabledText}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="TextBox" BasedOn="{StaticResource SqlTextBox}"/>
+
+  <Style x:Key="SqlPasswordBox" TargetType="PasswordBox">
+    <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
+    <Setter Property="Background" Value="{StaticResource Input.Background}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Input.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="4,3"/>
+    <Setter Property="KeyboardNavigation.TabNavigation" Value="None"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="AllowDrop" Value="True"/>
+    <Setter Property="ScrollViewer.PanningMode" Value="VerticalFirst"/>
+    <Setter Property="Stylus.IsFlicksEnabled" Value="False"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="PasswordBox">
+          <Border x:Name="Bd" CornerRadius="3" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+            <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Input.HoverBorder}"/>
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Input.FocusBorder}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Input.DisabledBackground}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Input.DisabledBorder}"/>
+              <Setter Property="Foreground" Value="{StaticResource Input.DisabledText}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="PasswordBox" BasedOn="{StaticResource SqlPasswordBox}"/>
+
+  <!-- Combo box: the whole field is the drop-down toggle; the editable variant puts a borderless text box over it. -->
+  <Style x:Key="SqlComboToggle" TargetType="ToggleButton">
+    <Setter Property="OverridesDefaultStyle" Value="True"/>
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="IsTabStop" Value="False"/>
+    <Setter Property="ClickMode" Value="Press"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border CornerRadius="3" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+            <Border HorizontalAlignment="Right" Width="20" Background="Transparent">
+              <Path x:Name="Arrow" Data="M0,0 L4,4 L8,0" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.4"
+                    StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="SqlComboEditableTextBox" TargetType="TextBox">
+    <Setter Property="OverridesDefaultStyle" Value="True"/>
+    <Setter Property="AllowDrop" Value="True"/>
+    <Setter Property="MinWidth" Value="0"/>
+    <Setter Property="MinHeight" Value="0"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="ScrollViewer.PanningMode" Value="VerticalFirst"/>
+    <Setter Property="Stylus.IsFlicksEnabled" Value="False"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TextBox">
+          <ScrollViewer x:Name="PART_ContentHost" Background="Transparent" Focusable="False"
+                        HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="SqlComboBox" TargetType="ComboBox">
+    <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
+    <Setter Property="Background" Value="{StaticResource Input.Background}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Input.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="5,3,4,3"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+    <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+    <Setter Property="ScrollViewer.PanningMode" Value="Both"/>
+    <Setter Property="Stylus.IsFlicksEnabled" Value="False"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBox">
+          <Grid x:Name="Root" SnapsToDevicePixels="True">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="20"/>
+            </Grid.ColumnDefinitions>
+            <Popup x:Name="PART_Popup" Grid.ColumnSpan="2" AllowsTransparency="True" Placement="Bottom" Margin="1"
+                   IsOpen="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                   PopupAnimation="{DynamicResource {x:Static SystemParameters.ComboBoxPopupAnimationKey}}">
+              <Border x:Name="DropDownBorder" MinWidth="{Binding ActualWidth, ElementName=Root}" MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                      Margin="0,1,0,0" Padding="1" CornerRadius="3" Background="{StaticResource Input.PopupBackground}"
+                      BorderBrush="{StaticResource Input.HoverBorder}" BorderThickness="1" SnapsToDevicePixels="True">
+                <ScrollViewer x:Name="DropDownScrollViewer">
+                  <ItemsPresenter x:Name="ItemsPresenter" KeyboardNavigation.DirectionalNavigation="Contained"
+                                  SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                </ScrollViewer>
+              </Border>
+            </Popup>
+            <ToggleButton x:Name="Toggle" Grid.ColumnSpan="2" Style="{StaticResource SqlComboToggle}"
+                          Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}" Foreground="{StaticResource Input.Glyph}"
+                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
+            <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False" Margin="{TemplateBinding Padding}"
+                              Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                              ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+            <TextBox x:Name="PART_EditableTextBox" Visibility="Collapsed" Style="{StaticResource SqlComboEditableTextBox}"
+                     Margin="{TemplateBinding Padding}" Foreground="{TemplateBinding Foreground}"
+                     HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                     VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                     IsReadOnly="{Binding IsReadOnly, RelativeSource={RelativeSource TemplatedParent}}"/>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="HasItems" Value="False">
+              <Setter TargetName="DropDownBorder" Property="MinHeight" Value="24"/>
+            </Trigger>
+            <Trigger Property="IsEditable" Value="True">
+              <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+              <Setter TargetName="ContentSite" Property="Visibility" Value="Collapsed"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Toggle" Property="BorderBrush" Value="{StaticResource Input.HoverBorder}"/>
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+              <Setter TargetName="Toggle" Property="BorderBrush" Value="{StaticResource Input.FocusBorder}"/>
+            </Trigger>
+            <Trigger Property="IsDropDownOpen" Value="True">
+              <Setter TargetName="Toggle" Property="BorderBrush" Value="{StaticResource Input.FocusBorder}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Toggle" Property="Background" Value="{StaticResource Input.DisabledBackground}"/>
+              <Setter TargetName="Toggle" Property="BorderBrush" Value="{StaticResource Input.DisabledBorder}"/>
+              <Setter TargetName="Toggle" Property="Foreground" Value="{StaticResource Ui.TextDisabled}"/>
+              <Setter Property="Foreground" Value="{StaticResource Input.DisabledText}"/>
+            </Trigger>
+            <MultiTrigger>
+              <MultiTrigger.Conditions>
+                <Condition Property="IsGrouping" Value="True"/>
+                <Condition Property="VirtualizingPanel.IsVirtualizingWhenGrouping" Value="False"/>
+              </MultiTrigger.Conditions>
+              <Setter Property="ScrollViewer.CanContentScroll" Value="False"/>
+            </MultiTrigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="IsEditable" Value="True">
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Padding" Value="3,3,2,3"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style TargetType="ComboBox" BasedOn="{StaticResource SqlComboBox}"/>
+
+  <Style x:Key="SqlComboBoxItem" TargetType="ComboBoxItem">
+    <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Padding" Value="6,3"/>
+    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBoxItem">
+          <Border x:Name="Bd" CornerRadius="2" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Input.ItemSelectedFill}"/>
+            </Trigger>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Input.ItemHoverFill}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Foreground" Value="{StaticResource Ui.TextDisabled}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="ComboBoxItem" BasedOn="{StaticResource SqlComboBoxItem}"/>
+
+  <!-- List boxes: same soft border (items keep the system selection so existing item templates stay as they are). -->
+  <Style x:Key="SqlListBox" TargetType="ListBox">
+    <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Input.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+  <Style TargetType="ListBox" BasedOn="{StaticResource SqlListBox}"/>
+
+  <Style x:Key="SqlGroupBox" TargetType="GroupBox">
+    <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Input.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="10,8"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="GroupBox">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <ContentPresenter Grid.Row="0" ContentSource="Header" RecognizesAccessKey="True" Margin="1,0,0,4"
+                              TextElement.FontWeight="SemiBold" TextElement.Foreground="{StaticResource Ui.TitleText}"/>
+            <Border Grid.Row="1" CornerRadius="3" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+              <ContentPresenter/>
+            </Border>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style TargetType="GroupBox" BasedOn="{StaticResource SqlGroupBox}"/>
+
+  <Style x:Key="SqlLabel" TargetType="Label">
+    <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
+    <Setter Property="Padding" Value="0,3,8,3"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style TargetType="Label" BasedOn="{StaticResource SqlLabel}"/>
+
+  <!-- Form layout helpers used by the dialogs: field labels, section captions, hints and status lines. -->
+  <Style x:Key="FormLabel" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="Margin" Value="0,4,10,4"/>
+    <Style.Triggers>
+      <Trigger Property="IsEnabled" Value="False">
+        <Setter Property="Foreground" Value="{StaticResource Input.DisabledText}"/>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="FormSection" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Ui.TitleText}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Margin" Value="0,0,0,4"/>
+  </Style>
+  <Style x:Key="FormHint" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Ui.MutedText}"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+  </Style>
+  <Style x:Key="FormError" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Ui.ErrorText}"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+  </Style>
+
+  <!-- Dialog header: light band with an icon and the title (views:DialogHeaderBar), and the button band at the bottom. -->
+  <Style x:Key="DialogHeader" TargetType="Border">
+    <Setter Property="Background" Value="{StaticResource DialogHeader.Background}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource DialogHeader.Border}"/>
+    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    <Setter Property="Padding" Value="14,9,14,9"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+  </Style>
+  <Style x:Key="DialogHeaderText" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Ui.TitleText}"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+  </Style>
+  <Style x:Key="DialogHeaderSubText" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Ui.MutedText}"/>
+    <Setter Property="Margin" Value="0,1,0,0"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+  </Style>
+  <Style x:Key="DialogButtonBar" TargetType="Border">
+    <Setter Property="Background" Value="{StaticResource Dialog.PanelBackground}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Dialog.PanelBorder}"/>
+    <Setter Property="BorderThickness" Value="0,1,0,0"/>
+    <Setter Property="Padding" Value="14,10,14,10"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+  </Style>
+  <!-- Read-only T-SQL preview (views:SqlPreviewBox): light background, rounded soft border. -->
+  <Style x:Key="SqlPreviewFrame" TargetType="Border">
+    <Setter Property="Background" Value="{StaticResource SqlPreview.Background}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource Input.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="3"/>
+    <Setter Property="Padding" Value="4,3,1,1"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+  </Style>
 
   <!-- ================================================================ folder-style tabs (implicit) -->
   <Style TargetType="TabControl">
@@ -358,6 +745,19 @@
     <Style.Resources>
       <Style x:Key="{x:Static ToolBar.ButtonStyleKey}" TargetType="Button" BasedOn="{StaticResource FlatToolButton}"/>
       <Style x:Key="{x:Static ToolBar.SeparatorStyleKey}" TargetType="Separator" BasedOn="{StaticResource FlatToolSeparator}"/>
+      <!-- Compact input fields inside toolbars (fetch count, font size, filters, print scale). -->
+      <Style x:Key="{x:Static ToolBar.TextBoxStyleKey}" TargetType="TextBox" BasedOn="{StaticResource SqlTextBox}">
+        <Setter Property="Padding" Value="3,1"/>
+      </Style>
+      <Style x:Key="{x:Static ToolBar.ComboBoxStyleKey}" TargetType="ComboBox" BasedOn="{StaticResource SqlComboBox}">
+        <Setter Property="Padding" Value="4,1,4,1"/>
+      </Style>
+      <Style TargetType="TextBox" BasedOn="{StaticResource SqlTextBox}">
+        <Setter Property="Padding" Value="3,1"/>
+      </Style>
+      <Style TargetType="ComboBox" BasedOn="{StaticResource SqlComboBox}">
+        <Setter Property="Padding" Value="4,1,4,1"/>
+      </Style>
     </Style.Resources>
     <Setter Property="MinHeight" Value="30"/>
     <Setter Property="Padding" Value="4,0"/>
@@ -439,7 +839,7 @@
   <!-- ================================================================ dialog buttons (OK / Cancel / ...) -->
   <Style x:Key="DialogButton" TargetType="Button">
     <Setter Property="OverridesDefaultStyle" Value="True"/>
-    <Setter Property="MinHeight" Value="23"/>
+    <Setter Property="MinHeight" Value="24"/>
     <Setter Property="Padding" Value="10,2"/>
     <Setter Property="Foreground" Value="{StaticResource Ui.Text}"/>
     <Setter Property="Background" Value="{StaticResource DialogButton.Background}"/>
@@ -485,7 +885,74 @@
               </Setter>
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="Bd" Property="Background" Value="#F3F5F8"/>
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Input.DisabledBackground}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Ui.BorderDisabled}"/>
+              <Setter Property="Foreground" Value="{StaticResource Ui.TextDisabled}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Primary dialog button (OK / Execute / ...): accent fill with white text; Cancel and the others keep "DialogButton". -->
+  <LinearGradientBrush x:Key="DialogPrimary.Background" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#6A93C6" Offset="0"/>
+    <GradientStop Color="#4F78AD" Offset="1"/>
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="DialogPrimary.HoverBackground" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#78A0D2" Offset="0"/>
+    <GradientStop Color="#5A84BA" Offset="1"/>
+  </LinearGradientBrush>
+  <SolidColorBrush x:Key="DialogPrimary.PressedBackground" Color="#4B72A6"/>
+  <SolidColorBrush x:Key="DialogPrimary.Border" Color="#46699A"/>
+  <SolidColorBrush x:Key="DialogPrimary.FocusBorder" Color="#2F4F7A"/>
+  <SolidColorBrush x:Key="DialogPrimary.Text" Color="#FFFFFF"/>
+  <Style x:Key="DialogPrimaryButton" TargetType="Button">
+    <Setter Property="OverridesDefaultStyle" Value="True"/>
+    <Setter Property="MinHeight" Value="24"/>
+    <Setter Property="Padding" Value="10,2"/>
+    <Setter Property="Foreground" Value="{StaticResource DialogPrimary.Text}"/>
+    <Setter Property="Background" Value="{StaticResource DialogPrimary.Background}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource DialogPrimary.Border}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="SnapsToDevicePixels" Value="True"/>
+    <Setter Property="UseLayoutRounding" Value="True"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Bd" CornerRadius="3" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+            <Grid>
+              <Border x:Name="Shade" CornerRadius="2" Background="{StaticResource Button.PressedShade}" Visibility="Collapsed"/>
+              <ContentPresenter x:Name="Cp" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}" SnapsToDevicePixels="True"/>
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource DialogPrimary.FocusBorder}"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource DialogPrimary.HoverBackground}"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource DialogPrimary.PressedBackground}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource DialogPrimary.FocusBorder}"/>
+              <Setter TargetName="Shade" Property="Visibility" Value="Visible"/>
+              <Setter TargetName="Cp" Property="RenderTransform">
+                <Setter.Value>
+                  <TranslateTransform Y="1"/>
+                </Setter.Value>
+              </Setter>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Input.DisabledBackground}"/>
               <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Ui.BorderDisabled}"/>
               <Setter Property="Foreground" Value="{StaticResource Ui.TextDisabled}"/>
             </Trigger>

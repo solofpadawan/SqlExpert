@@ -21,31 +21,22 @@ public sealed class ProcedureExecuteWindow : Window
         _procedure = procedure;
         Title = "Execute procedure " + procedure;
         Width = 720;
-        Height = Math.Min(160 + 32 * parameters.Count, 620);
+        Height = Math.Min(230 + 32 * parameters.Count, 680);
         MinWidth = 480;
         MinHeight = 200;
         ShowInTaskbar = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ResizeMode = ResizeMode.CanResizeWithGrip;
 
-        var root = new DockPanel { Margin = new Thickness(10) };
-        var text = new TextBlock
-        {
-            Text = "Valores dos parâmetros de entrada. \"Default\" omite o parâmetro (usa o valor padrão da procedure); OUTPUT aparece no resultado \"Output / RETURN\".",
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 0, 8)
-        };
-        DockPanel.SetDock(text, Dock.Top);
-        root.Children.Add(text);
+        var header = new DialogHeaderBar("Execute procedure " + procedure, "Icon.Execute",
+            "Valores dos parâmetros de entrada. \"Default\" omite o parâmetro (usa o valor padrão da procedure); OUTPUT aparece no resultado \"Output / RETURN\".");
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
-        var ok = new Button { Content = "Execute", MinWidth = 85, IsDefault = true }.WithDialogStyle();
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var ok = new Button { Content = "Execute", MinWidth = 85, IsDefault = true }.WithPrimaryStyle();
         ok.Click += (_, _) => DialogResult = true;
         var cancel = new Button { Content = "Cancel", MinWidth = 75, IsCancel = true, Margin = new Thickness(6, 0, 0, 0) }.WithDialogStyle();
         buttons.Children.Add(ok);
         buttons.Children.Add(cancel);
-        DockPanel.SetDock(buttons, Dock.Bottom);
-        root.Children.Add(buttons);
 
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
@@ -61,10 +52,10 @@ public sealed class ProcedureExecuteWindow : Window
         foreach (var p in parameters)
         {
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            var name = new TextBlock { Text = p.Name + (p.IsOutput ? "  (OUTPUT)" : ""), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2) };
+            var name = new TextBlock { Text = p.Name + (p.IsOutput ? "  (OUTPUT)" : ""), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2), FontWeight = FontWeights.SemiBold };
             var type = new TextBlock { Text = p.FullType + (p.Default is null ? "" : " = " + p.Default), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2), ToolTip = p.Description };
-            var mode = new ComboBox { Margin = new Thickness(2), ItemsSource = new[] { "Valor", "NULL", "Default" } };
-            var value = new TextBox { Margin = new Thickness(2), FontFamily = new FontFamily("Consolas") };
+            var mode = new ComboBox { Margin = new Thickness(2, 3, 4, 3), ItemsSource = new[] { "Valor", "NULL", "Default" } };
+            var value = new TextBox { Margin = new Thickness(2, 3, 2, 3), FontFamily = new FontFamily("Consolas") };
             if (p.IsReadOnly)
             {
                 mode.SelectedIndex = 0;
@@ -95,8 +86,8 @@ public sealed class ProcedureExecuteWindow : Window
             r++;
         }
         grid.RowDefinitions.Insert(0, new RowDefinition { Height = GridLength.Auto });
-        root.Children.Add(new ScrollViewer { Content = grid, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
-        Content = root;
+        var body = new ScrollViewer { Content = grid, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        Content = DialogText.Compose(header, body, buttons);
         Loaded += (_, _) => _rows.FirstOrDefault(x => x.Value.IsEnabled).Value?.Focus();
     }
 
@@ -104,7 +95,8 @@ public sealed class ProcedureExecuteWindow : Window
 
     private static void AddHeader(Grid grid, int column, string text)
     {
-        var t = new TextBlock { Text = text, FontWeight = FontWeights.Bold, Margin = new Thickness(2, 0, 2, 4) };
+        var t = DialogText.Section(text);
+        t.Margin = new Thickness(2, 0, 2, 4);
         Place(grid, t, 0, column);
     }
 

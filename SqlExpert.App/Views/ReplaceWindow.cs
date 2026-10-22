@@ -10,11 +10,11 @@ namespace SqlExpert.App.Views;
 public sealed class ReplaceWindow : Window
 {
     private readonly TextEditor _editor;
-    private readonly TextBox _find = new() { Margin = new Thickness(0, 0, 0, 6), MinWidth = 260 };
-    private readonly TextBox _with = new() { Margin = new Thickness(0, 0, 0, 6), MinWidth = 260 };
+    private readonly TextBox _find = new() { Margin = new Thickness(0, 2, 0, 4), MinWidth = 260 };
+    private readonly TextBox _with = new() { Margin = new Thickness(0, 2, 0, 4), MinWidth = 260 };
     private readonly CheckBox _case = new() { Content = "Diferenciar maiúsculas/minúsculas", Margin = new Thickness(0, 2, 0, 2) };
     private readonly CheckBox _word = new() { Content = "Palavra inteira", Margin = new Thickness(0, 2, 0, 2) };
-    private readonly TextBlock _info = new() { Foreground = System.Windows.Media.Brushes.DimGray, Margin = new Thickness(0, 6, 0, 0), TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock _info = new TextBlock { Margin = new Thickness(0, 6, 0, 0), TextWrapping = TextWrapping.Wrap }.WithTone(DialogTone.Muted);
 
     public ReplaceWindow(TextEditor editor)
     {
@@ -25,7 +25,7 @@ public sealed class ReplaceWindow : Window
         ShowInTaskbar = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
-        var grid = new Grid { Margin = new Thickness(10) };
+        var grid = new Grid { Margin = new Thickness(14, 12, 14, 8) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -39,18 +39,19 @@ public sealed class ReplaceWindow : Window
             grid.Children.Add(e);
         }
 
-        Add(new Label { Content = "_Localizar:", Target = _find, Padding = new Thickness(0, 2, 8, 0) }, 0, 0);
+        Add(new Label { Content = "_Localizar:", Target = _find, VerticalAlignment = VerticalAlignment.Center }, 0, 0);
         Add(_find, 0, 1);
-        Add(new Label { Content = "_Substituir por:", Target = _with, Padding = new Thickness(0, 2, 8, 0) }, 1, 0);
+        Add(new Label { Content = "_Substituir por:", Target = _with, VerticalAlignment = VerticalAlignment.Center }, 1, 0);
         Add(_with, 1, 1);
         Add(_case, 2, 1);
         Add(_word, 3, 1);
         Add(_info, 4, 0, 2);
 
-        var buttons = new StackPanel { Margin = new Thickness(10, 0, 0, 0) };
+        var buttons = new StackPanel { Margin = new Thickness(14, 2, 0, 0) };
         Button B(string text, RoutedEventHandler click, bool isDefault = false)
         {
-            var b = new Button { Content = text, MinWidth = 110, Margin = new Thickness(0, 0, 0, 6), Padding = new Thickness(8, 2, 8, 2), IsDefault = isDefault }.WithDialogStyle();
+            var b = new Button { Content = text, MinWidth = 110, Margin = new Thickness(0, 0, 0, 6), Padding = new Thickness(8, 2, 8, 2), IsDefault = isDefault };
+            if (isDefault) b.WithPrimaryStyle(); else b.WithDialogStyle();
             b.Click += click;
             buttons.Children.Add(b);
             return b;
@@ -65,6 +66,7 @@ public sealed class ReplaceWindow : Window
         grid.Children.Add(buttons);
 
         Content = grid;
+        SetResourceReference(BackgroundProperty, "Dialog.Background");
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) { Close(); e.Handled = true; } };
     }
 

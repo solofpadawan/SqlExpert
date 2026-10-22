@@ -54,7 +54,7 @@ public partial class FieldEditorWindow : Window
             : FieldDefinition.FromColumn(original);
 
         Title = IsNew ? "New field" : "Edit field";
-        HeaderText.Text = IsNew
+        HeaderText.Title = IsNew
             ? $"Novo campo em {SqlText.Qualified(schema, table)}"
             : $"Campo {SqlText.Bracket(original!.Name)} de {SqlText.Qualified(schema, table)}";
 
@@ -239,7 +239,7 @@ public partial class FieldEditorWindow : Window
         PreviewBox.Text = error is not null && _statements.Count == 0
             ? "-- Corrija os dados do campo para gerar o SQL."
             : FieldDdlBuilder.ToScript(_statements);
-        ErrorText.Foreground = System.Windows.Media.Brushes.DarkRed;
+        ErrorText.WithTone(DialogTone.Error);
         ErrorText.Text = error ?? "";
         OkButton.IsEnabled = !_busy && _statements.Count > 0;
     }
@@ -264,7 +264,7 @@ public partial class FieldEditorWindow : Window
 
         _busy = true;
         OkButton.IsEnabled = CancelButton.IsEnabled = false;
-        ErrorText.Foreground = System.Windows.Media.Brushes.DarkBlue;
+        ErrorText.WithTone(DialogTone.Info);
         ErrorText.Text = "Executando...";
         try
         {
@@ -273,7 +273,7 @@ public partial class FieldEditorWindow : Window
         }
         catch (Exception ex)
         {
-            ErrorText.Foreground = System.Windows.Media.Brushes.DarkRed;
+            ErrorText.WithTone(DialogTone.Error);
             ErrorText.Text = "Falhou (nada foi alterado, transação desfeita): " + ex.Message;
             App.ReportError(ex);
         }

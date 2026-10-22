@@ -73,7 +73,7 @@ internal sealed class ForeignKeyLookupPopup
 
         // Record count in the toolbar text style of the Data grid's "RecordText".
         _fetched = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 6, 0) };
-        _status = new TextBlock { Margin = new Thickness(4, 1, 4, 1), TextWrapping = TextWrapping.Wrap, Foreground = Brushes.DimGray };
+        _status = new TextBlock { Margin = new Thickness(4, 1, 4, 1), TextWrapping = TextWrapping.Wrap }.WithTone(DialogTone.Muted);
 
         _grid = new DataGrid
         {
@@ -194,11 +194,11 @@ internal sealed class ForeignKeyLookupPopup
             Height = _lastSize.Height,
             MinWidth = 320,
             MinHeight = 150,
-            Background = SystemColors.WindowBrush,
             BorderThickness = new Thickness(1),
             Child = layout
         };
         _root.SetResourceReference(Border.BorderBrushProperty, "Ui.Border");
+        _root.SetResourceReference(Border.BackgroundProperty, "Input.PopupBackground");
         // Same font size as the Data grid (shared "Font size" setting).
         _root.SetBinding(TextBlock.FontSizeProperty, new Binding(nameof(Services.UiSettings.DataGridFontSizePx))
         {
@@ -256,7 +256,7 @@ internal sealed class ForeignKeyLookupPopup
         var text = new FrameworkElementFactory(typeof(TextBlock));
         text.SetValue(TextBlock.TextProperty, "◢");
         text.SetValue(TextBlock.FontSizeProperty, 10.0);
-        text.SetValue(TextBlock.ForegroundProperty, Brushes.Gray);
+        text.SetResourceReference(TextBlock.ForegroundProperty, "Ui.MutedText");
         text.SetValue(TextBlock.BackgroundProperty, Brushes.Transparent);
         text.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Right);
         text.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Bottom);
@@ -329,7 +329,7 @@ internal sealed class ForeignKeyLookupPopup
     private void SetStatus(string text, bool error)
     {
         _status.Text = text;
-        _status.Foreground = error ? Brushes.Firebrick : Brushes.DimGray;
+        _status.WithTone(error ? DialogTone.Error : DialogTone.Muted);
         _status.Visibility = string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
     }
 

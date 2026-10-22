@@ -22,8 +22,9 @@ public partial class ReorderFieldsWindow : Window
         _table = table;
         _original = table.Columns.OrderBy(c => c.Ordinal).Select(c => c.Name).ToList();
         foreach (var n in _original) FieldsList.Items.Add(n);
-        HeaderText.Text = $"{SqlText.Qualified(table.Schema, table.Name)}: o SQL Server não muda a ordem das colunas no lugar. " +
-                          "Ordene os campos e copie o script, que recria a tabela com os dados. Revise e execute você mesmo (com backup).";
+        HeaderText.Title = $"Reorder fields de {SqlText.Qualified(table.Schema, table.Name)}";
+        HeaderText.Subtitle = "O SQL Server não muda a ordem das colunas no lugar. " +
+                              "Ordene os campos e copie o script, que recria a tabela com os dados. Revise e execute você mesmo (com backup).";
         FieldsList.SelectedItem = selectedField is not null && _original.Contains(selectedField) ? selectedField : _original.FirstOrDefault();
         PreviewKeyDown += OnPreviewKeyDown;
         _ready = true;

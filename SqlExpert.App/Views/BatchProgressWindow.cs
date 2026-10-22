@@ -21,13 +21,14 @@ public sealed class BatchProgressWindow : Window
         ShowInTaskbar = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
-        var root = new StackPanel { Margin = new Thickness(12) };
+        var root = new StackPanel { Margin = new Thickness(14, 14, 14, 12) };
         root.Children.Add(_bar);
         root.Children.Add(_text);
         var cancel = new Button { Content = "Cancel", MinWidth = 75, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0), IsCancel = true }.WithDialogStyle();
         cancel.Click += (_, _) => { _cts.Cancel(); _text.Text = "Cancelando (termina o objeto atual)..."; };
         root.Children.Add(cancel);
         Content = root;
+        SetResourceReference(BackgroundProperty, "Dialog.Background");
         Closing += (_, e) =>
         {
             if (_finished) return;
@@ -69,16 +70,13 @@ public sealed class TextReportWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ResizeMode = ResizeMode.CanResizeWithGrip;
 
-        var root = new DockPanel { Margin = new Thickness(10) };
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 8, 0, 0) };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         var copy = new Button { Content = "Copiar", MinWidth = 75 }.WithDialogStyle();
         copy.Click += (_, _) => Clipboard.SetText(text);
-        var close = new Button { Content = "Fechar", MinWidth = 75, IsCancel = true, IsDefault = true, Margin = new Thickness(6, 0, 0, 0) }.WithDialogStyle();
+        var close = new Button { Content = "Fechar", MinWidth = 75, IsCancel = true, IsDefault = true, Margin = new Thickness(6, 0, 0, 0) }.WithPrimaryStyle();
         buttons.Children.Add(copy);
         buttons.Children.Add(close);
-        DockPanel.SetDock(buttons, Dock.Bottom);
-        root.Children.Add(buttons);
-        root.Children.Add(new TextBox
+        var report = new TextBox
         {
             Text = text,
             IsReadOnly = true,
@@ -86,8 +84,8 @@ public sealed class TextReportWindow : Window
             TextWrapping = TextWrapping.Wrap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
-        });
-        Content = root;
+        };
+        Content = DialogText.Compose(new DialogHeaderBar(title, "Icon.FullText"), report, buttons);
     }
 
     public static void ShowReport(Window? owner, string title, string text)

@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using SqlExpert.Core.Models;
 using SqlExpert.Core.Services;
 
@@ -14,17 +13,13 @@ public sealed class PrimaryKeyWindow : Window
 {
     private readonly TableStructure _table;
     private readonly Func<IReadOnlyList<string>, Task> _execute;
-    private readonly TextBox _name = new() { Margin = new Thickness(0, 2, 0, 2) };
+    private readonly TextBox _name = new() { Margin = new Thickness(0, 3, 0, 3) };
     private readonly ListBox _available = new() { Height = 170, SelectionMode = SelectionMode.Extended };
     private readonly ListBox _selected = new() { Height = 170 };
     private readonly CheckBox _clustered = new() { Content = "CLUSTERED", Margin = new Thickness(0, 6, 0, 0) };
-    private readonly TextBox _preview = new()
-    {
-        IsReadOnly = true, FontFamily = new FontFamily("Consolas"), Background = new SolidColorBrush(Color.FromRgb(0xF4, 0xF4, 0xF4)),
-        TextWrapping = TextWrapping.NoWrap, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-    };
-    private readonly TextBlock _error = new() { Foreground = Brushes.DarkRed, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) };
-    private readonly Button _ok = new Button { Content = "OK", Width = 80, IsDefault = true, Margin = new Thickness(0, 0, 8, 0) }.WithDialogStyle();
+    private readonly SqlPreviewBox _preview = new() { MinHeight = 70 };
+    private readonly TextBlock _error = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0) }.WithTone(DialogTone.Error);
+    private readonly Button _ok = new Button { Content = "OK", Width = 80, IsDefault = true, Margin = new Thickness(0, 0, 8, 0) }.WithPrimaryStyle();
     private readonly Button _cancel = new Button { Content = "Cancel", Width = 80, IsCancel = true }.WithDialogStyle();
     private IReadOnlyList<string> _statements = Array.Empty<string>();
     private bool _busy;
@@ -37,33 +32,34 @@ public sealed class PrimaryKeyWindow : Window
         _execute = execute;
         Title = "New constraint";
         Width = 600;
-        Height = 560;
+        Height = 600;
         MinWidth = 480;
         MinHeight = 460;
         ShowInTaskbar = false;
         ResizeMode = ResizeMode.CanResizeWithGrip;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
-        var root = new Grid { Margin = new Thickness(12) };
+        var root = new Grid();
         for (var i = 0; i < 4; i++) root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        root.Children.Add(At(new TextBlock { Text = $"Nova constraint em {SqlText.Qualified(table.Schema, table.Name)}", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 8) }, 0));
+        var header = new DialogHeaderBar($"Nova constraint em {SqlText.Qualified(table.Schema, table.Name)}", "Icon.Constraint",
+            "PRIMARY KEY: nome, campos da chave (em ordem) e CLUSTERED.");
 
         var head = new Grid();
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         head.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         head.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var type = new ComboBox { Margin = new Thickness(0, 2, 0, 2) };
+        var type = new ComboBox { Margin = new Thickness(0, 3, 0, 3) };
         type.Items.Add(new ComboBoxItem { Content = "PRIMARY KEY", IsSelected = true });
         foreach (var other in new[] { "UNIQUE", "FOREIGN KEY", "CHECK" })
             type.Items.Add(new ComboBoxItem { Content = other, IsEnabled = false, ToolTip = "Ainda não implementado" });
-        AddCell(head, new TextBlock { Text = "Type", VerticalAlignment = VerticalAlignment.Center }, 0, 0);
+        AddCell(head, DialogText.Label("Type"), 0, 0);
         AddCell(head, type, 0, 1);
-        AddCell(head, new TextBlock { Text = "Name", VerticalAlignment = VerticalAlignment.Center }, 1, 0);
+        AddCell(head, DialogText.Label("Name"), 1, 0);
         AddCell(head, _name, 1, 1);
         root.Children.Add(At(head, 1));
 
@@ -73,8 +69,8 @@ public sealed class PrimaryKeyWindow : Window
         lists.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         lists.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         lists.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        AddCell(lists, new TextBlock { Text = "Campos da tabela" }, 0, 0);
-        AddCell(lists, new TextBlock { Text = "Campos da chave (em ordem)" }, 0, 2);
+        AddCell(lists, DialogText.Section("Campos da tabela"), 0, 0);
+        AddCell(lists, DialogText.Section("Campos da chave (em ordem)"), 0, 2);
         AddCell(lists, _available, 1, 0);
         AddCell(lists, _selected, 1, 2);
         var moves = new StackPanel { Margin = new Thickness(6, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
@@ -88,17 +84,16 @@ public sealed class PrimaryKeyWindow : Window
         root.Children.Add(At(_clustered, 3));
 
         var preview = new DockPanel { Margin = new Thickness(0, 8, 0, 0) };
-        var lbl = new TextBlock { Text = "SQL que será executado (em uma transação):", Margin = new Thickness(0, 0, 0, 2) };
+        var lbl = DialogText.Section("SQL que será executado (em uma transação):");
         DockPanel.SetDock(lbl, Dock.Top);
         preview.Children.Add(lbl);
         preview.Children.Add(_preview);
         root.Children.Add(At(preview, 4));
         root.Children.Add(At(_error, 5));
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         buttons.Children.Add(_ok);
         buttons.Children.Add(_cancel);
-        root.Children.Add(At(buttons, 6));
-        Content = root;
+        Content = DialogText.Compose(header, root, buttons);
 
         foreach (var c in table.Columns.OrderBy(c => c.Ordinal)) _available.Items.Add(c.Name);
         _name.Text = PrimaryKeyDdlBuilder.NewPrimaryKeyName(table);
@@ -166,11 +161,11 @@ public sealed class PrimaryKeyWindow : Window
             ? PrimaryKeyDdlBuilder.BuildCreatePrimaryKey(_table, cols, ConstraintName, _clustered.IsChecked == true)
             : Array.Empty<string>();
         _preview.Text = _statements.Count == 0 ? "-- Escolha os campos da chave primária." : FieldDdlBuilder.ToScript(_statements);
-        _error.Foreground = Brushes.DarkRed;
+        _error.WithTone(DialogTone.Error);
         _error.Text = error ?? (cols.Any(c => _table.FindColumn(c)?.IsNullable == true)
             ? "Campos que aceitam NULL passam a ser NOT NULL (falha se algum registro tiver NULL)."
             : "");
-        if (error is null && _error.Text.Length > 0) _error.Foreground = Brushes.DarkBlue;
+        if (error is null && _error.Text.Length > 0) _error.WithTone(DialogTone.Info);
         _ok.IsEnabled = !_busy && _statements.Count > 0;
     }
 
@@ -179,7 +174,7 @@ public sealed class PrimaryKeyWindow : Window
         if (_busy || _statements.Count == 0) return;
         _busy = true;
         _ok.IsEnabled = _cancel.IsEnabled = false;
-        _error.Foreground = Brushes.DarkBlue;
+        _error.WithTone(DialogTone.Info);
         _error.Text = "Executando...";
         try
         {
@@ -188,7 +183,7 @@ public sealed class PrimaryKeyWindow : Window
         }
         catch (Exception ex)
         {
-            _error.Foreground = Brushes.DarkRed;
+            _error.WithTone(DialogTone.Error);
             _error.Text = "Falhou (nada foi alterado, transação desfeita): " + ex.Message;
         }
         finally

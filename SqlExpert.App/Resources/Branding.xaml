@@ -38,6 +38,11 @@
     <Style.Resources>
       <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="{StaticResource GridCurrentRowColor}"/>
       <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#1F2B3A"/>
+      <!-- In-cell editors keep the compact system look: these empty styles stop the rounded form-input styles of
+           Themes/Controls.xaml (implicit TextBox / ComboBox / ComboBoxItem) from reaching editing cells. -->
+      <Style TargetType="TextBox"/>
+      <Style TargetType="ComboBox"/>
+      <Style TargetType="ComboBoxItem"/>
     </Style.Resources>
     <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource GridLineBrush}"/>
     <Setter Property="VerticalGridLinesBrush" Value="{StaticResource GridLineBrush}"/>

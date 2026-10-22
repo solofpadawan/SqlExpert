@@ -15,16 +15,6 @@ namespace SqlExpert.App.Views;
 /// </summary>
 public partial class DatabasePropertiesWindow : Window
 {
-    /// <summary>Success status text: dark blue of the UI palette (no green).</summary>
-    private static readonly System.Windows.Media.Brush SuccessBrush = CreateSuccessBrush();
-
-    private static System.Windows.Media.Brush CreateSuccessBrush()
-    {
-        var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1F, 0x4E, 0x8C));
-        brush.Freeze();
-        return brush;
-    }
-
     private readonly ISqlConnectionFactory _factory;
     private readonly ICredentialStore _credentials;
     private readonly ConnectionProfile _baseProfile;
@@ -153,9 +143,9 @@ public partial class DatabasePropertiesWindow : Window
 
     // ===== Status =====
 
-    private void SetStatus(string text, Brush brush)
+    private void SetStatus(string text, DialogTone tone)
     {
-        StatusText.Foreground = brush;
+        StatusText.WithTone(tone);
         StatusText.Text = text;
         StatusText.ToolTip = text;
     }
@@ -166,7 +156,7 @@ public partial class DatabasePropertiesWindow : Window
         var errors = Form.Validate(connectionOnly: true);
         if (errors.Count > 0)
         {
-            SetStatus(errors[0], Brushes.DarkRed);
+            SetStatus(errors[0], DialogTone.Error);
             return null;
         }
         try
@@ -178,7 +168,7 @@ public partial class DatabasePropertiesWindow : Window
         }
         catch (Exception ex) when (ex is FormatException or ArgumentException)
         {
-            SetStatus(ex.Message, Brushes.DarkRed);
+            SetStatus(ex.Message, DialogTone.Error);
             return null;
         }
     }
@@ -197,19 +187,19 @@ public partial class DatabasePropertiesWindow : Window
 
         _testing = true;
         TestButton.IsEnabled = false;
-        SetStatus($"Conectando a {SqlConnectionFactory.BuildDataSource(profile)}...", Brushes.DarkBlue);
+        SetStatus($"Conectando a {SqlConnectionFactory.BuildDataSource(profile)}...", DialogTone.Info);
         try
         {
             await using var conn = await _factory.OpenAsync(profile, PasswordForConnect()).ConfigureAwait(true);
             var version = await RegistrationScripts.GetServerVersionAsync(conn).ConfigureAwait(true);
             Form.ServerVersion = version;
-            SetStatus("Conexão OK — " + version, SuccessBrush);
+            SetStatus("Conexão OK — " + version, DialogTone.Success);
             MessageDialog.Show(this, $"Conexão OK.\n\n{version}\nDatabase: {profile.InitialCatalog}", "Test Connect",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            SetStatus("Falha: " + ex.Message, Brushes.DarkRed);
+            SetStatus("Falha: " + ex.Message, DialogTone.Error);
             MessageDialog.Show(this, "Não foi possível conectar.", "Test Connect",
                 MessageBoxButton.OK, MessageBoxImage.Warning, detail: ex.Message);
         }
@@ -227,7 +217,7 @@ public partial class DatabasePropertiesWindow : Window
         if (profile is null) return;
 
         _loadingDatabases = true;
-        SetStatus("Lendo os databases do servidor...", Brushes.DarkBlue);
+        SetStatus("Lendo os databases do servidor...", DialogTone.Info);
         try
         {
             profile.InitialCatalog = "master";
@@ -239,11 +229,11 @@ public partial class DatabasePropertiesWindow : Window
             foreach (var d in databases) Form.Databases.Add(d);
             Form.Database = current;
             DatabaseCombo.Text = current;
-            SetStatus($"{databases.Count} database(s) em {SqlConnectionFactory.BuildDataSource(profile)}.", SuccessBrush);
+            SetStatus($"{databases.Count} database(s) em {SqlConnectionFactory.BuildDataSource(profile)}.", DialogTone.Success);
         }
         catch (Exception ex)
         {
-            SetStatus("Não foi possível listar os databases: " + ex.Message, Brushes.DarkRed);
+            SetStatus("Não foi possível listar os databases: " + ex.Message, DialogTone.Error);
         }
         finally
         {
@@ -267,11 +257,11 @@ public partial class DatabasePropertiesWindow : Window
             else
                 SetPassword("");
             SelectPage("General");
-            SetStatus($"Dados copiados de '{source.DisplayName}'. O alias foi mantido.", SuccessBrush);
+            SetStatus($"Dados copiados de '{source.DisplayName}'. O alias foi mantido.", DialogTone.Success);
         }
         catch (Exception ex)
         {
-            SetStatus("Falha ao copiar: " + ex.Message, Brushes.DarkRed);
+            SetStatus("Falha ao copiar: " + ex.Message, DialogTone.Error);
         }
     }
 
@@ -288,10 +278,10 @@ public partial class DatabasePropertiesWindow : Window
                 Height = 22,
                 Margin = new Thickness(0, 0, 6, 6),
                 Background = new SolidColorBrush(color),
-                BorderBrush = Brushes.Gray,
                 ToolTip = $"{name} ({hex})",
                 Tag = hex
             };
+            button.SetResourceReference(BorderBrushProperty, "Ui.Border");
             button.Click += (_, _) => Form.ColorMark = hex;
             SwatchPanel.Children.Add(button);
         }

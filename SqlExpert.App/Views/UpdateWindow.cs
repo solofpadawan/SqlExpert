@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using SqlExpert.Core.Updates;
 
 namespace SqlExpert.App.Views;
@@ -33,23 +32,17 @@ public sealed class UpdateWindow : Window
         _initialPreRelease = includePreReleases;
         Title = "SqlExpert - Atualização disponível";
         Width = 620;
-        Height = 520;
+        Height = 560;
         MinWidth = 460;
         MinHeight = 380;
         ShowInTaskbar = false;
         ResizeMode = ResizeMode.CanResizeWithGrip;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
-        var root = new DockPanel { Margin = new Thickness(12) };
+        var root = new DockPanel();
+        var band = new DialogHeaderBar("Uma nova versão do SqlExpert está disponível.", "Icon.Refresh");
 
         var header = new StackPanel();
-        header.Children.Add(new TextBlock
-        {
-            Text = "Uma nova versão do SqlExpert está disponível.",
-            FontWeight = FontWeights.SemiBold,
-            FontSize = 14,
-            Margin = new Thickness(0, 0, 0, 8)
-        });
         var facts = new Grid { Margin = new Thickness(0, 0, 0, 8) };
         facts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
         facts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -59,13 +52,14 @@ public sealed class UpdateWindow : Window
         AddFact(facts, 1, "Versão atual:", current.ToString(), bold: false);
         AddFact(facts, 2, "Pacote:", $"{candidate.Package.Name} ({FormatSize(candidate.Package.Size)})", bold: false);
         header.Children.Add(facts);
-        header.Children.Add(new TextBlock { Text = "Notas da versão:", Margin = new Thickness(0, 0, 0, 3) });
+        header.Children.Add(DialogText.Section("Notas da versão:"));
         DockPanel.SetDock(header, Dock.Top);
         root.Children.Add(header);
 
         var bottom = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
         _preRelease = new CheckBox
         {
+            Margin = new Thickness(0, 0, 0, 4),
             Content = "Receber versões de teste (pre-release)",
             IsChecked = includePreReleases,
             ToolTip = "Também oferece versões marcadas como pre-release no GitHub."
@@ -73,8 +67,8 @@ public sealed class UpdateWindow : Window
         bottom.Children.Add(_preRelease);
         bottom.Children.Add(_bar);
         bottom.Children.Add(_status);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
-        _installButton = new Button { Content = "Atualizar agora", MinWidth = 110, IsDefault = true }.WithDialogStyle();
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        _installButton = new Button { Content = "Atualizar agora", MinWidth = 110, IsDefault = true }.WithPrimaryStyle();
         _laterButton = new Button { Content = "Depois", MinWidth = 80, IsCancel = true, Margin = new Thickness(6, 0, 0, 0) }.WithDialogStyle();
         _skipButton = new Button { Content = "Pular esta versão", MinWidth = 110, Margin = new Thickness(6, 0, 0, 0) }.WithDialogStyle();
         _cancelButton = new Button { Content = "Cancelar", MinWidth = 80, Margin = new Thickness(6, 0, 0, 0), Visibility = Visibility.Collapsed }.WithDialogStyle();
@@ -82,7 +76,6 @@ public sealed class UpdateWindow : Window
         buttons.Children.Add(_laterButton);
         buttons.Children.Add(_skipButton);
         buttons.Children.Add(_cancelButton);
-        bottom.Children.Add(buttons);
         DockPanel.SetDock(bottom, Dock.Bottom);
         root.Children.Add(bottom);
 
@@ -92,10 +85,9 @@ public sealed class UpdateWindow : Window
             IsReadOnly = true,
             TextWrapping = TextWrapping.Wrap,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Background = new SolidColorBrush(Color.FromRgb(0xFA, 0xFA, 0xFA)),
-            Padding = new Thickness(4)
+            Padding = new Thickness(5, 4, 5, 4)
         });
-        Content = root;
+        Content = DialogText.Compose(band, root, buttons);
 
         _installButton.Click += async (_, _) => await InstallAsync();
         _laterButton.Click += (_, _) => { Choice = UpdateChoice.Later; Close(); };
@@ -112,7 +104,7 @@ public sealed class UpdateWindow : Window
     private static void AddFact(Grid g, int row, string label, string value, bool bold)
     {
         g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        var l = new TextBlock { Text = label, Margin = new Thickness(0, 1, 8, 1) };
+        var l = new TextBlock { Text = label, Margin = new Thickness(0, 1, 8, 1) }.WithTone(DialogTone.Muted);
         var v = new TextBlock { Text = value, Margin = new Thickness(0, 1, 0, 1), FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal, TextWrapping = TextWrapping.Wrap };
         Grid.SetRow(l, row);
         Grid.SetRow(v, row);
@@ -138,7 +130,7 @@ public sealed class UpdateWindow : Window
         if (_cts is not null) return;
         _cts = new CancellationTokenSource();
         SetBusy(true);
-        _status.Foreground = Brushes.DarkBlue;
+        _status.WithTone(DialogTone.Info);
         _status.Text = "Baixando...";
         var progress = new Progress<DownloadProgress>(p =>
         {
@@ -163,19 +155,19 @@ public sealed class UpdateWindow : Window
             ok = await _install(progress, _cts.Token).ConfigureAwait(true);
             if (!ok)
             {
-                _status.Foreground = Brushes.DimGray;
+                _status.WithTone(DialogTone.Muted);
                 _status.Text = "Atualização não instalada.";
             }
         }
         catch (OperationCanceledException)
         {
-            _status.Foreground = Brushes.DimGray;
+            _status.WithTone(DialogTone.Muted);
             _status.Text = "Download cancelado.";
         }
         catch (Exception ex)
         {
             SqlExpert.Core.Updates.UpdateLog.Write("atualização falhou: " + ex);
-            _status.Foreground = Brushes.DarkRed;
+            _status.WithTone(DialogTone.Error);
             _status.Text = "Falhou: " + ex.Message;
         }
         finally
@@ -204,11 +196,11 @@ public sealed class UpdaterProgressWindow : Window
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        var root = new StackPanel { Margin = new Thickness(14) };
-        root.Children.Add(new TextBlock { Text = $"Instalando o SqlExpert {version}...", FontWeight = FontWeights.SemiBold });
-        root.Children.Add(new ProgressBar { Height = 14, IsIndeterminate = true, Margin = new Thickness(0, 10, 0, 0) });
+        var root = new StackPanel();
+        root.Children.Add(new ProgressBar { Height = 14, IsIndeterminate = true });
         root.Children.Add(_text);
-        Content = root;
+        Content = DialogText.Compose(new DialogHeaderBar($"Instalando o SqlExpert {version}...", "Icon.Refresh"), root, null, new Thickness(14, 12, 14, 14));
+        SetResourceReference(BackgroundProperty, "Dialog.Background");
     }
 
     public void SetStatus(string text)

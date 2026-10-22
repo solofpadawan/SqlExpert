@@ -59,14 +59,15 @@ internal sealed class DateCalendarPopup
 
         var initials = new UniformGrid { Columns = 7, Rows = 1 };
         foreach (var d in DateValueText.DayInitials())
-            initials.Children.Add(new TextBlock { Text = d, HorizontalAlignment = HorizontalAlignment.Center, Foreground = Brushes.DimGray, Margin = new Thickness(0, 1, 0, 1) });
-        var line = new Border { BorderBrush = Brushes.Silver, BorderThickness = new Thickness(0, 0, 0, 1), Child = initials };
+            initials.Children.Add(new TextBlock { Text = d, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 1, 0, 1) }.WithTone(DialogTone.Muted));
+        var line = new Border { BorderThickness = new Thickness(0, 0, 0, 1), Child = initials };
+        line.SetResourceReference(Border.BorderBrushProperty, "Input.Border");
 
         _days = new UniformGrid { Columns = 7, Rows = 6 };
 
-        var today = new Button { Content = "Today", MinWidth = 64, Margin = new Thickness(2), Focusable = false, ToolTip = DateTime.Today.ToString("dd/MM/yyyy", DateValueText.PtBr) };
+        var today = new Button { Content = "Today", MinWidth = 64, Margin = new Thickness(2), Focusable = false, ToolTip = DateTime.Today.ToString("dd/MM/yyyy", DateValueText.PtBr) }.WithDialogStyle();
         today.Click += (_, _) => Finish(new DateCalendarResult(DateCalendarAction.Today, DateTime.Today));
-        var clear = new Button { Content = "Clear", MinWidth = 64, Margin = new Thickness(2), Focusable = false, IsEnabled = canClear, ToolTip = canClear ? "Gravar NULL" : "Coluna NOT NULL" };
+        var clear = new Button { Content = "Clear", MinWidth = 64, Margin = new Thickness(2), Focusable = false, IsEnabled = canClear, ToolTip = canClear ? "Gravar NULL" : "Coluna NOT NULL" }.WithDialogStyle();
         ToolTipService.SetShowOnDisabled(clear, true);
         clear.Click += (_, _) => Finish(new DateCalendarResult(DateCalendarAction.Clear, null));
         var buttons = new UniformGrid { Columns = 2, Margin = new Thickness(0, 4, 0, 0) };
@@ -81,13 +82,14 @@ internal sealed class DateCalendarPopup
 
         _root = new Border
         {
-            Background = Brushes.White,
-            BorderBrush = Brushes.Gray,
             BorderThickness = new Thickness(1),
             Child = stack,
             Focusable = true,
             MinWidth = 190
         };
+        // Square corners: the popup is not transparent.
+        _root.SetResourceReference(Border.BackgroundProperty, "Input.PopupBackground");
+        _root.SetResourceReference(Border.BorderBrushProperty, "Ui.Border");
         _root.PreviewKeyDown += (_, e) =>
         {
             if (e.Key != Key.Escape) return;

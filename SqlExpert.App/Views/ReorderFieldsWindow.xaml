@@ -7,11 +7,20 @@
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
-  <Grid Margin="10">
+  <DockPanel>
+    <views:DialogHeaderBar DockPanel.Dock="Top" x:Name="HeaderText" Icon="{StaticResource Icon.Reorder}"/>
+
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource DialogButtonBar}">
+      <DockPanel LastChildFill="False">
+        <TextBlock DockPanel.Dock="Left" x:Name="StatusLine" VerticalAlignment="Center" Foreground="{StaticResource Ui.MutedText}"/>
+        <Button DockPanel.Dock="Right" Style="{StaticResource DialogButton}" Content="Close" Width="80" IsCancel="True"/>
+        <Button DockPanel.Dock="Right" x:Name="CopyButton" Style="{StaticResource DialogPrimaryButton}" Content="Copy script" Width="100" Margin="0,0,8,0" Click="Copy_Click"/>
+      </DockPanel>
+    </Border>
+
+  <Grid Margin="14,10,14,12">
     <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
-      <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="230"/>
@@ -19,28 +28,23 @@
       <ColumnDefinition Width="*"/>
     </Grid.ColumnDefinitions>
 
-    <TextBlock Grid.Row="0" Grid.ColumnSpan="3" x:Name="HeaderText" TextWrapping="Wrap" Margin="0,0,0,8"/>
+    <DockPanel Grid.Column="0">
+      <TextBlock DockPanel.Dock="Top" Style="{StaticResource FormSection}" Text="Campos (nova ordem):"/>
+      <ListBox x:Name="FieldsList" SelectionChanged="FieldsList_OnSelectionChanged"/>
+    </DockPanel>
 
-    <ListBox Grid.Row="1" Grid.Column="0" x:Name="FieldsList" SelectionChanged="FieldsList_OnSelectionChanged"/>
-
-    <StackPanel Grid.Row="1" Grid.Column="1" Margin="6,0" VerticalAlignment="Center">
+    <StackPanel Grid.Column="1" Margin="8,0" VerticalAlignment="Center">
       <Button x:Name="TopButton" Style="{StaticResource DialogButton}" Width="84" Margin="0,2" HorizontalContentAlignment="Left" Padding="6,2" Click="Top_Click" ToolTip="Mover para o início"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.MoveTop}"/><TextBlock Text="Top" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
       <Button x:Name="UpButton" Style="{StaticResource DialogButton}" Width="84" Margin="0,2" HorizontalContentAlignment="Left" Padding="6,2" Click="Up_Click" ToolTip="Mover para cima (Alt+Up)"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.MoveUp}"/><TextBlock Text="Up" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
       <Button x:Name="DownButton" Style="{StaticResource DialogButton}" Width="84" Margin="0,2" HorizontalContentAlignment="Left" Padding="6,2" Click="Down_Click" ToolTip="Mover para baixo (Alt+Down)"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.MoveDown}"/><TextBlock Text="Down" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
       <Button x:Name="BottomButton" Style="{StaticResource DialogButton}" Width="84" Margin="0,2" HorizontalContentAlignment="Left" Padding="6,2" Click="Bottom_Click" ToolTip="Mover para o fim"><StackPanel Orientation="Horizontal"><views:IconImage Icon="{StaticResource Icon.MoveBottom}"/><TextBlock Text="Bottom" Margin="5,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
     </StackPanel>
 
-    <DockPanel Grid.Row="1" Grid.Column="2">
-      <TextBlock DockPanel.Dock="Top" Margin="0,0,0,2"
+    <DockPanel Grid.Column="2">
+      <TextBlock DockPanel.Dock="Top" Style="{StaticResource FormSection}"
                  Text="Script de recriação da tabela (somente leitura — o SqlExpert NÃO executa este script):"/>
-      <TextBox x:Name="ScriptBox" IsReadOnly="True" FontFamily="Consolas" Background="#F4F4F4"
-               TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/>
-    </DockPanel>
-
-    <DockPanel Grid.Row="2" Grid.ColumnSpan="3" Margin="0,10,0,0" LastChildFill="False">
-      <TextBlock DockPanel.Dock="Left" x:Name="StatusLine" VerticalAlignment="Center" Foreground="DimGray"/>
-      <Button DockPanel.Dock="Right" Style="{StaticResource DialogButton}" Content="Close" Width="80" IsCancel="True"/>
-      <Button DockPanel.Dock="Right" x:Name="CopyButton" Style="{StaticResource DialogButton}" Content="Copy script" Width="100" Margin="0,0,8,0" Click="Copy_Click"/>
+      <views:SqlPreviewBox x:Name="ScriptBox"/>
     </DockPanel>
   </Grid>
+  </DockPanel>
 </Window>

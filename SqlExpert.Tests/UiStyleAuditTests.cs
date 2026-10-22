@@ -243,7 +243,7 @@ public class UiStyleAuditTests
         Assert.DoesNotContain("SemiBold", style); // normal weight: widths do not jump
     }
 
-    /// <summary>OK / Cancel and the other dialog buttons share the rounded "DialogButton" style.</summary>
+    /// <summary>OK / Cancel and the other dialog buttons share the rounded "DialogButton" style (main action: "DialogPrimaryButton").</summary>
     [Theory]
     [InlineData("Views/FieldEditorWindow.xaml")]
     [InlineData("Views/RegisterDatabaseWindow.xaml")]
@@ -256,7 +256,7 @@ public class UiStyleAuditTests
         var buttons = doc.Descendants().Where(e => e.Name.LocalName == "Button").ToList();
         Assert.NotEmpty(buttons);
         foreach (var b in buttons)
-            Assert.Equal("{StaticResource DialogButton}", (string?)b.Attribute("Style"));
+            Assert.Contains((string?)b.Attribute("Style"), new[] { "{StaticResource DialogButton}", "{StaticResource DialogPrimaryButton}" });
         var style = Style(Controls(), "DialogButton").ToString();
         Assert.Contains("CornerRadius=\"3\"", style);
         Assert.Contains("Property=\"IsDefault\" Value=\"True\"", style);
