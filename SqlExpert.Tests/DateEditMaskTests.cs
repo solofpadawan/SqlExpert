@@ -301,7 +301,6 @@ public class DateEditMaskTests
         Assert.Contains("Grid.CellEditEnding += Grid_OnCellEditEnding", grid);
         Assert.Contains("e.Cancel = true;", grid);
         Assert.Contains("DateMaskBehavior.ShowErrorLater(tb, error)", grid);
-        Assert.Contains("tb.Text = DateEditMask.Format(value, column.MaskKind)", grid); // calendar writes the mask
 
         var form = Src("TableDataGrid.Form.cs");
         Assert.Contains("AttachFormMask(tb, converter, dateKind, spec.ClrType)", form);

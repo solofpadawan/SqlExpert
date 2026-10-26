@@ -204,8 +204,15 @@ public static class DateValueText
     /// <summary>[Today]: today's date, keeping the time part when the value has one (00:00 otherwise).</summary>
     public static object Today(object? current, DateColumnKind kind, System.DateTime today) => PickDay(current, today, kind);
 
-    /// <summary>[Clear] sets NULL: only for nullable, editable columns (the button is disabled otherwise).</summary>
+    /// <summary>[Clear] sets NULL: only for nullable, editable columns (a NOT NULL column refuses it, see <see cref="ClearRefusal"/>).</summary>
     public static bool CanClear(bool isNullable, bool isReadOnly) => isNullable && !isReadOnly;
+
+    /// <summary>
+    /// Message refusing [Clear] on a NOT NULL column (the button stays clickable so the reason is explained);
+    /// null when NULL is allowed.
+    /// </summary>
+    public static string? ClearRefusal(string column, bool isNullable) =>
+        isNullable ? null : $"{column} é NOT NULL: não aceita NULL. O valor atual foi mantido.";
 
     /// <summary>Date shown as selected in the calendar (null for NULL / not a date).</summary>
     public static System.DateTime? SelectedDate(object? value) => value switch

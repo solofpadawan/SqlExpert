@@ -350,12 +350,24 @@ public partial class TableDataGrid
             CloseLookup();
             return;
         }
+        // An incomplete / invalid typed text is refused first (same message as leaving the field).
+        if (DateMaskBehavior.CommitError(tb) is { } error)
+        {
+            DateMaskBehavior.ShowError(tb, error);
+            return;
+        }
         UpdateIfDirty(tb);
         var current = CurrentValue(spec);
         var popup = new DateCalendarPopup(DateValueText.SelectedDate(current), DateValueText.CanClear(spec.IsNullable, spec.IsReadOnly));
         popup.Picked += result =>
         {
             if (ReferenceEquals(_calendar, popup)) _calendar = null;
+            if (result.Action == DateCalendarAction.Clear && DateValueText.ClearRefusal(spec.Name, spec.IsNullable) is { } refusal)
+            {
+                MessageDialog.Show(Window.GetWindow(this), refusal, "Coluna NOT NULL", MessageBoxButton.OK, MessageBoxImage.Warning);
+                tb.Focus();
+                return;
+            }
             var value = CalendarValue(result, current, kind == DateColumnKind.None && spec.Kind == FormFieldKind.Date ? DateColumnKind.Date : kind);
             if (!Equals(value, current) && !(DataValueText.IsNull(value) && DataValueText.IsNull(current)))
                 SetValue(spec, value);

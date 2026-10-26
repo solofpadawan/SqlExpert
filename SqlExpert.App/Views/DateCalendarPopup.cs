@@ -67,8 +67,8 @@ internal sealed class DateCalendarPopup
 
         var today = new Button { Content = "Today", MinWidth = 64, Margin = new Thickness(2), Focusable = false, ToolTip = DateTime.Today.ToString("dd/MM/yyyy", DateValueText.PtBr) }.WithDialogStyle();
         today.Click += (_, _) => Finish(new DateCalendarResult(DateCalendarAction.Today, DateTime.Today));
-        var clear = new Button { Content = "Clear", MinWidth = 64, Margin = new Thickness(2), Focusable = false, IsEnabled = canClear, ToolTip = canClear ? "Gravar NULL" : "Coluna NOT NULL" }.WithDialogStyle();
-        ToolTipService.SetShowOnDisabled(clear, true);
+        // Always clickable: on a NOT NULL column the owner refuses the Clear with a message.
+        var clear = new Button { Content = "Clear", MinWidth = 64, Margin = new Thickness(2), Focusable = false, ToolTip = canClear ? "Gravar NULL" : "Coluna NOT NULL (não aceita NULL)" }.WithDialogStyle();
         clear.Click += (_, _) => Finish(new DateCalendarResult(DateCalendarAction.Clear, null));
         var buttons = new UniformGrid { Columns = 2, Margin = new Thickness(0, 4, 0, 0) };
         buttons.Children.Add(today);

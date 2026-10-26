@@ -265,6 +265,27 @@ public class DateValueTextTests
         Assert.Equal(new DateTime(2011, 5, 7), days[^1]);
         Assert.Equal(30, days.Count(d => d.Month == 4));
     }
+    [Fact]
+    public void Calendar_pick_and_today_keep_the_original_time_part()
+    {
+        var current = new DateTime(2037, 11, 1, 14, 53, 13, 250);
+        Assert.Equal(new DateTime(2037, 11, 20, 14, 53, 13, 250), DateValueText.PickDay(current, new DateTime(2037, 11, 20), DateColumnKind.DateTime));
+        Assert.Equal(new DateTime(2026, 10, 26, 14, 53, 13, 250), DateValueText.Today(current, DateColumnKind.DateTime, new DateTime(2026, 10, 26)));
+        Assert.Equal(new DateTime(2026, 10, 26), DateValueText.Today(DBNull.Value, DateColumnKind.DateTime, new DateTime(2026, 10, 26)));
+        Assert.Equal(new DateTime(2037, 11, 20), DateValueText.PickDay(current, new DateTime(2037, 11, 20), DateColumnKind.Date));
+        var dto = new DateTimeOffset(2037, 11, 1, 8, 30, 0, TimeSpan.FromHours(-3));
+        Assert.Equal(new DateTimeOffset(2037, 11, 2, 8, 30, 0, TimeSpan.FromHours(-3)), DateValueText.PickDay(dto, new DateTime(2037, 11, 2), DateColumnKind.DateTimeOffset));
+    }
+
+    [Fact]
+    public void Calendar_clear_is_refused_on_a_not_null_column()
+    {
+        Assert.Null(DateValueText.ClearRefusal("DATA", isNullable: true));
+        var msg = DateValueText.ClearRefusal("DATA", isNullable: false);
+        Assert.NotNull(msg);
+        Assert.Contains("DATA", msg);
+        Assert.Contains("NOT NULL", msg);
+    }
 }
 
 public class MemoEditRulesTests
@@ -385,7 +406,7 @@ public class DateAndMemoWiringTests
         Assert.Contains("DateValueText.MonthTitle(", cal);
         Assert.Contains("\"Today\"", cal);
         Assert.Contains("\"Clear\"", cal);
-        Assert.Contains("IsEnabled = canClear", cal);
+        Assert.DoesNotContain("IsEnabled = canClear", cal); // NOT NULL: clickable, refused with a message
         Assert.Contains("Key.Escape", cal);
     }
 
@@ -400,5 +421,34 @@ public class DateAndMemoWiringTests
         Assert.Contains("new DateCalendarPopup(", form);
         Assert.DoesNotContain("MemoEditorWindow.Edit(", form);
         Assert.Contains("new ResultGridMemoSource(", Src("SqlEditorView.xaml.cs"));
+    }
+    [Fact]
+    public void Grid_calendar_writes_the_pick_into_the_record_not_into_the_closed_editor()
+    {
+        // The popup takes the keyboard focus and the DataGrid ends the cell edit when the focus leaves the cell, so a
+        // pick written into the editor text was lost: it must go into the row (pending until Post/Cancel).
+        var grid = Src("TableDataGrid.xaml.cs");
+        var open = grid[grid.IndexOf("private void OpenGridCalendar(", StringComparison.Ordinal)..];
+        open = open[..open.IndexOf("internal static object CalendarValue(", StringComparison.Ordinal)];
+        Assert.Contains("DateMaskBehavior.CommitError(tb)", open);
+        Assert.Contains("Grid.CommitEdit(DataGridEditingUnit.Cell, true)", open);
+        Assert.Contains("current = row[spec.Field]", open);
+        Assert.Contains("ApplyGridPopupValue(column, row, spec, CalendarValue(result, current, column.DateKind))", open);
+        Assert.Contains("DateValueText.ClearRefusal(spec.Header, spec.IsNullable)", open);
+        Assert.DoesNotContain("tb.Text =", open);
+        Assert.Contains("_vm.SetCellValue(row, spec, value)", grid);
+        Assert.Contains("Grid.CommitEdit(DataGridEditingUnit.Row, true)", grid);
+
+        var calc = grid[grid.IndexOf("private void OpenGridCalculator(", StringComparison.Ordinal)..];
+        calc = calc[..calc.IndexOf("// ===== Date / time columns", StringComparison.Ordinal)];
+        Assert.Contains("ApplyGridPopupValue(column, row, spec, value ?? DBNull.Value)", calc);
+        Assert.DoesNotContain("tb.Text =", calc);
+
+        var form = Src("TableDataGrid.Form.cs");
+        Assert.Contains("DateValueText.ClearRefusal(spec.Name, spec.IsNullable)", form);
+        Assert.Contains("SetValue(spec, value)", form);
+
+        var popup = Src("DateCalendarPopup.cs");
+        Assert.DoesNotContain("IsEnabled = canClear", popup);
     }
 }

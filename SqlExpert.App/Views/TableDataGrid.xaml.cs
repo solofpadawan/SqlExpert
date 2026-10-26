@@ -327,15 +327,19 @@ public partial class TableDataGrid : UserControl
     /// <summary>"▾" / Alt+↓ / F4 in a numeric cell editor: calculator under the cell; "=" puts the result in the cell.</summary>
     private void OpenGridCalculator(NullAwareTextColumn column, DataGridCell cell, TextBox tb)
     {
-        if (_vm is null || SpecOf(column) is not { } spec) return;
+        if (_vm is null || SpecOf(column) is not { } spec || cell.DataContext is not DataRowView row) return;
         if (_calculator is { IsOpen: true })
         {
             CloseLookup();
             return;
         }
+        // Same as the calendar: the popup takes the focus (which ends the cell edit), so the typed text is committed
+        // first and the result goes straight into the record.
+        try { if (!Grid.CommitEdit(DataGridEditingUnit.Cell, true)) return; }
+        catch (InvalidOperationException) { return; }
         object? current;
-        try { current = CellValueConverter.ParseCellText(tb.Text, column.DataType, column.DateKind); }
-        catch (Exception) { current = NullAwareTextColumn.EditorConverter(tb)?.Original; }
+        try { current = row[spec.Field]; }
+        catch (Exception) { return; }
 
         CalculatorPopup? popup = null;
         popup = new CalculatorPopup(CalculatorStart(current), System.Globalization.CultureInfo.CurrentCulture, result =>
@@ -343,16 +347,13 @@ public partial class TableDataGrid : UserControl
             var value = FitCalculatorResult(spec, result, out var error);
             if (error is not null) return error;
             if (ReferenceEquals(_calculator, popup)) _calculator = null;
-            tb.Text = DataValueText.EditorText(value, System.Globalization.CultureInfo.CurrentCulture);
-            try { Grid.CommitEdit(DataGridEditingUnit.Cell, true); } catch (InvalidOperationException) { }
-            Grid.Focus();
-            cell.Focus();
+            ApplyGridPopupValue(column, row, spec, value ?? DBNull.Value);
             return null;
         });
         popup.Cancelled += () =>
         {
             if (ReferenceEquals(_calculator, popup)) _calculator = null;
-            tb.Focus();
+            FocusCell(column, row);
         };
         _calculator = popup;
         popup.Open(cell);
@@ -381,41 +382,75 @@ public partial class TableDataGrid : UserControl
     private GridColumnSpec? SpecOf(DataGridColumn? column) =>
         column is null || _vm is null ? null : _vm.Columns.FirstOrDefault(c => c.Field == column.SortMemberPath);
 
-    /// <summary>"▾" / Alt+↓ / F4 in a date cell editor: calendar under the cell; the pick goes into the editor and is committed.</summary>
+    /// <summary>
+    /// "▾" / Alt+↓ / F4 in a date cell editor: calendar under the cell. The popup takes the keyboard focus, and a
+    /// DataGrid ends the cell edit as soon as the focus leaves it, so the editor is settled here first (a valid typed
+    /// value is committed, an invalid one is refused with the mask message) and the pick is written straight into the
+    /// record, pending until Post/Cancel like any edit.
+    /// </summary>
     private void OpenGridCalendar(NullAwareTextColumn column, DataGridCell cell, TextBox tb)
     {
-        if (_vm is null || SpecOf(column) is not { } spec) return;
+        if (_vm is null || SpecOf(column) is not { } spec || cell.DataContext is not DataRowView row) return;
         if (_calendar is { IsOpen: true })
         {
             CloseLookup();
             return;
         }
-        var original = NullAwareTextColumn.EditorConverter(tb)?.Original;
-        var current = DateEditMask.TryParse(tb.Text, column.MaskKind, column.DateKind, column.DataType, original, out var typed, out _)
-            ? typed
-            : original;
+        if (DateMaskBehavior.CommitError(tb) is { } error)
+        {
+            DateMaskBehavior.ShowError(tb, error);
+            return;
+        }
+        try { if (!Grid.CommitEdit(DataGridEditingUnit.Cell, true)) return; }
+        catch (InvalidOperationException) { return; }
+        object? current;
+        try { current = row[spec.Field]; }
+        catch (Exception) { return; }
 
         var popup = new DateCalendarPopup(DateValueText.SelectedDate(current),
             DateValueText.CanClear(spec.IsNullable, column.IsReadOnly || Grid.IsReadOnly));
         popup.Picked += result =>
         {
             if (ReferenceEquals(_calendar, popup)) _calendar = null;
-            var value = CalendarValue(result, current, column.DateKind);
-            tb.Text = DateEditMask.Format(value, column.MaskKind); // the same mask as typing; NULL = the empty mask
-            try { Grid.CommitEdit(DataGridEditingUnit.Cell, true); } catch (InvalidOperationException) { }
-            Grid.Focus();
-            cell.Focus();
+            if (result.Action == DateCalendarAction.Clear && DateValueText.ClearRefusal(spec.Header, spec.IsNullable) is { } refusal)
+            {
+                MessageDialog.Show(Window.GetWindow(this), refusal, "Coluna NOT NULL", MessageBoxButton.OK, MessageBoxImage.Warning);
+                FocusCell(column, row);
+                return;
+            }
+            ApplyGridPopupValue(column, row, spec, CalendarValue(result, current, column.DateKind));
         };
         popup.Cancelled += () =>
         {
             if (ReferenceEquals(_calendar, popup)) _calendar = null;
-            tb.Focus();
+            FocusCell(column, row);
         };
         _calendar = popup;
         popup.Open(cell);
     }
 
-    /// <summary>Day → keeps the time part; Today → today (time kept, 00:00 for NULL); Clear → NULL.</summary>
+    /// <summary>
+    /// Value picked in a grid popup (calendar / calculator): written into the record (pending until Post/Cancel), not
+    /// into the editor, which the DataGrid already closed when the popup took the focus.
+    /// </summary>
+    private void ApplyGridPopupValue(DataGridColumn column, DataRowView row, GridColumnSpec spec, object value)
+    {
+        if (_vm is null) return;
+        try { Grid.CancelEdit(DataGridEditingUnit.Cell); } catch (InvalidOperationException) { }
+        if (_vm.SetCellValue(row, spec, value))
+        {
+            try { Grid.CommitEdit(DataGridEditingUnit.Row, true); } catch (InvalidOperationException) { }
+        }
+        FocusCell(column, row);
+    }
+
+    private void FocusCell(DataGridColumn column, DataRowView row)
+    {
+        Grid.Focus();
+        if (column.GetCellContent(row)?.Parent is DataGridCell cell) cell.Focus();
+    }
+
+    /// <summary>Day → that date, time part kept; Today → today's date, time part kept (00:00 for NULL); Clear → NULL.</summary>
     internal static object CalendarValue(DateCalendarResult result, object? current, DateColumnKind kind) => result.Action switch
     {
         DateCalendarAction.Day => DateValueText.PickDay(current, result.Date!.Value, kind),
