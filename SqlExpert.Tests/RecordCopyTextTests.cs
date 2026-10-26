@@ -10,6 +10,64 @@ namespace SqlExpert.Tests;
 /// </summary>
 public class RecordCopyTextTests
 {
+    [Theory]
+    [InlineData("nvarchar", "N'Zé'")]
+    [InlineData("nchar", "N'Zé'")]
+    [InlineData("ntext", "N'Zé'")]
+    [InlineData("sysname", "N'Zé'")]
+    [InlineData("xml", "N'Zé'")]
+    [InlineData("sql_variant", "N'Zé'")]
+    [InlineData("NVARCHAR(50)", "N'Zé'")]
+    [InlineData("", "N'Zé'")]
+    [InlineData("varchar", "'Zé'")]
+    [InlineData("char", "'Zé'")]
+    [InlineData("text", "'Zé'")]
+    [InlineData("VarChar(20)", "'Zé'")]
+    [InlineData("date", "'Zé'")]
+    [InlineData("uniqueidentifier", "'Zé'")]
+    [InlineData("hierarchyid", "'Zé'")]
+    public void Literal_string_prefix_follows_column_type(string type, string expected)
+    {
+        Assert.Equal(expected, RecordCopyText.Literal("Zé", Col("x", type)));
+    }
+
+    [Fact]
+    public void Literal_unknown_column_keeps_N_prefix_and_alias_uses_base_type()
+    {
+        Assert.Equal("N'a''b'", RecordCopyText.Literal("a'b"));
+        Assert.Equal("'a''b'", RecordCopyText.Literal("a'b", new DataColumnInfo { Name = "x", TypeName = "CodigoTipo", BaseTypeName = "varchar" }));
+        Assert.Equal("N'a'", RecordCopyText.Literal("a", new DataColumnInfo { Name = "x", TypeName = "NomeTipo", BaseTypeName = "nvarchar" }));
+        Assert.Equal("'x'", RecordCopyText.Literal('x', Col("c", "char")));
+        Assert.Equal("'d7a1c5e2-0000-0000-0000-000000000001'",
+            RecordCopyText.Literal(Guid.Parse("d7a1c5e2-0000-0000-0000-000000000001"), Col("g", "nvarchar")));
+    }
+
+    [Fact]
+    public void Update_varchar_columns_use_plain_quotes_in_set_and_where()
+    {
+        var cols = new[] { Col("Codigo", "varchar", pk: true, keyOrd: 1), Col("Descricao", "varchar"), Col("Nome", "nvarchar") };
+        var rec = new CopyRecord(new object?[] { "A1", "Caixa d'água", "Zé" });
+        var sql = RecordCopyText.BuildUpdates("dbo", "Produto", cols, new[] { rec });
+        Assert.Equal("UPDATE [dbo].[Produto] SET [Descricao] = 'Caixa d''água', [Nome] = N'Zé' WHERE [Codigo] = 'A1';\r\n", sql);
+    }
+
+    [Fact]
+    public void Update_without_key_compares_varchar_with_plain_quotes()
+    {
+        var cols = new[] { Col("A", "varchar"), Col("B", "nvarchar") };
+        var rec = new CopyRecord(new object?[] { "novo", "b" }, new object?[] { "velho", "b" });
+        var sql = RecordCopyText.BuildUpdates("dbo", "T", cols, new[] { rec });
+        Assert.Contains("SET [A] = 'novo', [B] = N'b' WHERE [A] = 'velho' AND [B] = N'b';", sql);
+    }
+
+    [Fact]
+    public void Insert_mixed_string_columns()
+    {
+        var cols = new[] { Col("Id", "int", pk: true, keyOrd: 1), Col("Sigla", "char"), Col("Nome", "nvarchar"), Col("Obs", "text") };
+        var sql = RecordCopyText.BuildInserts("dbo", "T", cols, new[] { new CopyRecord(new object?[] { 1, "SP", "São Paulo", "o'k" }) });
+        Assert.Equal("INSERT INTO [dbo].[T] ([Id], [Sigla], [Nome], [Obs]) VALUES (1, 'SP', N'São Paulo', 'o''k');\r\n", sql);
+    }
+
     private static DataColumnInfo Col(string name, string type, bool pk = false, int keyOrd = 0, bool identity = false,
         bool computed = false, bool rowVersion = false, bool clr = false) =>
         new() { Name = name, TypeName = type, BaseTypeName = type, IsPrimaryKey = pk, KeyOrdinal = keyOrd, IsIdentity = identity, IsComputed = computed, IsRowVersion = rowVersion, IsClrType = clr };
@@ -117,7 +175,7 @@ public class RecordCopyTextTests
     {
         var cols = new[] { Col("Id", "int", pk: true, keyOrd: 1), Col("Total", "decimal", computed: true), Col("Ver", "timestamp", rowVersion: true), Col("Obs", "varchar") };
         var sql = RecordCopyText.BuildInserts("dbo", "T", cols, new[] { Rec(5, 99m, new byte[] { 1 }, "x") });
-        Assert.Equal("INSERT INTO [dbo].[T] ([Id], [Obs]) VALUES (5, N'x');\r\n", sql);
+        Assert.Equal("INSERT INTO [dbo].[T] ([Id], [Obs]) VALUES (5, 'x');\r\n", sql);
     }
 
     [Fact]
@@ -178,7 +236,7 @@ public class RecordCopyTextTests
         var cols = new[] { Col("Codigo", "varchar", pk: true, keyOrd: 1), Col("Nome", "nvarchar") };
         var rec = new CopyRecord(new object?[] { "NOVO", "x" }, new object?[] { "VELHO", "y" });
         var sql = RecordCopyText.BuildUpdates("dbo", "T", cols, new[] { rec });
-        Assert.Equal("UPDATE [dbo].[T] SET [Nome] = N'x' WHERE [Codigo] = N'VELHO';\r\n", sql);
+        Assert.Equal("UPDATE [dbo].[T] SET [Nome] = N'x' WHERE [Codigo] = 'VELHO';\r\n", sql);
     }
 
     [Fact]

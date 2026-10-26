@@ -76,7 +76,8 @@ public static class RecordCopyText
     // ===== T-SQL literals =====
 
     /// <summary>
-    /// T-SQL literal of <paramref name="value"/>: NULL, N'text' (quotes doubled), numbers in invariant culture,
+    /// T-SQL literal of <paramref name="value"/>: NULL, text quoted with doubled quotes (N'…' only for Unicode
+    /// columns or when the column type is unknown, plain '…' otherwise; see <see cref="UsesUnicodeLiteral"/>), numbers in invariant culture,
     /// bit 0/1, 0x… binary, quoted uniqueidentifier, ISO 8601 dates ('yyyy-MM-ddTHH:mm:ss.fff'; datetime2 keeps 7
     /// fraction digits, date keeps only the day, datetimeoffset keeps the offset).
     /// </summary>
@@ -88,9 +89,9 @@ public static class RecordCopyText
             case null or DBNull:
                 return "NULL";
             case string s:
-                return SqlText.NLiteral(s);
+                return TextLiteral(s, column);
             case char c:
-                return SqlText.NLiteral(c.ToString());
+                return TextLiteral(c.ToString(), column);
             case bool b:
                 return b ? "1" : "0";
             case byte[] bytes:
@@ -112,11 +113,36 @@ public static class RecordCopyText
             case sbyte or byte or short or ushort or int or uint or long or ulong:
                 return ((IFormattable)value).ToString(null, inv);
             case IFormattable other:
-                return SqlText.NLiteral(other.ToString(null, inv));
+                return TextLiteral(other.ToString(null, inv), column);
             default:
-                return SqlText.NLiteral(value.ToString() ?? "");
+                return TextLiteral(value.ToString() ?? "", column);
         }
     }
+
+    /// <summary>
+    /// Whether text for <paramref name="column"/> is written as N'…': nvarchar / nchar / ntext / sysname, xml and
+    /// sql_variant (may hold Unicode), and any column whose type is unknown (safe default). varchar / char / text and
+    /// the other types written from text (dates, guid, hierarchyid, …) get a plain '…' literal, as in SSMS scripts.
+    /// </summary>
+    public static bool UsesUnicodeLiteral(DataColumnInfo? column)
+    {
+        var type = TypeOf(column);
+        if (type.Length == 0) return true;
+        var paren = type.IndexOf('(');
+        if (paren >= 0) type = type[..paren].Trim();
+        return type is "nvarchar" or "nchar" or "ntext" or "sysname" or "xml" or "sql_variant";
+    }
+
+    private static string TypeOf(DataColumnInfo? column)
+    {
+        if (column is null) return "";
+        var baseType = (column.BaseTypeName ?? "").Trim();
+        var declared = (column.TypeName ?? "").Trim();
+        return (baseType.Length > 0 ? baseType : declared).ToLowerInvariant();
+    }
+
+    private static string TextLiteral(string text, DataColumnInfo? column) =>
+        UsesUnicodeLiteral(column) ? SqlText.NLiteral(text) : "'" + text.Replace("'", "''") + "'";
 
     private static string DateTimePattern(DataColumnInfo? column)
     {
