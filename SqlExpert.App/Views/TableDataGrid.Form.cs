@@ -144,14 +144,16 @@ public partial class TableDataGrid
         if (spec.Kind is FormFieldKind.Binary or FormFieldKind.ReadOnlyText)
             tb.FontFamily = spec.Kind == FormFieldKind.Binary ? new FontFamily("Consolas") : tb.FontFamily;
 
+        var converter = new FormValueConverter(spec.ClrType, dateKind, scale);
         tb.SetBinding(TextBox.TextProperty, new Binding(spec.Field)
         {
-            Converter = new FormValueConverter(spec.ClrType, dateKind, scale),
+            Converter = converter,
             Mode = spec.IsReadOnly ? BindingMode.OneWay : BindingMode.TwoWay,
             UpdateSourceTrigger = UpdateSourceTrigger.Explicit,
             ValidatesOnExceptions = true
         });
         tb.LostKeyboardFocus += (_, _) => UpdateIfDirty(tb);
+        if (!spec.IsReadOnly && converter.MaskKind != DateMaskKind.None) AttachFormMask(tb, converter, dateKind, spec.ClrType);
         tb.KeyDown += (_, e) =>
         {
             if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.None)
@@ -403,6 +405,40 @@ public partial class TableDataGrid
         popup.Open(anchor);
     }
 
+    /// <summary>
+    /// Date/time field: ISO text while not focused; with the focus it switches to the pt-BR mask (dd/MM/yyyy HH:mm:ss…)
+    /// and only that is accepted. Leaving it applies the value and shows the ISO text again; an incomplete or invalid
+    /// text keeps the focus in the field (red border + message).
+    /// </summary>
+    private static void AttachFormMask(TextBox tb, FormValueConverter converter, DateColumnKind dateKind, Type clrType)
+    {
+        DateMaskBehavior.Attach(tb, converter.MaskKind, dateKind, clrType, () => converter.Editing);
+        tb.GotKeyboardFocus += (_, _) =>
+        {
+            if (converter.Editing || tb.IsReadOnly) return;
+            converter.Editing = true;
+            tb.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+            tb.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, () =>
+            {
+                if (tb.IsKeyboardFocused) tb.SelectAll();
+            });
+        };
+        tb.LostKeyboardFocus += (_, e) =>
+        {
+            if (!converter.Editing) return;
+            // Focus going to another window (the message, the calendar, another app) keeps the edit open.
+            if (e.NewFocus is not DependencyObject next || Window.GetWindow(next) is not { } window
+                || !ReferenceEquals(window, Window.GetWindow(tb))) return;
+            if (DateMaskBehavior.CommitError(tb) is { } error)
+            {
+                DateMaskBehavior.ShowErrorLater(tb, error);
+                return;
+            }
+            converter.Editing = false;
+            tb.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
+        };
+    }
+
     private static void UpdateIfDirty(TextBox tb)
     {
         var expr = tb.GetBindingExpression(TextBox.TextProperty);
@@ -416,6 +452,13 @@ public partial class TableDataGrid
     {
         foreach (var e in _formEditors)
             if (e.Text is not null) UpdateIfDirty(e.Text);
+        // A masked date/time field with an incomplete or invalid text is not applied: say so.
+        foreach (var e in _formEditors)
+        {
+            if (e.Text is null || DateMaskBehavior.CommitError(e.Text) is not { } error) continue;
+            DateMaskBehavior.ShowErrorLater(e.Text, error);
+            break;
+        }
     }
 
     /// <summary>Cancel: drop typed text and show the record values again.</summary>

@@ -24,7 +24,8 @@ public enum DateColumnKind
 /// Text rules of date/time columns and the calendar pick rules (keep the time part, Today, Clear). Pure logic, no WPF.
 /// Values are shown as the SQL Server Management Studio results grid shows them (ISO yyyy-MM-dd, fractional digits by
 /// the column scale, see <see cref="Format(object?, DateColumnKind, int)"/>), the same text the grid copies to the
-/// clipboard. Typing accepts that format and pt-BR dd/MM/yyyy (see <see cref="Parse"/>).
+/// clipboard. Editors (grid cell, Form View, calendar) accept ONLY the pt-BR input mask of <see cref="DateEditMask"/>;
+/// <see cref="Parse"/> (ISO or pt-BR text) is kept for pasting a copied cell value into a cell.
 /// </summary>
 public static class DateValueText
 {
@@ -157,7 +158,7 @@ public static class DateValueText
     private static readonly string[] OffsetFormats = DateTimeFormats.SelectMany(f => new[] { f + " zzz", f + "zzz", f }).ToArray();
 
     /// <summary>
-    /// Parses a typed date: ISO yyyy-MM-dd (the displayed format) or pt-BR dd/MM/yyyy (also d/M/yyyy), followed by HH:mm[:ss[.fffffff]] where the
+    /// Parses a pasted / copied date (grid "Paste cell value"; editors use <see cref="DateEditMask.Parse"/>): ISO yyyy-MM-dd (the displayed format) or pt-BR dd/MM/yyyy (also d/M/yyyy), followed by HH:mm[:ss[.fffffff]] where the
     /// type has a time part (ISO also with "T"); datetimeoffset may end in +hh:mm (default: the local offset).
     /// Blank → NULL. Throws <see cref="FormatException"/> on anything else (the grid shows a validation error).
     /// </summary>

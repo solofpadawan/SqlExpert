@@ -24,6 +24,7 @@ public partial class TableDataGrid : UserControl
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         Grid.LoadingRow += Grid_OnLoadingRow;
+        Grid.CellEditEnding += Grid_OnCellEditEnding;
         InitGridContextMenu();
         FormGrid.DataContextChanged += (_, _) => FormGrid.IsEnabled = FormGrid.DataContext is System.Data.DataRowView;
         FormGrid.IsEnabled = false;
@@ -357,6 +358,22 @@ public partial class TableDataGrid : UserControl
         popup.Open(cell);
     }
 
+    // ===== Date / time columns: the input mask refuses an invalid value =====
+
+    /// <summary>
+    /// Commit of a masked date/time editor: an incomplete or invalid text keeps the cell in edit mode (red border) and
+    /// the message is shown; Esc cancels the edit as usual.
+    /// </summary>
+    private void Grid_OnCellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
+    {
+        if (e.EditAction != DataGridEditAction.Commit) return;
+        if (e.Column is not NullAwareTextColumn { MaskKind: not DateMaskKind.None }) return;
+        if (NullAwareTextColumn.EditorTextBox(e.EditingElement as FrameworkElement) is not { } tb) return;
+        if (DateMaskBehavior.CommitError(tb) is not { } error) return;
+        e.Cancel = true;
+        DateMaskBehavior.ShowErrorLater(tb, error);
+    }
+
     // ===== Date columns: "▾" calendar =====
 
     private DateCalendarPopup? _calendar;
@@ -374,9 +391,9 @@ public partial class TableDataGrid : UserControl
             return;
         }
         var original = NullAwareTextColumn.EditorConverter(tb)?.Original;
-        object? current;
-        try { current = CellValueConverter.ParseCellText(tb.Text, column.DataType, column.DateKind); }
-        catch (Exception) { current = original; }
+        var current = DateEditMask.TryParse(tb.Text, column.MaskKind, column.DateKind, column.DataType, original, out var typed, out _)
+            ? typed
+            : original;
 
         var popup = new DateCalendarPopup(DateValueText.SelectedDate(current),
             DateValueText.CanClear(spec.IsNullable, column.IsReadOnly || Grid.IsReadOnly));
@@ -384,7 +401,7 @@ public partial class TableDataGrid : UserControl
         {
             if (ReferenceEquals(_calendar, popup)) _calendar = null;
             var value = CalendarValue(result, current, column.DateKind);
-            tb.Text = DataValueText.IsNull(value) ? "" : DateValueText.Format(value, column.DateKind, column.Scale);
+            tb.Text = DateEditMask.Format(value, column.MaskKind); // the same mask as typing; NULL = the empty mask
             try { Grid.CommitEdit(DataGridEditingUnit.Cell, true); } catch (InvalidOperationException) { }
             Grid.Focus();
             cell.Focus();

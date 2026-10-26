@@ -12,6 +12,7 @@ namespace SqlExpert.App.Views;
 /// and stays NULL when left blank. Ctrl+0 sets NULL explicitly (TableDataGrid).
 /// Optionally the editor gets a side button at its right edge: "..." (memo window of text columns) or "▾"
 /// (calendar of date columns), also opened by <see cref="SideGesture"/>.
+/// Date/time columns get the pt-BR input mask in the editor (<see cref="DateMaskBehavior"/>).
 /// </summary>
 internal class NullAwareTextColumn : DataGridTextColumn
 {
@@ -20,6 +21,7 @@ internal class NullAwareTextColumn : DataGridTextColumn
         DataType = dataType;
         DateKind = dateKind;
         Scale = scale;
+        MaskKind = DateEditMask.KindOf(dateKind, dataType);
     }
 
     public Type DataType { get; }
@@ -28,6 +30,9 @@ internal class NullAwareTextColumn : DataGridTextColumn
 
     /// <summary>Fractional-second digits shown for datetime2 / time / datetimeoffset values.</summary>
     public int Scale { get; }
+
+    /// <summary>Input mask of the editor (dd/MM/yyyy, dd/MM/yyyy HH:mm:ss, HH:mm:ss; None = free text).</summary>
+    public DateMaskKind MaskKind { get; }
 
     /// <summary>Text of the side button ("..." or "▾"); null = no button.</summary>
     public string? SideButtonText { get; init; }
@@ -49,6 +54,7 @@ internal class NullAwareTextColumn : DataGridTextColumn
         if (editor is not TextBox tb) return editor;
         if (Binding is Binding source)
             BindingOperations.SetBinding(tb, TextBox.TextProperty, EditorBinding(source, DataType, DateKind, Scale));
+        if (MaskKind != DateMaskKind.None) DateMaskBehavior.Attach(tb, MaskKind, DateKind, DataType);
         if (SideButtonText is null) return tb;
 
         tb.PreviewKeyDown += (_, e) =>
