@@ -66,12 +66,22 @@ public class AppIconAuditTests
     public void IconSources_ArePresentAndNeutral()
     {
         var dir = RepoFile("tools", "icons", "appicon");
-        foreach (var f in new[] { "genT.py", "previewT.py", "textpath.py", "sqlexpert-T.svg", "README.md" })
+        foreach (var f in new[] { "genT.py", "previewT.py", "genT2.py", "previewT2.py", "textpath.py", "sqlexpert-T.svg", "sqlexpert-T2.svg", "README.md" })
             Assert.True(File.Exists(Path.Combine(dir, f)), f);
         foreach (var f in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
         {
             Assert.DoesNotContain(".jpg", Path.GetFileName(f), StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("ibexpert", File.ReadAllText(f), StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    [Fact]
+    public void CurrentIcon_IsVariantT2()
+    {
+        var dir = RepoFile("tools", "icons", "appicon");
+        Assert.Contains("Current variant: **T2**", File.ReadAllText(Path.Combine(dir, "README.md")));
+        var gen = File.ReadAllText(Path.Combine(dir, "genT2.py"));
+        Assert.Contains("out/sqlexpert.ico", gen);
+        Assert.True(File.Exists(Path.Combine(dir, "tuned", "sqlexpert-T2-48.svg")));
     }
 }
