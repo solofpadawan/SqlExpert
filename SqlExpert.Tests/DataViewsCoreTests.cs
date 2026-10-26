@@ -18,9 +18,14 @@ public class DataValueTextTests
         Assert.Equal("", DataValueText.Format(DBNull.Value, Br));
         Assert.Equal("<null>", DataValueText.FormatCell(DBNull.Value, Br));
         Assert.Equal("<null>", DataValueText.FormatCell(null, Br));
-        Assert.Equal("20/10/2026", DataValueText.Format(new DateTime(2026, 10, 20), Br));
-        Assert.Equal("20/10/2026 09:22:00", DataValueText.Format(new DateTime(2026, 10, 20, 9, 22, 0), Br));
-        Assert.Equal("20/10/2026 09:22:00.5", DataValueText.Format(new DateTime(2026, 10, 20, 9, 22, 0, 500), Br));
+        // dates without column metadata: ISO, as the SQL Server results grid shows them
+        Assert.Equal("2026-10-20", DataValueText.Format(new DateTime(2026, 10, 20), Br));
+        Assert.Equal("2026-10-20 09:22:00.000", DataValueText.Format(new DateTime(2026, 10, 20, 9, 22, 0), Br));
+        Assert.Equal("2026-10-20 09:22:00.500", DataValueText.Format(new DateTime(2026, 10, 20, 9, 22, 0, 500), Br));
+        Assert.Equal("2026-10-20 09:22:00.1234567", DataValueText.Format(new DateTime(2026, 10, 20, 9, 22, 0).AddTicks(1234567), Br));
+        Assert.Equal("2026-10-20 09:22:00.0000000 -03:00", DataValueText.Format(new DateTimeOffset(2026, 10, 20, 9, 22, 0, TimeSpan.FromHours(-3)), Br));
+        Assert.Equal("09:22:00.0000000", DataValueText.Format(new TimeSpan(9, 22, 0), Br));
+        Assert.Equal("2026-10-20 09:22:00.000", DataValueText.FormatCell(new DateTime(2026, 10, 20, 9, 22, 0), Br));
         Assert.Equal("1234,5", DataValueText.Format(1234.5m, Br));
         Assert.Equal("0x0102FF", DataValueText.Format(new byte[] { 1, 2, 255 }, Br));
     }

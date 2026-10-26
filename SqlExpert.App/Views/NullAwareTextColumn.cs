@@ -15,15 +15,19 @@ namespace SqlExpert.App.Views;
 /// </summary>
 internal class NullAwareTextColumn : DataGridTextColumn
 {
-    public NullAwareTextColumn(Type dataType, DateColumnKind dateKind = DateColumnKind.None)
+    public NullAwareTextColumn(Type dataType, DateColumnKind dateKind = DateColumnKind.None, int scale = DateValueText.DefaultScale)
     {
         DataType = dataType;
         DateKind = dateKind;
+        Scale = scale;
     }
 
     public Type DataType { get; }
 
     public DateColumnKind DateKind { get; }
+
+    /// <summary>Fractional-second digits shown for datetime2 / time / datetimeoffset values.</summary>
+    public int Scale { get; }
 
     /// <summary>Text of the side button ("..." or "▾"); null = no button.</summary>
     public string? SideButtonText { get; init; }
@@ -44,7 +48,7 @@ internal class NullAwareTextColumn : DataGridTextColumn
         var editor = base.GenerateEditingElement(cell, dataItem);
         if (editor is not TextBox tb) return editor;
         if (Binding is Binding source)
-            BindingOperations.SetBinding(tb, TextBox.TextProperty, EditorBinding(source, DataType, DateKind));
+            BindingOperations.SetBinding(tb, TextBox.TextProperty, EditorBinding(source, DataType, DateKind, Scale));
         if (SideButtonText is null) return tb;
 
         tb.PreviewKeyDown += (_, e) =>
@@ -87,7 +91,8 @@ internal class NullAwareTextColumn : DataGridTextColumn
         base.PrepareCellForEdit(EditorTextBox(editingElement) ?? editingElement, editingEventArgs);
 
     /// <summary>Copy of the column binding with a per-editor converter (it remembers the value being edited).</summary>
-    internal static Binding EditorBinding(Binding source, Type dataType, DateColumnKind dateKind = DateColumnKind.None) => new()
+    internal static Binding EditorBinding(Binding source, Type dataType, DateColumnKind dateKind = DateColumnKind.None,
+        int scale = DateValueText.DefaultScale) => new()
     {
         Path = source.Path,
         Mode = source.Mode,
@@ -100,6 +105,6 @@ internal class NullAwareTextColumn : DataGridTextColumn
         NotifyOnTargetUpdated = source.NotifyOnTargetUpdated,
         BindingGroupName = source.BindingGroupName,
         ConverterCulture = source.ConverterCulture,
-        Converter = new CellEditorValueConverter(dataType, dateKind)
+        Converter = new CellEditorValueConverter(dataType, dateKind, scale)
     };
 }

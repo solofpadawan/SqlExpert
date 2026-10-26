@@ -8,29 +8,33 @@ public enum DateColumnKind
 {
     /// <summary>Not a date column (time, text, numbers, ...).</summary>
     None,
-    /// <summary>date: dd/MM/yyyy.</summary>
+    /// <summary>date: yyyy-MM-dd.</summary>
     Date,
-    /// <summary>smalldatetime: dd/MM/yyyy HH:mm (minute precision).</summary>
+    /// <summary>smalldatetime: yyyy-MM-dd HH:mm:ss (minute precision, seconds always 00).</summary>
     SmallDateTime,
-    /// <summary>datetime: dd/MM/yyyy HH:mm:ss[.fff].</summary>
+    /// <summary>datetime: yyyy-MM-dd HH:mm:ss.fff.</summary>
     DateTime,
-    /// <summary>datetime2: dd/MM/yyyy HH:mm:ss[.fffffff] (full precision kept).</summary>
+    /// <summary>datetime2(n): yyyy-MM-dd HH:mm:ss plus n fractional digits.</summary>
     DateTime2,
-    /// <summary>datetimeoffset: dd/MM/yyyy HH:mm:ss[.fffffff] +hh:mm.</summary>
+    /// <summary>datetimeoffset(n): yyyy-MM-dd HH:mm:ss plus n fractional digits and +hh:mm.</summary>
     DateTimeOffset
 }
 
 /// <summary>
-/// pt-BR text rules of date columns (dd/MM/yyyy, plus the time where the type has one) and the calendar pick rules
-/// (keep the time part, Today, Clear). Pure logic, no WPF.
+/// Text rules of date/time columns and the calendar pick rules (keep the time part, Today, Clear). Pure logic, no WPF.
+/// Values are shown as the SQL Server Management Studio results grid shows them (ISO yyyy-MM-dd, fractional digits by
+/// the column scale, see <see cref="Format(object?, DateColumnKind, int)"/>), the same text the grid copies to the
+/// clipboard. Typing accepts that format and pt-BR dd/MM/yyyy (see <see cref="Parse"/>).
 /// </summary>
 public static class DateValueText
 {
-    /// <summary>Culture of the date texts and of the calendar (day initials d s t q q s s, month names).</summary>
+    /// <summary>Culture of the typed pt-BR dates and of the calendar (day initials d s t q q s s, month names).</summary>
     public static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
-    private const string DateFormat = "dd/MM/yyyy";
-    private const string FractionFormat = "dd/MM/yyyy HH:mm:ss.FFFFFFF";
+    /// <summary>Fractional-second digits of datetime2 / time / datetimeoffset when the column scale is not known.</summary>
+    public const int DefaultScale = 7;
+
+    private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     public static DateColumnKind KindOf(DataColumnInfo c) => KindOf(string.IsNullOrEmpty(c.BaseTypeName) ? c.TypeName : c.BaseTypeName);
 
@@ -53,30 +57,86 @@ public static class DateValueText
     public static bool HasTime(DateColumnKind kind) => kind is not (DateColumnKind.Date or DateColumnKind.None);
 
     /// <summary>
-    /// Grid / editor / form text: "dd/MM/yyyy" (date), "dd/MM/yyyy HH:mm" (smalldatetime), "dd/MM/yyyy HH:mm:ss" plus
-    /// the fraction when there is one (datetime, datetime2), and the offset for datetimeoffset. NULL → "".
+    /// Fractional-second digits shown for <paramref name="c"/>: the scale of a datetime2 / time / datetimeoffset column
+    /// (0–7), <see cref="DefaultScale"/> when the column or its type is unknown.
     /// </summary>
-    public static string Format(object? value, DateColumnKind kind)
+    public static int ScaleOf(DataColumnInfo? c)
+    {
+        if (c is null) return DefaultScale;
+        var t = BaseType(string.IsNullOrEmpty(c.BaseTypeName) ? c.TypeName : c.BaseTypeName);
+        return t is "datetime2" or "time" or "datetimeoffset" && c.Scale is >= 0 and <= 7 ? c.Scale : DefaultScale;
+    }
+
+    /// <summary>Scale of a result column (SqlClient schema), as in <see cref="ScaleOf(DataColumnInfo?)"/>.</summary>
+    public static int ScaleOf(string? sqlTypeName, int? scale) =>
+        BaseType(sqlTypeName) is "datetime2" or "time" or "datetimeoffset" && scale is >= 0 and <= 7 ? scale.Value : DefaultScale;
+
+    private static string BaseType(string? sqlTypeName)
+    {
+        var t = (sqlTypeName ?? "").Trim().ToLowerInvariant();
+        var p = t.IndexOf('(');
+        return p >= 0 ? t[..p].Trim() : t;
+    }
+
+    /// <summary>Text of a date column with the default scale (see <see cref="Format(object?, DateColumnKind, int)"/>).</summary>
+    public static string Format(object? value, DateColumnKind kind) => Format(value, kind, DefaultScale);
+
+    /// <summary>
+    /// Grid / editor / form / clipboard text, as the SQL Server Management Studio results grid shows it:
+    /// date yyyy-MM-dd; smalldatetime yyyy-MM-dd HH:mm:ss; datetime yyyy-MM-dd HH:mm:ss.fff; datetime2(n) and time(n)
+    /// with n = <paramref name="scale"/> fractional digits; datetimeoffset(n) adds " +hh:mm". Values of unknown columns
+    /// (<see cref="DateColumnKind.None"/>) follow <see cref="FormatUnknown"/>. NULL → "".
+    /// </summary>
+    public static string Format(object? value, DateColumnKind kind, int scale)
     {
         switch (value)
         {
             case null or DBNull:
                 return "";
             case System.DateTimeOffset o:
-                return o.ToString(FractionFormat, PtBr) + " " + o.ToString("zzz", PtBr);
+                return o.ToString("yyyy-MM-dd HH:mm:ss", Inv) + Fraction(o.Ticks, scale) + " " + o.ToString("zzz", Inv);
             case System.DateTime d:
                 return kind switch
                 {
-                    DateColumnKind.Date => d.ToString(DateFormat, PtBr),
-                    DateColumnKind.SmallDateTime => d.ToString("dd/MM/yyyy HH:mm", PtBr),
-                    _ => d.ToString(FractionFormat, PtBr)
+                    DateColumnKind.Date => d.ToString("yyyy-MM-dd", Inv),
+                    DateColumnKind.SmallDateTime => d.ToString("yyyy-MM-dd HH:mm:ss", Inv),
+                    DateColumnKind.DateTime => d.ToString("yyyy-MM-dd HH:mm:ss.fff", Inv),
+                    DateColumnKind.DateTime2 or DateColumnKind.DateTimeOffset => d.ToString("yyyy-MM-dd HH:mm:ss", Inv) + Fraction(d.Ticks, scale),
+                    _ => FormatUnknown(d)
                 };
+            case TimeSpan t:
+                return FormatTime(t, scale);
             default:
-                return Convert.ToString(value, PtBr) ?? "";
+                return Convert.ToString(value, Inv) ?? "";
         }
     }
 
-    private static readonly string[] DateFormats = { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd" };
+    /// <summary>
+    /// Date without column type (e.g. a value shown with no metadata): yyyy-MM-dd at midnight, otherwise as datetime
+    /// (yyyy-MM-dd HH:mm:ss.fff), with 7 fractional digits when the value is finer than a millisecond.
+    /// </summary>
+    public static string FormatUnknown(System.DateTime d)
+    {
+        if (d.TimeOfDay == TimeSpan.Zero) return d.ToString("yyyy-MM-dd", Inv);
+        return d.Ticks % TimeSpan.TicksPerMillisecond == 0
+            ? d.ToString("yyyy-MM-dd HH:mm:ss.fff", Inv)
+            : d.ToString("yyyy-MM-dd HH:mm:ss.fffffff", Inv);
+    }
+
+    /// <summary>time(n): HH:mm:ss plus <paramref name="scale"/> fractional digits.</summary>
+    public static string FormatTime(TimeSpan t, int scale = DefaultScale) =>
+        (t < TimeSpan.Zero ? "-" : "") + ((int)Math.Abs(t.TotalHours)).ToString("00", Inv)
+        + t.ToString(@"\:mm\:ss", Inv) + Fraction(t.Ticks, scale);
+
+    /// <summary>"." plus <paramref name="digits"/> (0–7) fractional-second digits (truncated); empty when 0.</summary>
+    private static string Fraction(long ticks, int digits)
+    {
+        digits = Math.Clamp(digits, 0, 7);
+        if (digits == 0) return "";
+        return "." + Math.Abs(ticks % TimeSpan.TicksPerSecond).ToString("0000000", Inv)[..digits];
+    }
+
+    private static readonly string[] DateFormats = { "yyyy-MM-dd", "dd/MM/yyyy", "d/M/yyyy" };
 
     private static readonly string[] TimeFormats = { "HH:mm", "H:mm", "HH:mm:ss", "H:mm:ss", "HH:mm:ss.FFFFFFF", "H:mm:ss.FFFFFFF" };
 
@@ -97,7 +157,7 @@ public static class DateValueText
     private static readonly string[] OffsetFormats = DateTimeFormats.SelectMany(f => new[] { f + " zzz", f + "zzz", f }).ToArray();
 
     /// <summary>
-    /// Parses a typed date: pt-BR dd/MM/yyyy (also d/M/yyyy) or ISO yyyy-MM-dd, followed by HH:mm[:ss[.fffffff]] where the
+    /// Parses a typed date: ISO yyyy-MM-dd (the displayed format) or pt-BR dd/MM/yyyy (also d/M/yyyy), followed by HH:mm[:ss[.fffffff]] where the
     /// type has a time part (ISO also with "T"); datetimeoffset may end in +hh:mm (default: the local offset).
     /// Blank → NULL. Throws <see cref="FormatException"/> on anything else (the grid shows a validation error).
     /// </summary>

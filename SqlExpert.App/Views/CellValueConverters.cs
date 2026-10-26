@@ -6,25 +6,31 @@ namespace SqlExpert.App.Views;
 
 /// <summary>
 /// Grid cell text ⇄ typed DataTable value. NULL is shown as "&lt;null&gt;" (classic style);
-/// typing "&lt;null&gt;" (or clearing a non-text cell) stores NULL. Uses the Windows (current) culture.
+/// typing "&lt;null&gt;" (or clearing a non-text cell) stores NULL. Numbers use the Windows (current) culture; dates
+/// and times are shown as the SQL Server results grid shows them (<see cref="DateValueText"/>).
 /// </summary>
 public sealed class CellValueConverter : IValueConverter
 {
     public const string NullText = DataValueText.NullText;
     private readonly Type _type;
     private readonly DateColumnKind _dateKind;
+    private readonly int _scale;
 
-    /// <param name="dateKind">Date columns: pt-BR dd/MM/yyyy (+ time) text, see <see cref="DateValueText"/>.</param>
-    public CellValueConverter(Type type, DateColumnKind dateKind = DateColumnKind.None)
+    /// <param name="dateKind">Date columns: yyyy-MM-dd (+ time) text, see <see cref="DateValueText"/>.</param>
+    /// <param name="scale">Fractional-second digits of datetime2 / time / datetimeoffset columns.</param>
+    public CellValueConverter(Type type, DateColumnKind dateKind = DateColumnKind.None, int scale = DateValueText.DefaultScale)
     {
         _type = type;
         _dateKind = dateKind;
+        _scale = scale;
     }
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => _dateKind != DateColumnKind.None && !DataValueText.IsNull(value)
-            ? DateValueText.Format(value, _dateKind)
+        => IsDateOrTime(value)
+            ? DateValueText.Format(value, _dateKind, _scale)
             : DataValueText.FormatCell(value, CultureInfo.CurrentCulture);
+
+    internal static bool IsDateOrTime(object? value) => value is DateTime or DateTimeOffset or TimeSpan;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => ParseCellText(value as string ?? value?.ToString() ?? "", _type, _dateKind);
@@ -46,12 +52,14 @@ public sealed class CellEditorValueConverter : IValueConverter
 {
     private readonly Type _type;
     private readonly DateColumnKind _dateKind;
+    private readonly int _scale;
     private object? _original;
 
-    public CellEditorValueConverter(Type type, DateColumnKind dateKind = DateColumnKind.None)
+    public CellEditorValueConverter(Type type, DateColumnKind dateKind = DateColumnKind.None, int scale = DateValueText.DefaultScale)
     {
         _type = type;
         _dateKind = dateKind;
+        _scale = scale;
     }
 
     /// <summary>Value the editor started from (the date popup keeps its time part).</summary>
@@ -60,8 +68,8 @@ public sealed class CellEditorValueConverter : IValueConverter
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         _original = value;
-        return _dateKind != DateColumnKind.None
-            ? DateValueText.Format(value, _dateKind) // full precision: nothing is lost when the text is committed
+        return _dateKind != DateColumnKind.None || CellValueConverter.IsDateOrTime(value)
+            ? DateValueText.Format(value, _dateKind, _scale) // the column precision: nothing is lost when the text is committed
             : DataValueText.EditorText(value, CultureInfo.CurrentCulture);
     }
 
@@ -81,17 +89,19 @@ public sealed class FormValueConverter : IValueConverter
 {
     private readonly Type _type;
     private readonly DateColumnKind _dateKind;
+    private readonly int _scale;
 
-    public FormValueConverter(Type type, DateColumnKind dateKind = DateColumnKind.None)
+    public FormValueConverter(Type type, DateColumnKind dateKind = DateColumnKind.None, int scale = DateValueText.DefaultScale)
     {
         _type = type;
         _dateKind = dateKind;
+        _scale = scale;
     }
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is byte[]) return DataValueText.BinarySummary(value, CultureInfo.CurrentCulture);
-        if (_dateKind != DateColumnKind.None) return DateValueText.Format(value, _dateKind);
+        if (_dateKind != DateColumnKind.None || CellValueConverter.IsDateOrTime(value)) return DateValueText.Format(value, _dateKind, _scale);
         return DataValueText.Format(value, CultureInfo.CurrentCulture);
     }
 

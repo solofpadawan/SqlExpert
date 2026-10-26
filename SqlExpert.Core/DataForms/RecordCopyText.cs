@@ -70,8 +70,9 @@ public static class RecordCopyText
     /// Value text of one TSV field (Copy records), as SQL Server Management Studio's "Copy with Headers" writes it,
     /// independent of the regional settings: NULL → "NULL"; integers without thousand separators; decimal / numeric /
     /// money / float / real with "." as decimal separator and no grouping (decimal keeps its scale: money 10.5000);
-    /// bit → 1 / 0; date yyyy-MM-dd; smalldatetime yyyy-MM-dd HH:mm:ss; datetime yyyy-MM-dd HH:mm:ss.fff;
-    /// datetime2(n) / time(n) with n fractional digits (default 7); datetimeoffset(n) adds " +hh:mm";
+    /// bit → 1 / 0; dates and times as the grid shows them (<see cref="DateValueText.Format(object?, DateColumnKind, int)"/>:
+    /// date yyyy-MM-dd; smalldatetime yyyy-MM-dd HH:mm:ss; datetime yyyy-MM-dd HH:mm:ss.fff; datetime2(n) / time(n)
+    /// with n fractional digits; datetimeoffset(n) adds " +hh:mm");
     /// uniqueidentifier in upper case; binary → full hex (0x…); text as is.
     /// </summary>
     public static string RecordFieldText(object? value, DataColumnInfo? column)
@@ -86,19 +87,8 @@ public static class RecordCopyText
                 return DataValueText.ToHex(b, int.MaxValue);
             case bool flag:
                 return flag ? "1" : "0";
-            case DateTime d:
-                return (column is null ? DateColumnKind.None : DateValueText.KindOf(column)) switch
-                {
-                    DateColumnKind.Date => d.ToString("yyyy-MM-dd", inv),
-                    DateColumnKind.SmallDateTime => d.ToString("yyyy-MM-dd HH:mm:ss", inv),
-                    DateColumnKind.DateTime2 => d.ToString("yyyy-MM-dd HH:mm:ss", inv) + FractionDigits(d.Ticks, TimeScale(column)),
-                    _ => d.ToString("yyyy-MM-dd HH:mm:ss.fff", inv) // datetime (also unknown column types)
-                };
-            case DateTimeOffset o:
-                return o.ToString("yyyy-MM-dd HH:mm:ss", inv) + FractionDigits(o.Ticks, TimeScale(column)) + " " + o.ToString("zzz", inv);
-            case TimeSpan t:
-                return (t < TimeSpan.Zero ? "-" : "") + ((int)Math.Abs(t.TotalHours)).ToString("00", inv)
-                    + t.ToString(@"\:mm\:ss", inv) + FractionDigits(t.Ticks, TimeScale(column));
+            case DateTime or DateTimeOffset or TimeSpan: // same text as the grid shows
+                return DateValueText.Format(value, column is null ? DateColumnKind.None : DateValueText.KindOf(column), DateValueText.ScaleOf(column));
             case Guid g:
                 return g.ToString("D", inv).ToUpperInvariant();
             case double x:
@@ -112,28 +102,13 @@ public static class RecordCopyText
         }
     }
 
-    /// <summary>Fractional-second digits of datetime2 / time / datetimeoffset: the column scale (0–7), 7 when unknown.</summary>
-    private static int TimeScale(DataColumnInfo? column) =>
-        column is { Scale: >= 0 and <= 7 } c && !string.IsNullOrEmpty(c.TypeName) ? c.Scale : 7;
-
-    /// <summary>"." plus <paramref name="digits"/> fractional-second digits (truncated); empty when digits is 0.</summary>
-    private static string FractionDigits(long ticks, int digits)
-    {
-        if (digits <= 0) return "";
-        var f = Math.Abs(ticks % TimeSpan.TicksPerSecond).ToString("0000000", CultureInfo.InvariantCulture);
-        return "." + f[..digits];
-    }
-
-    /// <summary>"Copy cell value" text (pastes back into a grid cell): NULL → empty, binary → full hex, dates as the grid shows them.</summary>
+    /// <summary>"Copy cell value" text, as the grid shows it (pastes back into a grid cell): NULL → empty, binary → full hex.</summary>
     public static string ValueText(object? value, DataColumnInfo? column, CultureInfo culture)
     {
         if (DataValueText.IsNull(value)) return "";
         if (value is byte[] b) return DataValueText.ToHex(b, int.MaxValue);
-        if (column is not null && value is DateTime or DateTimeOffset)
-        {
-            var kind = DateValueText.KindOf(column);
-            if (kind != DateColumnKind.None) return DateValueText.Format(value, kind);
-        }
+        if (value is DateTime or DateTimeOffset or TimeSpan)
+            return DateValueText.Format(value, column is null ? DateColumnKind.None : DateValueText.KindOf(column), DateValueText.ScaleOf(column));
         return DataValueText.Format(value, culture, int.MaxValue);
     }
 

@@ -406,7 +406,13 @@ public class RecordCopyTextTests
         Assert.Equal("", RecordCopyText.ValueText(DBNull.Value, null, inv));
         Assert.Equal("0x" + string.Concat(Enumerable.Repeat("01", 40)), RecordCopyText.ValueText(Enumerable.Repeat((byte)1, 40).ToArray(), null, inv));
         Assert.Equal("42", RecordCopyText.ValueText(42, null, inv));
-        Assert.Equal("26/10/2026", RecordCopyText.ValueText(new DateTime(2026, 10, 26), Col("d", "date"), inv));
+        // copies what the grid shows (ISO dates, the column scale)
+        Assert.Equal("2026-10-26", RecordCopyText.ValueText(new DateTime(2026, 10, 26), Col("d", "date"), inv));
+        Assert.Equal("2037-10-24 11:42:51.000", RecordCopyText.ValueText(new DateTime(2037, 10, 24, 11, 42, 51), Col("d", "datetime"), inv));
+        Assert.Equal("2026-10-26 14:30:00.123", RecordCopyText.ValueText(new DateTime(2026, 10, 26, 14, 30, 0).AddTicks(1234567), Col("d", "datetime2", scale: 3), inv));
+        Assert.Equal("14:30:00.12", RecordCopyText.ValueText(new TimeSpan(14, 30, 0).Add(TimeSpan.FromTicks(1234567)), Col("t", "time", scale: 2), inv));
+        Assert.Equal(RecordCopyText.RecordFieldText(new DateTime(2026, 10, 26, 14, 30, 0), Col("d", "smalldatetime")),
+            RecordCopyText.ValueText(new DateTime(2026, 10, 26, 14, 30, 0), Col("d", "smalldatetime"), inv));
     }
 
     // ===== Set as NOW =====

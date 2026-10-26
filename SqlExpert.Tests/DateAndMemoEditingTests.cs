@@ -39,14 +39,15 @@ public class DateValueTextTests
     // ===== formatting (pt-BR) =====
 
     [Fact]
-    public void Format_PtBr_DdMMyyyy_PlusTimeForDateTimeTypes()
+    public void Format_IsoAsSqlServerGrid_PlusTimeForDateTimeTypes()
     {
         var d = new DateTime(2011, 4, 25, 14, 5, 9);
-        Assert.Equal("25/04/2011", DateValueText.Format(new DateTime(2011, 4, 25), DateColumnKind.Date));
-        Assert.Equal("25/04/2011", DateValueText.Format(d, DateColumnKind.Date));
-        Assert.Equal("25/04/2011 14:05", DateValueText.Format(d, DateColumnKind.SmallDateTime));
-        Assert.Equal("25/04/2011 14:05:09", DateValueText.Format(d, DateColumnKind.DateTime));
-        Assert.Equal("25/04/2011 00:00:00", DateValueText.Format(new DateTime(2011, 4, 25), DateColumnKind.DateTime));
+        Assert.Equal("2011-04-25", DateValueText.Format(new DateTime(2011, 4, 25), DateColumnKind.Date));
+        Assert.Equal("2011-04-25", DateValueText.Format(d, DateColumnKind.Date));
+        Assert.Equal("2011-04-25 14:05:00", DateValueText.Format(new DateTime(2011, 4, 25, 14, 5, 0), DateColumnKind.SmallDateTime));
+        Assert.Equal("2011-04-25 14:05:09.000", DateValueText.Format(d, DateColumnKind.DateTime));
+        Assert.Equal("2037-10-24 11:42:51.000", DateValueText.Format(new DateTime(2037, 10, 24, 11, 42, 51), DateColumnKind.DateTime));
+        Assert.Equal("2011-04-25 00:00:00.000", DateValueText.Format(new DateTime(2011, 4, 25), DateColumnKind.DateTime));
         Assert.Equal("", DateValueText.Format(DBNull.Value, DateColumnKind.DateTime));
         Assert.Equal("", DateValueText.Format(null, DateColumnKind.Date));
     }
@@ -55,10 +56,58 @@ public class DateValueTextTests
     public void Format_KeepsFullPrecision_ForDateTime2AndOffset()
     {
         var d = new DateTime(2026, 10, 21, 9, 30, 15).AddTicks(1234567);
-        Assert.Equal("21/10/2026 09:30:15.1234567", DateValueText.Format(d, DateColumnKind.DateTime2));
-        Assert.Equal("21/10/2026 09:30:15.5", DateValueText.Format(new DateTime(2026, 10, 21, 9, 30, 15, 500), DateColumnKind.DateTime));
+        Assert.Equal("2026-10-21 09:30:15.1234567", DateValueText.Format(d, DateColumnKind.DateTime2));
+        Assert.Equal("2026-10-21 09:30:15.500", DateValueText.Format(new DateTime(2026, 10, 21, 9, 30, 15, 500), DateColumnKind.DateTime));
         var o = new DateTimeOffset(d, TimeSpan.FromHours(-3));
-        Assert.Equal("21/10/2026 09:30:15.1234567 -03:00", DateValueText.Format(o, DateColumnKind.DateTimeOffset));
+        Assert.Equal("2026-10-21 09:30:15.1234567 -03:00", DateValueText.Format(o, DateColumnKind.DateTimeOffset));
+    }
+
+    [Fact]
+    public void Format_UsesTheColumnScale_ForDateTime2TimeAndOffset()
+    {
+        var d = new DateTime(2026, 10, 21, 9, 30, 15).AddTicks(1234567);
+        Assert.Equal("2026-10-21 09:30:15.123", DateValueText.Format(d, DateColumnKind.DateTime2, 3));
+        Assert.Equal("2026-10-21 09:30:15", DateValueText.Format(d, DateColumnKind.DateTime2, 0));
+        Assert.Equal("2026-10-21 09:30:15.0000000", DateValueText.Format(new DateTime(2026, 10, 21, 9, 30, 15), DateColumnKind.DateTime2));
+        Assert.Equal("2026-10-21 09:30:15.12 +05:30",
+            DateValueText.Format(new DateTimeOffset(d, TimeSpan.FromHours(5.5)), DateColumnKind.DateTimeOffset, 2));
+        Assert.Equal("09:30:15.1234567", DateValueText.Format(new TimeSpan(9, 30, 15).Add(TimeSpan.FromTicks(1234567)), DateColumnKind.None));
+        Assert.Equal("09:30:15.1", DateValueText.FormatTime(new TimeSpan(9, 30, 15).Add(TimeSpan.FromTicks(1234567)), 1));
+        Assert.Equal("09:30:15", DateValueText.FormatTime(new TimeSpan(9, 30, 15), 0));
+        // the regional settings never change the text
+        var previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("pt-BR");
+        try { Assert.Equal("2026-10-21 09:30:15.123", DateValueText.Format(d, DateColumnKind.DateTime2, 3)); }
+        finally { CultureInfo.CurrentCulture = previous; }
+    }
+
+    [Fact]
+    public void ScaleOf_ColumnScaleForFractionalTypes_DefaultOtherwise()
+    {
+        Assert.Equal(7, DateValueText.ScaleOf((DataColumnInfo?)null));
+        Assert.Equal(3, DateValueText.ScaleOf(new DataColumnInfo { Name = "a", TypeName = "datetime2", Scale = 3 }));
+        Assert.Equal(0, DateValueText.ScaleOf(new DataColumnInfo { Name = "a", TypeName = "time", Scale = 0 }));
+        Assert.Equal(7, DateValueText.ScaleOf(new DataColumnInfo { Name = "a", TypeName = "datetime", Scale = 3 }));
+        Assert.Equal(4, DateValueText.ScaleOf("datetimeoffset", 4));
+        Assert.Equal(7, DateValueText.ScaleOf("datetime2", null));
+        Assert.Equal(7, DateValueText.ScaleOf("int", 0));
+    }
+
+    [Fact]
+    public void Parse_AcceptsTheShownIsoText_AndPtBrInput()
+    {
+        Assert.Equal(new DateTime(2037, 10, 24, 11, 42, 51), DateValueText.Parse("2037-10-24 11:42:51.000", DateColumnKind.DateTime, typeof(DateTime)));
+        Assert.Equal(new DateTime(2037, 10, 24, 11, 42, 51), DateValueText.Parse("24/10/2037 11:42:51", DateColumnKind.DateTime, typeof(DateTime)));
+        Assert.Equal(new DateTime(2026, 10, 26), DateValueText.Parse("2026-10-26", DateColumnKind.Date, typeof(DateTime)));
+        Assert.Equal(new DateTime(2026, 10, 26), DateValueText.Parse("26/10/2026", DateColumnKind.Date, typeof(DateTime)));
+        Assert.Equal(new DateTime(2026, 10, 26, 14, 30, 0), DateValueText.Parse("2026-10-26 14:30:00", DateColumnKind.SmallDateTime, typeof(DateTime)));
+        var d = new DateTime(2026, 10, 21, 9, 30, 15).AddTicks(1234500);
+        Assert.Equal(d, DateValueText.Parse(DateValueText.Format(d, DateColumnKind.DateTime2, 5), DateColumnKind.DateTime2, typeof(DateTime)));
+        var o = (DateTimeOffset)DateValueText.Parse("2026-10-21 09:30:15.12 +05:30", DateColumnKind.DateTimeOffset, typeof(DateTimeOffset))!;
+        Assert.Equal(new DateTimeOffset(new DateTime(2026, 10, 21, 9, 30, 15, 120), TimeSpan.FromHours(5.5)), o);
+        // time(n) text back into a time cell
+        Assert.Equal(new TimeSpan(9, 30, 15).Add(TimeSpan.FromTicks(1234567)),
+            DataValueText.Parse("09:30:15.1234567", typeof(TimeSpan), CultureInfo.GetCultureInfo("pt-BR"), false));
     }
 
     [Fact]
@@ -320,7 +369,7 @@ public class DateAndMemoWiringTests
     {
         var grid = Src("TableDataGrid.xaml.cs");
         Assert.Contains("DateValueText.KindOf(spec.Info)", grid);
-        Assert.Contains("new CellValueConverter(spec.DataType, dateKind)", grid);
+        Assert.Contains("new CellValueConverter(spec.DataType, dateKind, scale)", grid);
         Assert.Contains("MemoEditRules.IsTextColumn(spec.Info)", grid);
         Assert.Contains("OpenGridCalendar", grid);
         Assert.Contains("OpenGridMemo", grid);

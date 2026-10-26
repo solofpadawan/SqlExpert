@@ -215,11 +215,13 @@ public partial class TableDataGrid : UserControl
             else if (spec.HasEditableLookup && !_vm.IsReadOnly && !spec.IsReadOnly)
             {
                 // Foreign key: "▾" button in edit mode opens the "Data of [table]" lookup (Alt+↓ / F4).
-                var fkColumn = new ForeignKeyTextColumn(spec.Lookup!, spec.DataType)
+                var fkKind = DateValueText.KindOf(spec.Info);
+                var fkScale = DateValueText.ScaleOf(spec.Info);
+                var fkColumn = new ForeignKeyTextColumn(spec.Lookup!, spec.DataType, fkKind, fkScale)
                 {
                     Binding = new Binding(spec.Field)
                     {
-                        Converter = new CellValueConverter(spec.DataType),
+                        Converter = new CellValueConverter(spec.DataType, fkKind, fkScale),
                         Mode = BindingMode.TwoWay,
                         ValidatesOnExceptions = true
                     },
@@ -231,12 +233,14 @@ public partial class TableDataGrid : UserControl
             else
             {
                 // NULL shows the red "<null>"; the editor starts empty and leaves NULL alone when left blank.
-                // Date columns: pt-BR text + "▾" calendar (Alt+↓ / F4); text columns: "..." memo window (Ctrl+Enter).
+                // Date/time columns: yyyy-MM-dd text as in the SQL Server results grid (typing also accepts
+                // dd/MM/yyyy) + "▾" calendar (Alt+↓ / F4); text columns: "..." memo window (Ctrl+Enter).
                 // Numeric columns: "▾" calculator (Alt+↓ / F4); "=" writes the result respecting precision/scale.
                 var dateKind = DateValueText.KindOf(spec.Info);
+                var scale = DateValueText.ScaleOf(spec.Info);
                 var isMemo = dateKind == DateColumnKind.None && IsMemoColumn(spec);
                 var isCalc = dateKind == DateColumnKind.None && !isMemo && IsCalculatorColumn(spec);
-                column = new NullAwareTextColumn(spec.DataType, dateKind)
+                column = new NullAwareTextColumn(spec.DataType, dateKind, scale)
                 {
                     IsCalculator = isCalc,
                     SideButtonText = dateKind != DateColumnKind.None || isCalc ? "▾" : isMemo ? "..." : null,
@@ -246,7 +250,7 @@ public partial class TableDataGrid : UserControl
                     SideAction = dateKind != DateColumnKind.None ? OpenGridCalendar : isCalc ? OpenGridCalculator : isMemo ? OpenGridMemo : null,
                     Binding = new Binding(spec.Field)
                     {
-                        Converter = new CellValueConverter(spec.DataType, dateKind),
+                        Converter = new CellValueConverter(spec.DataType, dateKind, scale),
                         Mode = spec.IsReadOnly ? BindingMode.OneWay : BindingMode.TwoWay,
                         ValidatesOnExceptions = true
                     },
@@ -380,7 +384,7 @@ public partial class TableDataGrid : UserControl
         {
             if (ReferenceEquals(_calendar, popup)) _calendar = null;
             var value = CalendarValue(result, current, column.DateKind);
-            tb.Text = DataValueText.IsNull(value) ? "" : DateValueText.Format(value, column.DateKind);
+            tb.Text = DataValueText.IsNull(value) ? "" : DateValueText.Format(value, column.DateKind, column.Scale);
             try { Grid.CommitEdit(DataGridEditingUnit.Cell, true); } catch (InvalidOperationException) { }
             Grid.Focus();
             cell.Focus();

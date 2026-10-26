@@ -263,7 +263,8 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
             grid.Columns.Add(new DataGridTextColumn
             {
                 Header = new TextBlock { Text = col.Name, ToolTip = col.DataTypeName },
-                Binding = new Binding(field) { Mode = BindingMode.OneWay, Converter = new CellValueConverter(col.ClrType) },
+                Binding = new Binding(field) { Mode = BindingMode.OneWay, Converter = new CellValueConverter(col.ClrType,
+                    DateValueText.KindOf(col.DataTypeName), DateValueText.ScaleOf(col.DataTypeName, col.Scale)) },
                 ElementStyle = IsNumeric(col.ClrType) ? right : plain,
                 SortMemberPath = field,
                 CanUserSort = IsSortable(col.ClrType),

@@ -24,8 +24,9 @@ public static class DataValueText
     {
         null or DBNull => "",
         byte[] b => ToHex(b, maxHexBytes),
-        DateTime d when d.TimeOfDay == TimeSpan.Zero => d.ToString("d", culture),
-        DateTime d when d.Ticks % TimeSpan.TicksPerSecond != 0 => d.ToString(culture.DateTimeFormat.ShortDatePattern + " HH:mm:ss.FFFFFFF", culture),
+        DateTime d => DateValueText.FormatUnknown(d), // ISO, as the SQL Server tools show dates
+        DateTimeOffset o => DateValueText.Format(o, DateColumnKind.DateTimeOffset),
+        TimeSpan t => DateValueText.FormatTime(t),
         IFormattable f => f.ToString(null, culture),
         _ => value.ToString() ?? ""
     };

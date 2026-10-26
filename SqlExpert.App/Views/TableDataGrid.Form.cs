@@ -97,6 +97,7 @@ public partial class TableDataGrid
         SqlExpert.App.ViewModels.GridColumnSpec? col = null)
     {
         var dateKind = col is null ? DateColumnKind.None : DateValueText.KindOf(col.Info);
+        var scale = DateValueText.ScaleOf(col?.Info);
         if (spec.Kind == FormFieldKind.Boolean)
         {
             var cb = new CheckBox
@@ -145,7 +146,7 @@ public partial class TableDataGrid
 
         tb.SetBinding(TextBox.TextProperty, new Binding(spec.Field)
         {
-            Converter = new FormValueConverter(spec.ClrType, dateKind),
+            Converter = new FormValueConverter(spec.ClrType, dateKind, scale),
             Mode = spec.IsReadOnly ? BindingMode.OneWay : BindingMode.TwoWay,
             UpdateSourceTrigger = UpdateSourceTrigger.Explicit,
             ValidatesOnExceptions = true

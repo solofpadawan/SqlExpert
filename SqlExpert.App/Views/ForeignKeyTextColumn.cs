@@ -1,3 +1,4 @@
+using SqlExpert.Core.DataForms;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -12,7 +13,8 @@ namespace SqlExpert.App.Views;
 /// </summary>
 internal sealed class ForeignKeyTextColumn : NullAwareTextColumn
 {
-    public ForeignKeyTextColumn(ForeignKeyLookupTarget target, Type dataType) : base(dataType) => Target = target;
+    public ForeignKeyTextColumn(ForeignKeyLookupTarget target, Type dataType, DateColumnKind dateKind = DateColumnKind.None,
+        int scale = DateValueText.DefaultScale) : base(dataType, dateKind, scale) => Target = target;
 
     public ForeignKeyLookupTarget Target { get; }
 
