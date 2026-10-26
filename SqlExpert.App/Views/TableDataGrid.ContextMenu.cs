@@ -310,10 +310,9 @@ public partial class TableDataGrid
         if (_vm is null || rows.Count == 0) return;
         CommitGridEdit();
         var cols = DisplayedColumns();
-        var culture = CultureInfo.CurrentCulture;
         var text = RecordCopyText.ToTabSeparated(
             cols.Select(c => c.Spec.Header).ToList(),
-            rows.Select(r => (IReadOnlyList<string?>)cols.Select(c => RecordCopyText.RecordFieldText(r[c.Spec.Field], c.Spec.Info, culture)).ToList()));
+            rows.Select(r => (IReadOnlyList<string?>)cols.Select(c => RecordCopyText.RecordFieldText(r[c.Spec.Field], c.Spec.Info)).ToList()));
         if (SetClipboardText(text))
             _vm.ShowStatus($"{rows.Count} {what} copiado(s) para a área de transferência.");
     }

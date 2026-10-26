@@ -69,8 +69,8 @@ public class RecordCopyTextTests
     }
 
     private static DataColumnInfo Col(string name, string type, bool pk = false, int keyOrd = 0, bool identity = false,
-        bool computed = false, bool rowVersion = false, bool clr = false) =>
-        new() { Name = name, TypeName = type, BaseTypeName = type, IsPrimaryKey = pk, KeyOrdinal = keyOrd, IsIdentity = identity, IsComputed = computed, IsRowVersion = rowVersion, IsClrType = clr };
+        bool computed = false, bool rowVersion = false, bool clr = false, int scale = 0) =>
+        new() { Name = name, TypeName = type, BaseTypeName = type, IsPrimaryKey = pk, KeyOrdinal = keyOrd, IsIdentity = identity, IsComputed = computed, IsRowVersion = rowVersion, IsClrType = clr, Scale = scale };
 
     private static CopyRecord Rec(params object?[] values) => new(values);
 
@@ -294,11 +294,18 @@ public class RecordCopyTextTests
         Assert.Equal("", RecordCopyText.TabField(null));
     }
 
-    /// <summary>Same layout as the classic-style output: header, raw values, TAB, CRLF, no trailing newline.</summary>
+    /// <summary>Header, raw values, TAB, CRLF, no trailing newline; the regional settings do not matter.</summary>
     [Fact]
     public void CopyRecords_SampleGrid_ExactText()
     {
-        var ptBr = CultureInfo.GetCultureInfo("pt-BR");
+        var previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("pt-BR");
+        try { CopyRecordsSample(); }
+        finally { CultureInfo.CurrentCulture = previous; }
+    }
+
+    private static void CopyRecordsSample()
+    {
         var cols = new[] { Col("BC_ID", "int"), Col("BC_FK_EMPRESA", "int"), Col("BC_CONTA", "varchar"), Col("BC_DESCRICAO", "varchar") };
         var descriptions = new[]
         {
@@ -309,7 +316,7 @@ public class RecordCopyTextTests
 
         var text = RecordCopyText.ToTabSeparated(
             cols.Select(c => c.Name).ToList(),
-            rows.Select(r => (IReadOnlyList<string?>)r.Select((v, i) => RecordCopyText.RecordFieldText(v, cols[i], ptBr)).ToList()));
+            rows.Select(r => (IReadOnlyList<string?>)r.Select((v, i) => RecordCopyText.RecordFieldText(v, cols[i])).ToList()));
 
         var expected = string.Join("\r\n",
             "BC_ID\tBC_FK_EMPRESA\tBC_CONTA\tBC_DESCRICAO",
@@ -328,57 +335,68 @@ public class RecordCopyTextTests
     }
 
     [Fact]
-    public void RecordFieldText_NumbersRaw_NoGrouping_CultureDecimalSeparator()
+    public void RecordFieldText_Numbers_InvariantDot_NoGrouping_BitAsDigit()
     {
-        var ptBr = CultureInfo.GetCultureInfo("pt-BR");
-        Assert.Equal("88189", RecordCopyText.RecordFieldText(88189, Col("a", "int"), ptBr));
-        Assert.Equal("-1234567890123", RecordCopyText.RecordFieldText(-1234567890123L, Col("a", "bigint"), ptBr));
-        Assert.Equal("255", RecordCopyText.RecordFieldText((byte)255, Col("a", "tinyint"), ptBr));
-        Assert.Equal("1234567,89", RecordCopyText.RecordFieldText(1234567.89m, Col("a", "decimal"), ptBr));
-        Assert.Equal("10,50", RecordCopyText.RecordFieldText(10.50m, Col("a", "money"), ptBr));
-        Assert.Equal("-0,5", RecordCopyText.RecordFieldText(-0.5m, Col("a", "decimal"), ptBr));
-        Assert.Equal("1234567,25", RecordCopyText.RecordFieldText(1234567.25d, Col("a", "float"), ptBr));
-        Assert.Equal("0,1", RecordCopyText.RecordFieldText(0.1f, Col("a", "real"), ptBr));
-        Assert.Equal("1234567.89", RecordCopyText.RecordFieldText(1234567.89m, Col("a", "decimal"), CultureInfo.GetCultureInfo("en-US")));
-        Assert.Equal("1", RecordCopyText.RecordFieldText(true, Col("a", "bit"), ptBr));
-        Assert.Equal("0", RecordCopyText.RecordFieldText(false, Col("a", "bit"), ptBr));
+        Assert.Equal("88189", RecordCopyText.RecordFieldText(88189, Col("a", "int")));
+        Assert.Equal("-1234567890123", RecordCopyText.RecordFieldText(-1234567890123L, Col("a", "bigint")));
+        Assert.Equal("255", RecordCopyText.RecordFieldText((byte)255, Col("a", "tinyint")));
+        Assert.Equal("1234567.89", RecordCopyText.RecordFieldText(1234567.89m, Col("a", "decimal")));
+        Assert.Equal("10.5000", RecordCopyText.RecordFieldText(10.5000m, Col("a", "money")));
+        Assert.Equal("-0.5", RecordCopyText.RecordFieldText(-0.5m, Col("a", "decimal")));
+        Assert.Equal("1234567.25", RecordCopyText.RecordFieldText(1234567.25d, Col("a", "float")));
+        Assert.Equal("0.1", RecordCopyText.RecordFieldText(0.1f, Col("a", "real")));
+        Assert.Equal("1", RecordCopyText.RecordFieldText(true, Col("a", "bit")));
+        Assert.Equal("0", RecordCopyText.RecordFieldText(false, Col("a", "bit")));
+        var previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("pt-BR");
+        try { Assert.Equal("1234567.89", RecordCopyText.RecordFieldText(1234567.89m, Col("a", "decimal"))); }
+        finally { CultureInfo.CurrentCulture = previous; }
     }
 
     [Fact]
-    public void RecordFieldText_DatesIso_DateOnlyForDateColumns()
+    public void RecordFieldText_DatesAsSqlServer()
     {
-        var ptBr = CultureInfo.GetCultureInfo("pt-BR");
-        var d = new DateTime(2026, 10, 26, 9, 48, 37);
-        Assert.Equal("2026-10-26 09:48:37", RecordCopyText.RecordFieldText(d, Col("a", "datetime"), ptBr));
-        Assert.Equal("2026-10-26 00:00:00", RecordCopyText.RecordFieldText(d.Date, Col("a", "datetime"), ptBr));
-        Assert.Equal("2026-10-26", RecordCopyText.RecordFieldText(d.Date, Col("a", "date"), ptBr));
-        Assert.Equal("2026-10-26 09:48:00", RecordCopyText.RecordFieldText(new DateTime(2026, 10, 26, 9, 48, 0), Col("a", "smalldatetime"), ptBr));
-        Assert.Equal("2026-10-26 09:48:37.123", RecordCopyText.RecordFieldText(d.AddMilliseconds(123), Col("a", "datetime2"), ptBr));
-        Assert.Equal("2026-10-26 09:48:37.1234567", RecordCopyText.RecordFieldText(d.AddTicks(1234567), Col("a", "datetime2"), ptBr));
-        Assert.Equal("2026-10-26 09:48:37 -03:00",
-            RecordCopyText.RecordFieldText(new DateTimeOffset(d, TimeSpan.FromHours(-3)), Col("a", "datetimeoffset"), ptBr));
-        Assert.Equal("09:48:37", RecordCopyText.RecordFieldText(new TimeSpan(9, 48, 37), Col("a", "time"), ptBr));
-        Assert.Equal("09:48:37.5", RecordCopyText.RecordFieldText(new TimeSpan(9, 48, 37).Add(TimeSpan.FromMilliseconds(500)), Col("a", "time"), ptBr));
-        // no column metadata: midnight values are shown as dates
-        Assert.Equal("2026-10-26", RecordCopyText.RecordFieldText(d.Date, null, ptBr));
-        Assert.Equal("2026-10-26 09:48:37", RecordCopyText.RecordFieldText(d, null, ptBr));
+        var d = new DateTime(2026, 10, 26, 14, 30, 0);
+        var frac = d.AddTicks(1234567);
+        Assert.Equal("2026-10-26", RecordCopyText.RecordFieldText(d.Date, Col("a", "date")));
+        Assert.Equal("2026-10-26 14:30:00", RecordCopyText.RecordFieldText(d, Col("a", "smalldatetime")));
+        Assert.Equal("2026-10-26 14:30:00.000", RecordCopyText.RecordFieldText(d, Col("a", "datetime")));
+        Assert.Equal("2026-10-26 00:00:00.000", RecordCopyText.RecordFieldText(d.Date, Col("a", "datetime")));
+        Assert.Equal("2026-10-26 14:30:00.123", RecordCopyText.RecordFieldText(d.AddMilliseconds(123), Col("a", "datetime")));
+        Assert.Equal("2026-10-26 14:30:00.0000000", RecordCopyText.RecordFieldText(d, Col("a", "datetime2", scale: 7)));
+        Assert.Equal("2026-10-26 14:30:00.1234567", RecordCopyText.RecordFieldText(frac, Col("a", "datetime2", scale: 7)));
+        Assert.Equal("2026-10-26 14:30:00.123", RecordCopyText.RecordFieldText(frac, Col("a", "datetime2", scale: 3)));
+        Assert.Equal("2026-10-26 14:30:00", RecordCopyText.RecordFieldText(d, Col("a", "datetime2", scale: 0)));
+        Assert.Equal("2026-10-26 14:30:00.0000000 -03:00",
+            RecordCopyText.RecordFieldText(new DateTimeOffset(d, TimeSpan.FromHours(-3)), Col("a", "datetimeoffset", scale: 7)));
+        Assert.Equal("2026-10-26 14:30:00.1234567 +00:00",
+            RecordCopyText.RecordFieldText(new DateTimeOffset(frac, TimeSpan.Zero), Col("a", "datetimeoffset", scale: 7)));
+        Assert.Equal("14:30:00.0000000", RecordCopyText.RecordFieldText(new TimeSpan(14, 30, 0), Col("a", "time", scale: 7)));
+        Assert.Equal("14:30:00.12", RecordCopyText.RecordFieldText(new TimeSpan(14, 30, 0).Add(TimeSpan.FromTicks(1234567)), Col("a", "time", scale: 2)));
+        // no column metadata: datetime style; datetimeoffset / time with 7 digits
+        Assert.Equal("2026-10-26 14:30:00.000", RecordCopyText.RecordFieldText(d, null));
+        Assert.Equal("14:30:00.0000000", RecordCopyText.RecordFieldText(new TimeSpan(14, 30, 0), null));
+        // the regional settings do not change the text
+        var previous = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("pt-BR");
+        try { Assert.Equal("2026-10-26 14:30:00.000", RecordCopyText.RecordFieldText(d, Col("a", "datetime"))); }
+        finally { CultureInfo.CurrentCulture = previous; }
     }
 
     [Fact]
-    public void RecordFieldText_NullEmpty_TextAsIs_GuidAndBinary()
+    public void RecordFieldText_NullAsNULL_TextAsIs_GuidUpper_Binary()
     {
-        var ptBr = CultureInfo.GetCultureInfo("pt-BR");
-        Assert.Equal("", RecordCopyText.RecordFieldText(DBNull.Value, Col("a", "int"), ptBr));
-        Assert.Equal("", RecordCopyText.RecordFieldText(null, null, ptBr));
-        Assert.Equal("", RecordCopyText.RecordFieldText("", Col("a", "varchar"), ptBr));
-        Assert.Equal("AÇÃO \"x\" 1.234", RecordCopyText.RecordFieldText("AÇÃO \"x\" 1.234", Col("a", "nvarchar"), ptBr));
-        Assert.Equal("0102FF".Insert(0, "0x"), RecordCopyText.RecordFieldText(new byte[] { 1, 2, 255 }, Col("a", "varbinary"), ptBr));
+        Assert.Equal("NULL", RecordCopyText.RecordFieldText(DBNull.Value, Col("a", "int")));
+        Assert.Equal("NULL", RecordCopyText.RecordFieldText(null, null));
+        Assert.Equal("", RecordCopyText.RecordFieldText("", Col("a", "varchar")));
+        Assert.Equal("AÇÃO \"x\" 1.234", RecordCopyText.RecordFieldText("AÇÃO \"x\" 1.234", Col("a", "nvarchar")));
+        Assert.Equal("0x0102FF", RecordCopyText.RecordFieldText(new byte[] { 1, 2, 255 }, Col("a", "varbinary")));
         var g = Guid.Parse("0f8fad5b-d9cb-469f-a165-70867728950e");
-        Assert.Equal("0f8fad5b-d9cb-469f-a165-70867728950e", RecordCopyText.RecordFieldText(g, Col("a", "uniqueidentifier"), ptBr));
+        Assert.Equal("0F8FAD5B-D9CB-469F-A165-70867728950E", RecordCopyText.RecordFieldText(g, Col("a", "uniqueidentifier")));
         // embedded TAB / line breaks are flattened by the TSV writer
-        var line = RecordCopyText.ToTabSeparated(new[] { "a", "b" },
-            new[] { new string?[] { RecordCopyText.RecordFieldText("l1\r\nl2\tx", Col("a", "varchar"), ptBr), "" } });
-        Assert.Equal("a\tb\r\nl1 l2 x\t", line);
+        var line = RecordCopyText.ToTabSeparated(new[] { "a", "b", "c" },
+            new[] { new string?[] { RecordCopyText.RecordFieldText("l1\r\nl2\tx", Col("a", "varchar")), "", RecordCopyText.RecordFieldText(DBNull.Value, null) } });
+        Assert.Equal("a\tb\tc\r\nl1 l2 x\t\tNULL", line);
     }
 
     [Fact]

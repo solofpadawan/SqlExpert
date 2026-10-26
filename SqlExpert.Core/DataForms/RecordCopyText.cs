@@ -33,7 +33,7 @@ public static class RecordCopyText
     /// "Copy records / Copy selected record(s) to clipboard" text: header line (column names) plus one line per
     /// record, TAB between fields, CRLF between lines and no line break after the last record. Fields are never
     /// quoted: TAB / CR / LF inside a value become a single space (see <see cref="TabField"/>), so every record stays
-    /// on one line and pastes into one spreadsheet row. NULL is an empty field.
+    /// on one line and pastes into one spreadsheet row. Field values come from <see cref="RecordFieldText"/>.
     /// </summary>
     public static string ToTabSeparated(IReadOnlyList<string> headers, IEnumerable<IReadOnlyList<string?>> rows)
     {
@@ -67,17 +67,16 @@ public static class RecordCopyText
     }
 
     /// <summary>
-    /// Raw value text of one TSV field (Copy records): NULL → empty; integers without thousand separators;
-    /// decimal / float / money without grouping and with the decimal separator of <paramref name="culture"/> (the
-    /// current culture), so the numbers paste as numbers into a spreadsheet using the same regional settings
-    /// (e.g. "1234,56" in pt-BR); bit → 1 / 0; dates yyyy-MM-dd HH:mm:ss (date columns: yyyy-MM-dd; fractional
-    /// seconds only when not zero); datetimeoffset adds the offset; time HH:mm:ss; uniqueidentifier as usual;
-    /// binary → full hex; text as is.
+    /// Value text of one TSV field (Copy records), as SQL Server Management Studio's "Copy with Headers" writes it,
+    /// independent of the regional settings: NULL → "NULL"; integers without thousand separators; decimal / numeric /
+    /// money / float / real with "." as decimal separator and no grouping (decimal keeps its scale: money 10.5000);
+    /// bit → 1 / 0; date yyyy-MM-dd; smalldatetime yyyy-MM-dd HH:mm:ss; datetime yyyy-MM-dd HH:mm:ss.fff;
+    /// datetime2(n) / time(n) with n fractional digits (default 7); datetimeoffset(n) adds " +hh:mm";
+    /// uniqueidentifier in upper case; binary → full hex (0x…); text as is.
     /// </summary>
-    public static string RecordFieldText(object? value, DataColumnInfo? column, CultureInfo culture)
+    public static string RecordFieldText(object? value, DataColumnInfo? column)
     {
-        ArgumentNullException.ThrowIfNull(culture);
-        if (DataValueText.IsNull(value)) return "";
+        if (DataValueText.IsNull(value)) return "NULL";
         var inv = CultureInfo.InvariantCulture;
         switch (value)
         {
@@ -88,47 +87,41 @@ public static class RecordCopyText
             case bool flag:
                 return flag ? "1" : "0";
             case DateTime d:
-            {
-                var kind = column is null ? DateColumnKind.None : DateValueText.KindOf(column);
-                var dateOnly = kind == DateColumnKind.Date || (kind == DateColumnKind.None && d.TimeOfDay == TimeSpan.Zero
-                    && (column is null || string.IsNullOrEmpty(column.TypeName)));
-                return dateOnly ? d.ToString("yyyy-MM-dd", inv) : d.ToString("yyyy-MM-dd HH:mm:ss", inv) + Fraction(d.Ticks);
-            }
+                return (column is null ? DateColumnKind.None : DateValueText.KindOf(column)) switch
+                {
+                    DateColumnKind.Date => d.ToString("yyyy-MM-dd", inv),
+                    DateColumnKind.SmallDateTime => d.ToString("yyyy-MM-dd HH:mm:ss", inv),
+                    DateColumnKind.DateTime2 => d.ToString("yyyy-MM-dd HH:mm:ss", inv) + FractionDigits(d.Ticks, TimeScale(column)),
+                    _ => d.ToString("yyyy-MM-dd HH:mm:ss.fff", inv) // datetime (also unknown column types)
+                };
             case DateTimeOffset o:
-                return o.ToString("yyyy-MM-dd HH:mm:ss", inv) + Fraction(o.Ticks) + " " + o.ToString("zzz", inv);
+                return o.ToString("yyyy-MM-dd HH:mm:ss", inv) + FractionDigits(o.Ticks, TimeScale(column)) + " " + o.ToString("zzz", inv);
             case TimeSpan t:
                 return (t < TimeSpan.Zero ? "-" : "") + ((int)Math.Abs(t.TotalHours)).ToString("00", inv)
-                    + t.ToString(@"\:mm\:ss", inv) + Fraction(t.Ticks);
+                    + t.ToString(@"\:mm\:ss", inv) + FractionDigits(t.Ticks, TimeScale(column));
             case Guid g:
-                return g.ToString("D", inv);
-            case sbyte or byte or short or ushort or int or uint or long or ulong:
-                return Convert.ToString(value, inv) ?? "";
-            case decimal m:
-                return m.ToString("G", NoGrouping(culture));
+                return g.ToString("D", inv).ToUpperInvariant();
             case double x:
-                return x.ToString("R", NoGrouping(culture));
+                return x.ToString("R", inv);
             case float f:
-                return f.ToString("R", NoGrouping(culture));
-            case IFormattable other:
-                return other.ToString(null, culture);
+                return f.ToString("R", inv);
+            case IFormattable other: // integers, decimal (scale kept), ...
+                return other.ToString(null, inv);
             default:
                 return value!.ToString() ?? "";
         }
     }
 
-    /// <summary>".1234567" with trailing zeros trimmed; empty when the second has no fraction.</summary>
-    private static string Fraction(long ticks)
-    {
-        var f = Math.Abs(ticks % TimeSpan.TicksPerSecond);
-        return f == 0 ? "" : "." + f.ToString("0000000", CultureInfo.InvariantCulture).TrimEnd('0');
-    }
+    /// <summary>Fractional-second digits of datetime2 / time / datetimeoffset: the column scale (0–7), 7 when unknown.</summary>
+    private static int TimeScale(DataColumnInfo? column) =>
+        column is { Scale: >= 0 and <= 7 } c && !string.IsNullOrEmpty(c.TypeName) ? c.Scale : 7;
 
-    /// <summary>Number format of <paramref name="culture"/> (decimal separator, minus sign) without any grouping.</summary>
-    private static NumberFormatInfo NoGrouping(CultureInfo culture)
+    /// <summary>"." plus <paramref name="digits"/> fractional-second digits (truncated); empty when digits is 0.</summary>
+    private static string FractionDigits(long ticks, int digits)
     {
-        var nf = (NumberFormatInfo)culture.NumberFormat.Clone();
-        nf.NumberGroupSeparator = "";
-        return nf;
+        if (digits <= 0) return "";
+        var f = Math.Abs(ticks % TimeSpan.TicksPerSecond).ToString("0000000", CultureInfo.InvariantCulture);
+        return "." + f[..digits];
     }
 
     /// <summary>"Copy cell value" text (pastes back into a grid cell): NULL → empty, binary → full hex, dates as the grid shows them.</summary>
