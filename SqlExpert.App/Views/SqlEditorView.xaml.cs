@@ -250,6 +250,9 @@ public partial class SqlEditorView : UserControl, ISqlEditorHost
         // Same light gray lines as every XAML grid (Resources/Branding.xaml, GridLineBrush).
         grid.SetResourceReference(DataGrid.HorizontalGridLinesBrushProperty, "GridLineBrush");
         grid.SetResourceReference(DataGrid.VerticalGridLinesBrushProperty, "GridLineBrush");
+        // Same light zebra striping as the implicit DataGrid style.
+        grid.AlternationCount = 2;
+        grid.SetResourceReference(DataGrid.AlternatingRowBackgroundProperty, "GridAlternateRowBrush");
         grid.SetBinding(FontSizeProperty, new Binding(nameof(UiSettings.DataGridFontSizePx)) { Source = UiSettings.Instance, Mode = BindingMode.OneWay });
         var plain = (Style)owner.FindResource("SqlCellText");
         var right = (Style)owner.FindResource("SqlCellTextRight");

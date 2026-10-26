@@ -34,6 +34,9 @@
        instead of the system light gray; dark text, "<null>" stays red. The focused selection keeps the system
        highlight (blue, white text). Set in the implicit DataGrid style, so every grid gets it. -->
   <Color x:Key="GridCurrentRowColor">#DCEBFA</Color>
+  <!-- Very light zebra striping on every grid (AlternationCount=2 in the implicit DataGrid style). Cells paint the
+       selection / current-row colors over the row background, so the highlight always wins over the stripe. -->
+  <SolidColorBrush x:Key="GridAlternateRowBrush" Color="#F5F8FC"/>
   <Style TargetType="DataGrid">
     <Style.Resources>
       <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="{StaticResource GridCurrentRowColor}"/>
@@ -47,6 +50,8 @@
     <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource GridLineBrush}"/>
     <Setter Property="VerticalGridLinesBrush" Value="{StaticResource GridLineBrush}"/>
     <Setter Property="BorderBrush" Value="{StaticResource GridBorderBrush}"/>
+    <Setter Property="AlternationCount" Value="2"/>
+    <Setter Property="AlternatingRowBackground" Value="{StaticResource GridAlternateRowBrush}"/>
   </Style>
   <!-- Column headers show column names as plain text. The default header template presents string content with
        RecognizesAccessKey="True", which treats the first '_' as an access key and hides it (FK_ORDER -> FKORDER).

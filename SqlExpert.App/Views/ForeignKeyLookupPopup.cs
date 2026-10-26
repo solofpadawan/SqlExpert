@@ -95,6 +95,9 @@ internal sealed class ForeignKeyLookupPopup
         _grid.SetResourceReference(DataGrid.HorizontalGridLinesBrushProperty, "GridLineBrush");
         _grid.SetResourceReference(DataGrid.VerticalGridLinesBrushProperty, "GridLineBrush");
         _grid.SetResourceReference(Control.BorderBrushProperty, "GridBorderBrush");
+        // Same light zebra striping as the implicit DataGrid style.
+        _grid.AlternationCount = 2;
+        _grid.SetResourceReference(DataGrid.AlternatingRowBackgroundProperty, "GridAlternateRowBrush");
         _grid.MouseDoubleClick += (_, e) =>
         {
             if (FindRow(e.OriginalSource as DependencyObject) is not null) { Pick(); e.Handled = true; }
