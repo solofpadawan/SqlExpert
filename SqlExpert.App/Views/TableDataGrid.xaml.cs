@@ -720,6 +720,11 @@ public partial class TableDataGrid : UserControl
     {
         if (_vm is null) return;
         var editing = Keyboard.FocusedElement is TextBox;
+        if (GridEscape.IsPlainEscape(e.Key == Key.Escape, Keyboard.Modifiers != ModifierKeys.None))
+        {
+            HandleEscape(e, editing || IsCurrentCellEditing(), Grid.CurrentItem as DataRowView);
+            return;
+        }
         if (IsSetNullGesture(e))
         {
             TrySetCurrentCellNull();
@@ -751,6 +756,37 @@ public partial class TableDataGrid : UserControl
             _vm.DeleteCommand.Execute(null);
             e.Handled = true;
         }
+    }
+
+    /// <summary>
+    /// Esc (grid and form view): a cell / field being edited cancels its own edit first (standard, the date mask
+    /// included); otherwise the pending changes are discarded like the Cancel button. With nothing pending Esc is
+    /// consumed and does nothing (never closes the window or the tab). Popups close themselves on Esc.
+    /// </summary>
+    private void HandleEscape(KeyEventArgs e, bool cellEditing, DataRowView? current)
+    {
+        if (_vm is null) return;
+        // Esc coming from a popup or menu (FK lookup, calendar, calculator, context menu) belongs to it: it closes itself.
+        var popupOpen = _lookup is { IsOpen: true } || _calendar is { IsOpen: true } || _calculator is { IsOpen: true }
+                        || Grid.ContextMenu is { IsOpen: true }
+                        || (e.OriginalSource is System.Windows.Media.Visual source && !IsAncestorOf(source));
+        switch (GridEscape.Decide(cellEditing, popupOpen, _vm.CanDiscardOnEscape(current)))
+        {
+            case GridEscapeAction.CancelChanges:
+                _vm.CancelCommand.Execute(null);
+                CancelFormEdit(); // form fields show the restored values
+                e.Handled = true;
+                break;
+            case GridEscapeAction.Swallow:
+                e.Handled = true;
+                break;
+        }
+    }
+
+    private bool IsCurrentCellEditing()
+    {
+        var info = Grid.CurrentCell;
+        return info.Column?.GetCellContent(info.Item)?.Parent is DataGridCell { IsEditing: true };
     }
 
     /// <summary>Ctrl+0 (top row or keypad): set the current cell to NULL. Ctrl+Del deletes the record.</summary>

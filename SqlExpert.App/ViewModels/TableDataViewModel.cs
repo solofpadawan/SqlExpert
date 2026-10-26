@@ -185,6 +185,16 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    /// Esc with no cell in edit mode: true when Cancel has something to discard (pending changes, the appended new
+    /// record, or an open edit of <paramref name="current"/>) and can run now.
+    /// </summary>
+    public bool CanDiscardOnEscape(DataRowView? current) =>
+        _table is not null && !IsBusy && CancelCommand.CanExecute(null)
+        && (HasPendingChanges
+            || _appendedRow is { RowState: not DataRowState.Detached }
+            || current is { IsEdit: true } or { IsNew: true });
+
     /// <summary>Table schema of the loaded data (null until loaded).</summary>
     public TableDataSchema? Schema => _schema;
 

@@ -493,6 +493,13 @@ public partial class TableDataGrid
     private void Form_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (_vm is null) return;
+        if (GridEscape.IsPlainEscape(e.Key == Key.Escape, Keyboard.Modifiers != ModifierKeys.None))
+        {
+            // A field with typed (not yet applied) text: its own Esc reverts it first.
+            var fieldEditing = Keyboard.FocusedElement is TextBox tb && tb.GetBindingExpression(TextBox.TextProperty) is { IsDirty: true };
+            HandleEscape(e, fieldEditing, FormRow);
+            return;
+        }
         if (IsSetNullGesture(e))
         {
             SetFocusedFormFieldNull();
