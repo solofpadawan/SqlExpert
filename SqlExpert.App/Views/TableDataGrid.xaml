@@ -106,7 +106,7 @@
                 AutoGenerateColumns="False"
                 CanUserAddRows="False"
                 CanUserDeleteRows="False"
-                SelectionMode="Single"
+                SelectionMode="Extended"
                 SelectionUnit="FullRow"
                 HeadersVisibility="All"
                 RowHeaderWidth="16"

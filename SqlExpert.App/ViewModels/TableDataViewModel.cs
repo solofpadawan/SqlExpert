@@ -437,6 +437,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
     public async Task ShowResultAsync(string title, SqlResultSet set, ResultEditDecision decision, string profileId, string database)
     {
         _profileId = _database = _schemaName = _tableName = null;
+        _resultScriptTarget = null;
         ResetData();
         SetResultMode(true, title);
         _isLoaded = true;
@@ -456,6 +457,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         {
             var schema = await Task.Run(() => _service.GetSchemaAsync(profileId, db, target.Schema, target.Table)).ConfigureAwait(true);
             keyed = ResultEditability.ApplyKey(schema, target, out why);
+            if (version == _loadVersion) _resultScriptTarget = (target.Schema, target.Table, schema, target.BaseColumns);
         }
         catch (Exception ex)
         {
@@ -465,6 +467,7 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
         if (version != _loadVersion) return; // another result arrived meanwhile
         if (keyed is null)
         {
+            _resultScriptTarget ??= (target.Schema, target.Table, null, target.BaseColumns);
             Info = why ?? ResultEditability.NoKeyReason;
             return;
         }
@@ -924,6 +927,40 @@ public sealed class TableDataViewModel : INotifyPropertyChanged
             App.ReportError(ex);
             return false;
         }
+    }
+
+    // ===== "Copy selected record(s) as INSERT / UPDATE" (grid context menu) =====
+
+    private (string Schema, string Table, TableDataSchema? Info, IReadOnlyList<string?> BaseColumns)? _resultScriptTarget;
+
+    /// <summary>
+    /// Table and columns used by "Copy as INSERT / UPDATE": the edited table (Data tab, editable SQL result) or the
+    /// single table a read-only SQL result comes from (columns mapped by name; expression columns left out). Null when
+    /// the grid does not show one table (EXEC, joins, ...).
+    /// </summary>
+    public (string Schema, string Table, IReadOnlyList<(GridColumnSpec Spec, DataColumnInfo Info)> Columns)? ScriptTarget()
+    {
+        if (_schema is not null && _schemaName is not null && _tableName is not null)
+            return (_schemaName, _tableName, _columns.Where(c => c.IsBaseColumn).Select(c => (c, c.Info)).ToList());
+        if (!_resultMode || _resultScriptTarget is not { } t) return null;
+
+        var list = new List<(GridColumnSpec, DataColumnInfo)>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < _columns.Count; i++)
+        {
+            var baseName = i < t.BaseColumns.Count ? t.BaseColumns[i] : null;
+            if (string.IsNullOrEmpty(baseName) || !seen.Add(baseName)) continue;
+            var info = t.Info?.Columns.FirstOrDefault(c => string.Equals(c.Name, baseName, StringComparison.OrdinalIgnoreCase))
+                       ?? new DataColumnInfo
+                       {
+                           Name = baseName,
+                           TypeName = _columns[i].Info.TypeName,
+                           BaseTypeName = _columns[i].Info.BaseTypeName,
+                           IsNullable = _columns[i].Info.IsNullable
+                       };
+            list.Add((_columns[i], info));
+        }
+        return list.Count == 0 ? null : (t.Schema, t.Table, list);
     }
 
     private GridColumnSpec? ColumnByName(string name) =>

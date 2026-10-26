@@ -24,6 +24,7 @@ public partial class TableDataGrid : UserControl
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         Grid.LoadingRow += Grid_OnLoadingRow;
+        InitGridContextMenu();
         FormGrid.DataContextChanged += (_, _) => FormGrid.IsEnabled = FormGrid.DataContext is System.Data.DataRowView;
         FormGrid.IsEnabled = false;
         IsVisibleChanged += (_, _) =>
@@ -666,6 +667,10 @@ public partial class TableDataGrid : UserControl
         if (IsSetNullGesture(e))
         {
             TrySetCurrentCellNull();
+            e.Handled = true;
+        }
+        else if (!editing && TryHandleGridMenuGesture(e))
+        {
             e.Handled = true;
         }
         else if (TryOpenMemoFromSelection(e))

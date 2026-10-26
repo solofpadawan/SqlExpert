@@ -535,6 +535,86 @@ def badge_arrow_again():
     ]
 
 
+# ---------------------------------------------------------------- Data grid context menu
+
+def grid_cell():
+    """A selected grid cell between two neighbours."""
+    return [
+        shape(rect(0.5, 4.5, 15.5, 11.5), fill=WHITE, stroke=SLATE["soft"]),
+        shape("M5.5,4.5 V11.5 M10.5,4.5 V11.5", stroke=SLATE["soft"]),
+        shape(rect(5.5, 4.5, 10.5, 11.5), fill=BLUE["light"], stroke=BLUE["dark"]),
+    ]
+
+
+def set_null():
+    """Grid cell with the empty-set sign: Set NULL."""
+    return [
+        shape(rect(0.5, 4.5, 11.5, 11.5), fill=WHITE, stroke=SLATE["soft"]),
+        shape("M4.5,4.5 V11.5", stroke=SLATE["soft"]),
+        shape(circle(11, 8, 4.2), fill=WHITE),
+        shape(circle(11, 8, 3.2), fill=WHITE, stroke=BRICK["mid"], w=1.3),
+        shape("M8.4,11.6 L13.6,4.4", stroke=BRICK["mid"], w=1.3),
+    ]
+
+
+def set_empty():
+    """Grid cell holding an empty pair of quotes: Set empty string."""
+    return grid_cell() + [
+        shape("M6.9,6 V7.8 M8.1,6 V7.8 M9.3,6 V7.8", stroke=BLUE["dark"], w=0.8),
+    ]
+
+
+def clock():
+    """Clock face: Set as NOW."""
+    return [
+        shape(circle(8, 8, 6.5), fill=SAND["light"], stroke=SLATE["dark"], w=1.2),
+        shape("M8,4 V8 L10.8,9.8", stroke=SLATE["deep"], w=1.3),
+        shape(circle(8, 8, 0.8), fill=SLATE["deep"]),
+    ]
+
+
+def copy_records():
+    """Two pages, the front one a small table: copy records as text."""
+    return [
+        shape(rect(5.5, 1.5, 14.5, 11.5), fill=WHITE, stroke=PAPER["line"]),
+        shape(rect(1.5, 4.5, 10.5, 14.5), fill=WHITE, stroke=PAPER["line"]),
+        shape(rect(2, 5, 10, 7), fill=BLUE["mid"]),
+        shape("M1.5,9.5 H10.5 M1.5,12 H10.5 M6,7 V14.5", stroke=SLATE["soft"]),
+    ]
+
+
+def funnel(p=SLATE):
+    return [
+        shape("M1.5,2.5 H14.5 L9.5,8.5 V13.5 L6.5,14.5 V8.5 Z", fill=p["light"], stroke=p["dark"]),
+    ]
+
+
+def filter_panel():
+    """Funnel over a panel strip: Show Filter Panel."""
+    return [
+        shape(rect(0.5, 11.5, 15.5, 15.5), fill=SLATE["light"], stroke=SLATE["mid"]),
+        shape("M2.5,0.5 H13.5 L9.3,5.4 V9.4 L6.7,10.4 V5.4 Z", fill=SLATE["light"], stroke=SLATE["dark"]),
+    ]
+
+
+def group_fields():
+    """Header band above indented rows: Group fields."""
+    return [
+        shape(rect(1.5, 1.5, 14.5, 4.5), fill=BLUE["mid"], stroke=BLUE["dark"]),
+        shape("M3.5,4.5 V13.5 M3.5,8 H6 M3.5,12.5 H6", stroke=SLATE["mid"]),
+        shape(rect(6.5, 6.5, 14.5, 9.5), fill=WHITE, stroke=PAPER["line"]),
+        shape(rect(6.5, 11, 14.5, 14), fill=WHITE, stroke=PAPER["line"]),
+    ]
+
+
+def duplicate_record():
+    """Two grid rows, the copy marked with "+": Duplicate record."""
+    return [
+        shape(rect(0.5, 2.5, 13.5, 6.5), fill=BLUE["light"], stroke=BLUE["dark"]),
+        shape(rect(0.5, 7.5, 13.5, 11.5), fill=WHITE, stroke=SLATE["soft"]),
+    ] + badge_plus()
+
+
 # ---------------------------------------------------------------- the set
 # Keys must match SqlExpert.Core/Explorer/ObjectIcons.cs (audited by IconResourceAuditTests).
 OBJECTS = {
@@ -624,6 +704,18 @@ ICONS.update({
     "ExpandAll": tree_box("+"),
     "CollapseAll": tree_box("-"),
     "Revoke": key() + badge_minus(),
+    # Data grid context menu
+    "SetNull": set_null(),
+    "SetEmptyString": set_empty(),
+    "SetNow": clock(),
+    "CopyRecords": copy_records(),
+    "CopyAsInsert": copy_pages() + badge_plus(),
+    "CopyAsUpdate": copy_pages() + badge_refresh(),
+    "DuplicateRecord": duplicate_record(),
+    "GroupFields": group_fields(),
+    "Filter": funnel(),
+    "FilterPanel": filter_panel(),
+    "FilterAdd": funnel() + badge_plus(),
 })
 # "New <object>" buttons: the object drawing plus the blue "+" badge.
 for _k in ("UserDefinedType", "Table", "View", "Procedure", "Trigger", "Sequence", "CustomMessage", "Function", "Role"):
