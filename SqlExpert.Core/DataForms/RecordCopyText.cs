@@ -30,8 +30,10 @@ public static class RecordCopyText
     // ===== tab-separated text =====
 
     /// <summary>
-    /// Header line plus one line per record, TAB between fields, CRLF between lines. NULL is an empty field. Fields with
-    /// TAB, line breaks or quotes are quoted ("..." with quotes doubled) as Excel expects.
+    /// "Copy records / Copy selected record(s) to clipboard" text: header line (column names) plus one line per
+    /// record, TAB between fields, CRLF between lines and no line break after the last record. Fields are never
+    /// quoted: TAB / CR / LF inside a value become a single space (see <see cref="TabField"/>), so every record stays
+    /// on one line and pastes into one spreadsheet row. NULL is an empty field.
     /// </summary>
     public static string ToTabSeparated(IReadOnlyList<string> headers, IEnumerable<IReadOnlyList<string?>> rows)
     {
@@ -39,7 +41,11 @@ public static class RecordCopyText
         ArgumentNullException.ThrowIfNull(rows);
         var sb = new StringBuilder();
         AppendLine(sb, headers);
-        foreach (var row in rows) AppendLine(sb, row);
+        foreach (var row in rows)
+        {
+            sb.Append("\r\n");
+            AppendLine(sb, row);
+        }
         return sb.ToString();
     }
 
@@ -50,17 +56,82 @@ public static class RecordCopyText
             if (i > 0) sb.Append('\t');
             sb.Append(TabField(fields[i]));
         }
-        sb.Append("\r\n");
     }
 
-    /// <summary>One TSV field: quoted when it holds TAB, CR, LF or a double quote.</summary>
+    /// <summary>One TSV field, as is (no quotes): each TAB, CR, LF or CRLF becomes one space; null → empty.</summary>
     public static string TabField(string? text)
     {
         if (string.IsNullOrEmpty(text)) return "";
-        return text.IndexOfAny(new[] { '\t', '\r', '\n', '"' }) >= 0 ? "\"" + text.Replace("\"", "\"\"") + "\"" : text;
+        if (text.IndexOfAny(new[] { '\t', '\r', '\n' }) < 0) return text;
+        return text.Replace("\r\n", " ").Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ');
     }
 
-    /// <summary>Clipboard text of one value (TSV field / "Copy cell value"): NULL → empty, binary → full hex.</summary>
+    /// <summary>
+    /// Raw value text of one TSV field (Copy records): NULL → empty; integers without thousand separators;
+    /// decimal / float / money without grouping and with the decimal separator of <paramref name="culture"/> (the
+    /// current culture), so the numbers paste as numbers into a spreadsheet using the same regional settings
+    /// (e.g. "1234,56" in pt-BR); bit → 1 / 0; dates yyyy-MM-dd HH:mm:ss (date columns: yyyy-MM-dd; fractional
+    /// seconds only when not zero); datetimeoffset adds the offset; time HH:mm:ss; uniqueidentifier as usual;
+    /// binary → full hex; text as is.
+    /// </summary>
+    public static string RecordFieldText(object? value, DataColumnInfo? column, CultureInfo culture)
+    {
+        ArgumentNullException.ThrowIfNull(culture);
+        if (DataValueText.IsNull(value)) return "";
+        var inv = CultureInfo.InvariantCulture;
+        switch (value)
+        {
+            case string s:
+                return s;
+            case byte[] b:
+                return DataValueText.ToHex(b, int.MaxValue);
+            case bool flag:
+                return flag ? "1" : "0";
+            case DateTime d:
+            {
+                var kind = column is null ? DateColumnKind.None : DateValueText.KindOf(column);
+                var dateOnly = kind == DateColumnKind.Date || (kind == DateColumnKind.None && d.TimeOfDay == TimeSpan.Zero
+                    && (column is null || string.IsNullOrEmpty(column.TypeName)));
+                return dateOnly ? d.ToString("yyyy-MM-dd", inv) : d.ToString("yyyy-MM-dd HH:mm:ss", inv) + Fraction(d.Ticks);
+            }
+            case DateTimeOffset o:
+                return o.ToString("yyyy-MM-dd HH:mm:ss", inv) + Fraction(o.Ticks) + " " + o.ToString("zzz", inv);
+            case TimeSpan t:
+                return (t < TimeSpan.Zero ? "-" : "") + ((int)Math.Abs(t.TotalHours)).ToString("00", inv)
+                    + t.ToString(@"\:mm\:ss", inv) + Fraction(t.Ticks);
+            case Guid g:
+                return g.ToString("D", inv);
+            case sbyte or byte or short or ushort or int or uint or long or ulong:
+                return Convert.ToString(value, inv) ?? "";
+            case decimal m:
+                return m.ToString("G", NoGrouping(culture));
+            case double x:
+                return x.ToString("R", NoGrouping(culture));
+            case float f:
+                return f.ToString("R", NoGrouping(culture));
+            case IFormattable other:
+                return other.ToString(null, culture);
+            default:
+                return value!.ToString() ?? "";
+        }
+    }
+
+    /// <summary>".1234567" with trailing zeros trimmed; empty when the second has no fraction.</summary>
+    private static string Fraction(long ticks)
+    {
+        var f = Math.Abs(ticks % TimeSpan.TicksPerSecond);
+        return f == 0 ? "" : "." + f.ToString("0000000", CultureInfo.InvariantCulture).TrimEnd('0');
+    }
+
+    /// <summary>Number format of <paramref name="culture"/> (decimal separator, minus sign) without any grouping.</summary>
+    private static NumberFormatInfo NoGrouping(CultureInfo culture)
+    {
+        var nf = (NumberFormatInfo)culture.NumberFormat.Clone();
+        nf.NumberGroupSeparator = "";
+        return nf;
+    }
+
+    /// <summary>"Copy cell value" text (pastes back into a grid cell): NULL → empty, binary → full hex, dates as the grid shows them.</summary>
     public static string ValueText(object? value, DataColumnInfo? column, CultureInfo culture)
     {
         if (DataValueText.IsNull(value)) return "";

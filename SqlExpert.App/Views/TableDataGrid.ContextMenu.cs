@@ -313,7 +313,7 @@ public partial class TableDataGrid
         var culture = CultureInfo.CurrentCulture;
         var text = RecordCopyText.ToTabSeparated(
             cols.Select(c => c.Spec.Header).ToList(),
-            rows.Select(r => (IReadOnlyList<string?>)cols.Select(c => RecordCopyText.ValueText(r[c.Spec.Field], c.Spec.Info, culture)).ToList()));
+            rows.Select(r => (IReadOnlyList<string?>)cols.Select(c => RecordCopyText.RecordFieldText(r[c.Spec.Field], c.Spec.Info, culture)).ToList()));
         if (SetClipboardText(text))
             _vm.ShowStatus($"{rows.Count} {what} copiado(s) para a área de transferência.");
     }
@@ -349,7 +349,8 @@ public partial class TableDataGrid
         {
             try
             {
-                Clipboard.SetDataObject(text, true);
+                // Unicode text (accents kept); autoConvert also offers it as Text / String.
+                Clipboard.SetDataObject(new DataObject(DataFormats.UnicodeText, text, true), true);
                 return true;
             }
             catch (COMException) when (attempt < 5)

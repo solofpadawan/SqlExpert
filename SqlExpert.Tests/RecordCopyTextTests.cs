@@ -276,20 +276,109 @@ public class RecordCopyTextTests
     // ===== tab-separated =====
 
     [Fact]
-    public void TabSeparated_HeaderAndRows_CrLf()
+    public void TabSeparated_HeaderAndRows_CrLfBetweenLines_NoTrailingNewline()
     {
         var text = RecordCopyText.ToTabSeparated(new[] { "Id", "Nome" }, new[] { new string?[] { "1", "Ana" }, new string?[] { "2", null } });
-        Assert.Equal("Id\tNome\r\n1\tAna\r\n2\t\r\n", text);
+        Assert.Equal("Id\tNome\r\n1\tAna\r\n2\t", text);
+        Assert.Equal("Id\tNome", RecordCopyText.ToTabSeparated(new[] { "Id", "Nome" }, Array.Empty<string?[]>()));
     }
 
     [Fact]
-    public void TabSeparated_QuotesFieldsWithTabsNewlinesOrQuotes()
+    public void TabSeparated_FieldsAsIs_TabsAndLineBreaksBecomeSpaces()
     {
         Assert.Equal("plain", RecordCopyText.TabField("plain"));
-        Assert.Equal("\"a\tb\"", RecordCopyText.TabField("a\tb"));
-        Assert.Equal("\"l1\r\nl2\"", RecordCopyText.TabField("l1\r\nl2"));
-        Assert.Equal("\"say \"\"hi\"\"\"", RecordCopyText.TabField("say \"hi\""));
+        Assert.Equal("a b", RecordCopyText.TabField("a\tb"));
+        Assert.Equal("l1 l2", RecordCopyText.TabField("l1\r\nl2"));
+        Assert.Equal("l1 l2 l3", RecordCopyText.TabField("l1\nl2\rl3"));
+        Assert.Equal("say \"hi\"", RecordCopyText.TabField("say \"hi\""));
         Assert.Equal("", RecordCopyText.TabField(null));
+    }
+
+    /// <summary>Same layout as the classic-style output: header, raw values, TAB, CRLF, no trailing newline.</summary>
+    [Fact]
+    public void CopyRecords_SampleGrid_ExactText()
+    {
+        var ptBr = CultureInfo.GetCultureInfo("pt-BR");
+        var cols = new[] { Col("BC_ID", "int"), Col("BC_FK_EMPRESA", "int"), Col("BC_CONTA", "varchar"), Col("BC_DESCRICAO", "varchar") };
+        var descriptions = new[]
+        {
+            "EDIFICAÇÕES SP", "EDIFICAÇÕES CENTRO", "INSTALAÇÕES ELÉTRICAS", "MÁQUINAS E EQUIPAMENTOS", "MÓVEIS E UTENSÍLIOS",
+            "VEÍCULOS", "BENFEITORIAS EM IMÓVEIS", "COMPUTADORES E PERIFÉRICOS", "APARELHOS DE AR-CONDICIONADO", "EQUIPAMENTOS DE COMUNICAÇÃO"
+        };
+        var rows = Enumerable.Range(0, 10).Select(i => new object?[] { 88189 + i, 1086, $"1.02.04.01.{40 + i:00000}", descriptions[i] });
+
+        var text = RecordCopyText.ToTabSeparated(
+            cols.Select(c => c.Name).ToList(),
+            rows.Select(r => (IReadOnlyList<string?>)r.Select((v, i) => RecordCopyText.RecordFieldText(v, cols[i], ptBr)).ToList()));
+
+        var expected = string.Join("\r\n",
+            "BC_ID\tBC_FK_EMPRESA\tBC_CONTA\tBC_DESCRICAO",
+            "88189\t1086\t1.02.04.01.00040\tEDIFICAÇÕES SP",
+            "88190\t1086\t1.02.04.01.00041\tEDIFICAÇÕES CENTRO",
+            "88191\t1086\t1.02.04.01.00042\tINSTALAÇÕES ELÉTRICAS",
+            "88192\t1086\t1.02.04.01.00043\tMÁQUINAS E EQUIPAMENTOS",
+            "88193\t1086\t1.02.04.01.00044\tMÓVEIS E UTENSÍLIOS",
+            "88194\t1086\t1.02.04.01.00045\tVEÍCULOS",
+            "88195\t1086\t1.02.04.01.00046\tBENFEITORIAS EM IMÓVEIS",
+            "88196\t1086\t1.02.04.01.00047\tCOMPUTADORES E PERIFÉRICOS",
+            "88197\t1086\t1.02.04.01.00048\tAPARELHOS DE AR-CONDICIONADO",
+            "88198\t1086\t1.02.04.01.00049\tEQUIPAMENTOS DE COMUNICAÇÃO");
+        Assert.Equal(expected, text);
+        Assert.False(text.EndsWith("\n", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void RecordFieldText_NumbersRaw_NoGrouping_CultureDecimalSeparator()
+    {
+        var ptBr = CultureInfo.GetCultureInfo("pt-BR");
+        Assert.Equal("88189", RecordCopyText.RecordFieldText(88189, Col("a", "int"), ptBr));
+        Assert.Equal("-1234567890123", RecordCopyText.RecordFieldText(-1234567890123L, Col("a", "bigint"), ptBr));
+        Assert.Equal("255", RecordCopyText.RecordFieldText((byte)255, Col("a", "tinyint"), ptBr));
+        Assert.Equal("1234567,89", RecordCopyText.RecordFieldText(1234567.89m, Col("a", "decimal"), ptBr));
+        Assert.Equal("10,50", RecordCopyText.RecordFieldText(10.50m, Col("a", "money"), ptBr));
+        Assert.Equal("-0,5", RecordCopyText.RecordFieldText(-0.5m, Col("a", "decimal"), ptBr));
+        Assert.Equal("1234567,25", RecordCopyText.RecordFieldText(1234567.25d, Col("a", "float"), ptBr));
+        Assert.Equal("0,1", RecordCopyText.RecordFieldText(0.1f, Col("a", "real"), ptBr));
+        Assert.Equal("1234567.89", RecordCopyText.RecordFieldText(1234567.89m, Col("a", "decimal"), CultureInfo.GetCultureInfo("en-US")));
+        Assert.Equal("1", RecordCopyText.RecordFieldText(true, Col("a", "bit"), ptBr));
+        Assert.Equal("0", RecordCopyText.RecordFieldText(false, Col("a", "bit"), ptBr));
+    }
+
+    [Fact]
+    public void RecordFieldText_DatesIso_DateOnlyForDateColumns()
+    {
+        var ptBr = CultureInfo.GetCultureInfo("pt-BR");
+        var d = new DateTime(2026, 10, 26, 9, 48, 37);
+        Assert.Equal("2026-10-26 09:48:37", RecordCopyText.RecordFieldText(d, Col("a", "datetime"), ptBr));
+        Assert.Equal("2026-10-26 00:00:00", RecordCopyText.RecordFieldText(d.Date, Col("a", "datetime"), ptBr));
+        Assert.Equal("2026-10-26", RecordCopyText.RecordFieldText(d.Date, Col("a", "date"), ptBr));
+        Assert.Equal("2026-10-26 09:48:00", RecordCopyText.RecordFieldText(new DateTime(2026, 10, 26, 9, 48, 0), Col("a", "smalldatetime"), ptBr));
+        Assert.Equal("2026-10-26 09:48:37.123", RecordCopyText.RecordFieldText(d.AddMilliseconds(123), Col("a", "datetime2"), ptBr));
+        Assert.Equal("2026-10-26 09:48:37.1234567", RecordCopyText.RecordFieldText(d.AddTicks(1234567), Col("a", "datetime2"), ptBr));
+        Assert.Equal("2026-10-26 09:48:37 -03:00",
+            RecordCopyText.RecordFieldText(new DateTimeOffset(d, TimeSpan.FromHours(-3)), Col("a", "datetimeoffset"), ptBr));
+        Assert.Equal("09:48:37", RecordCopyText.RecordFieldText(new TimeSpan(9, 48, 37), Col("a", "time"), ptBr));
+        Assert.Equal("09:48:37.5", RecordCopyText.RecordFieldText(new TimeSpan(9, 48, 37).Add(TimeSpan.FromMilliseconds(500)), Col("a", "time"), ptBr));
+        // no column metadata: midnight values are shown as dates
+        Assert.Equal("2026-10-26", RecordCopyText.RecordFieldText(d.Date, null, ptBr));
+        Assert.Equal("2026-10-26 09:48:37", RecordCopyText.RecordFieldText(d, null, ptBr));
+    }
+
+    [Fact]
+    public void RecordFieldText_NullEmpty_TextAsIs_GuidAndBinary()
+    {
+        var ptBr = CultureInfo.GetCultureInfo("pt-BR");
+        Assert.Equal("", RecordCopyText.RecordFieldText(DBNull.Value, Col("a", "int"), ptBr));
+        Assert.Equal("", RecordCopyText.RecordFieldText(null, null, ptBr));
+        Assert.Equal("", RecordCopyText.RecordFieldText("", Col("a", "varchar"), ptBr));
+        Assert.Equal("AÇÃO \"x\" 1.234", RecordCopyText.RecordFieldText("AÇÃO \"x\" 1.234", Col("a", "nvarchar"), ptBr));
+        Assert.Equal("0102FF".Insert(0, "0x"), RecordCopyText.RecordFieldText(new byte[] { 1, 2, 255 }, Col("a", "varbinary"), ptBr));
+        var g = Guid.Parse("0f8fad5b-d9cb-469f-a165-70867728950e");
+        Assert.Equal("0f8fad5b-d9cb-469f-a165-70867728950e", RecordCopyText.RecordFieldText(g, Col("a", "uniqueidentifier"), ptBr));
+        // embedded TAB / line breaks are flattened by the TSV writer
+        var line = RecordCopyText.ToTabSeparated(new[] { "a", "b" },
+            new[] { new string?[] { RecordCopyText.RecordFieldText("l1\r\nl2\tx", Col("a", "varchar"), ptBr), "" } });
+        Assert.Equal("a\tb\r\nl1 l2 x\t", line);
     }
 
     [Fact]
