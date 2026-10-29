@@ -50,6 +50,8 @@
     <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource GridLineBrush}"/>
     <Setter Property="VerticalGridLinesBrush" Value="{StaticResource GridLineBrush}"/>
     <Setter Property="BorderBrush" Value="{StaticResource GridBorderBrush}"/>
+    <!-- White behind and after the rows: the empty space right of the last column is plain background. -->
+    <Setter Property="Background" Value="White"/>
     <Setter Property="AlternationCount" Value="2"/>
     <Setter Property="AlternatingRowBackground" Value="{StaticResource GridAlternateRowBrush}"/>
   </Style>
@@ -60,6 +62,53 @@
   <Style TargetType="DataGridColumnHeader">
     <Setter Property="ContentTemplateSelector" Value="{x:Static views:PlainTextTemplateSelector.Instance}"/>
     <Setter Property="SeparatorBrush" Value="{StaticResource GridHeaderSeparatorBrush}"/>
+    <Style.Triggers>
+      <!-- Filler header to the right of the last column (no column: DisplayIndex -1): plain grid background, no chrome or
+           separators, so the space after the last column reads as empty (classic-style). -->
+      <Trigger Property="DisplayIndex" Value="-1">
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="DataGridColumnHeader">
+              <Border Background="Transparent"/>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- Rows paint their background (zebra stripe) only behind the cells: the cells presenter is left-aligned, so the
+       empty space after the last column stays plain grid background. Cells draw their own grid lines and the
+       selection / current-row colors, so those also end at the last column. Otherwise the standard row layout
+       (row header, details, frozen columns via SelectiveScrollingGrid). Row styles must be BasedOn this one. -->
+  <Style TargetType="DataGridRow">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="DataGridRow">
+          <Border x:Name="DGR_Border" Background="Transparent" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+            <SelectiveScrollingGrid>
+              <SelectiveScrollingGrid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+              </SelectiveScrollingGrid.ColumnDefinitions>
+              <SelectiveScrollingGrid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+              </SelectiveScrollingGrid.RowDefinitions>
+              <Border Grid.Column="1" HorizontalAlignment="Left" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                <DataGridCellsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+              </Border>
+              <DataGridDetailsPresenter Grid.Column="1" Grid.Row="1"
+                  SelectiveScrollingGrid.SelectiveScrollingOrientation="{Binding AreRowDetailsFrozen, ConverterParameter={x:Static SelectiveScrollingOrientation.Vertical}, Converter={x:Static DataGrid.RowDetailsScrollingConverter}, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}"
+                  Visibility="{TemplateBinding DetailsVisibility}"/>
+              <DataGridRowHeader Grid.RowSpan="2" SelectiveScrollingGrid.SelectiveScrollingOrientation="Vertical"
+                  Visibility="{Binding HeadersVisibility, ConverterParameter={x:Static DataGridHeadersVisibility.Row}, Converter={x:Static DataGrid.HeadersVisibilityConverter}, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}"/>
+            </SelectiveScrollingGrid>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
   <!-- Grid cells: NULL is shown as "<null>" in red, not italic (classic-style). Every cell TextBlock style of the

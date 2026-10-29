@@ -64,7 +64,7 @@
                             SelectedItem="{Binding SelectedField, Mode=TwoWay}" SelectionMode="Single" SelectionUnit="FullRow"
                             CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False" IsReadOnly="True" HeadersVisibility="Column">
                     <DataGrid.RowStyle>
-                      <Style TargetType="DataGridRow">
+                      <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                         <EventSetter Event="MouseDoubleClick" Handler="FieldRow_OnMouseDoubleClick"/>
                       </Style>
                     </DataGrid.RowStyle>
