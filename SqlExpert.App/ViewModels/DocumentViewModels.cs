@@ -38,6 +38,10 @@ public abstract class DocumentViewModel : INotifyPropertyChanged
     /// <summary>Short label of the Windows-bar tab (object name).</summary>
     public abstract string ShortName { get; }
     public virtual string ToolTip => Title;
+    /// <summary>Bare object name copied by the title-bar copy button (null = nothing to copy).</summary>
+    public virtual string? CopyableName => null;
+    /// <summary>Tooltip of the title-bar copy button.</summary>
+    public virtual string CopyNameToolTip => "Copiar nome";
     /// <summary>Vector icon of the Windows-bar tab and title strip (same key as the object's Explorer node).</summary>
     public abstract string IconKey { get; }
 
@@ -99,6 +103,8 @@ public sealed class TableDocumentViewModel : DocumentViewModel
 
     public override string Caption => WindowTitles.TableCaption(Schema, Table);
     public override string ShortName => Table;
+    public override string? CopyableName => WindowTitles.BareObjectName(Table);
+    public override string CopyNameToolTip => "Copiar nome da tabela";
     public override string IconKey => ObjectIcons.For(Core.Models.ObjectKind.Table);
     public override string ToolTip => $"[{Schema}].[{Table}] : {Database}";
 

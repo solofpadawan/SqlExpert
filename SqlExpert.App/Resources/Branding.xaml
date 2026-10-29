@@ -36,7 +36,7 @@
   <Color x:Key="GridCurrentRowColor">#DCEBFA</Color>
   <!-- Very light zebra striping on every grid (AlternationCount=2 in the implicit DataGrid style). Cells paint the
        selection / current-row colors over the row background, so the highlight always wins over the stripe. -->
-  <SolidColorBrush x:Key="GridAlternateRowBrush" Color="#FBFCFE"/>
+  <SolidColorBrush x:Key="GridAlternateRowBrush" Color="#F5F8FC"/>
   <Style TargetType="DataGrid">
     <Style.Resources>
       <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="{StaticResource GridCurrentRowColor}"/>

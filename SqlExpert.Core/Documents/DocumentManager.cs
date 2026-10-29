@@ -114,6 +114,28 @@ public static class WindowTitles
 {
     public const string AppName = "SqlExpert";
 
+    /// <summary>
+    /// Bare object name for the title-bar copy button: "[dbo].[Clientes]", "dbo.Clientes" or "Clientes" → "Clientes".
+    /// Null when there is no name yet (e.g. a new procedure before it is named).
+    /// </summary>
+    public static string? BareObjectName(string? name)
+    {
+        var v = (name ?? "").Trim();
+        if (v.Length == 0) return null;
+        if (v.EndsWith(']'))
+        {
+            var open = v.LastIndexOf('[');
+            if (open >= 0) v = v[(open + 1)..^1].Replace("]]", "]");
+        }
+        else
+        {
+            var dot = v.LastIndexOf('.');
+            if (dot >= 0) v = v[(dot + 1)..];
+        }
+        v = v.Trim();
+        return v.Length == 0 ? null : v;
+    }
+
     /// <summary>"Table : [dbo].[Clientes]"</summary>
     public static string TableCaption(string schema, string table) => $"Table : [{schema}].[{table}]";
 
