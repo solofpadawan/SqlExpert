@@ -97,6 +97,9 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         CloseOtherDocumentsCommand = new RelayCommand(
             p => { var d = p as DocumentViewModel ?? ActiveDocument; if (d is not null) RunSafe(async () => { await CloseDocumentsAsync(_docs.Others(d)).ConfigureAwait(true); if (_docs.Documents.Contains(d)) ActiveDocument = d; }); },
             _ => _docs.Count > 1);
+        RenameDocumentCommand = new RelayCommand(
+            p => { if (p is SqlEditorDocumentViewModel sql) RenameSqlEditorTab(sql); },
+            p => p is SqlEditorDocumentViewModel);
         NextDocumentCommand = new RelayCommand(_ => _docs.Cycle(1), _ => _docs.Count > 1);
         PreviousDocumentCommand = new RelayCommand(_ => _docs.Cycle(-1), _ => _docs.Count > 1);
         ClearFilterCommand = new RelayCommand(_ => FilterText = "");
@@ -337,6 +340,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
     public ICommand CloseDocumentCommand { get; }
     public ICommand CloseAllDocumentsCommand { get; }
     public ICommand CloseOtherDocumentsCommand { get; }
+    public ICommand RenameDocumentCommand { get; }
     public ICommand NextDocumentCommand { get; }
     public ICommand PreviousDocumentCommand { get; }
     public ICommand ClearFilterCommand { get; }
@@ -1154,6 +1158,18 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
                 return false;
         _tabsSavedForExit = true;
         return true;
+    }
+
+    /// <summary>Asks for a new Windows-bar name of a SQL Editor tab (empty = restore the default).</summary>
+    private void RenameSqlEditorTab(SqlEditorDocumentViewModel sql)
+    {
+        var owner = Application.Current?.MainWindow;
+        var name = RenameTabWindow.Ask(owner, sql.DefaultShortName);
+        if (name is null) return;
+        sql.CustomTitle = name;
+        StatusText = string.IsNullOrEmpty(sql.CustomTitle)
+            ? $"Aba restaurada para '{sql.DefaultShortName}'."
+            : $"Aba renomeada para '{sql.CustomTitle}'.";
     }
 
     public bool AnyDocumentNeedsConfirmation => _docs.Documents.Any(d => d.HasUnsavedChanges);

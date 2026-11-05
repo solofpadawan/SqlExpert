@@ -84,6 +84,17 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>Rewrites the open-windows file of a registration with the documents currently open (e.g. after a tab rename).</summary>
+    internal void PersistOpenTabs(string profileId)
+    {
+        if (_restoringTabs || string.IsNullOrEmpty(profileId)) return;
+        var activeKey = ActiveDocument is { } a && a.ProfileId == profileId ? a.Key : null;
+        var captured = new List<(SessionTab Tab, string Key)>();
+        foreach (var doc in DocumentsOf(profileId))
+            if (CaptureTab(doc) is { } tab) captured.Add((tab, doc.Key));
+        SaveTabs(profileId, captured, activeKey);
+    }
+
     private void SaveTabs(string profileId, IReadOnlyList<(SessionTab Tab, string Key)> tabs, string? activeKey)
     {
         try

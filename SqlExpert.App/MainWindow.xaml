@@ -581,6 +581,9 @@
               </StackPanel>
               <Button.ContextMenu>
                 <ContextMenu>
+                  <MenuItem Header="Renomear"
+                            Command="{Binding Shell.RenameDocumentCommand}" CommandParameter="{Binding}"/>
+                  <Separator/>
                   <MenuItem Header="Close" InputGestureText="Ctrl+F4"
                             Command="{Binding Shell.CloseDocumentCommand}" CommandParameter="{Binding}"/>
                   <MenuItem Header="Close all" Command="{Binding Shell.CloseAllDocumentsCommand}"/>

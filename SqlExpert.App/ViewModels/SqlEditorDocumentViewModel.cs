@@ -146,6 +146,7 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
     private bool _lastHasMore;
     private bool _isExecuting;
     private bool _isModified;
+    private string? _customTitle;
     private string? _filePath;
     private Encoding? _fileEncoding;
     private string _statusLine = "Pronto. F9 ou Ctrl+Enter executa (a seleção, se houver).";
@@ -199,10 +200,33 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
     public string? FilePath => _filePath;
     public string? FileName => _filePath is null ? null : Path.GetFileName(_filePath);
 
-    public override string Caption => WindowTitles.SqlEditorCaption(Number, FileName);
+    public override string Caption => string.IsNullOrEmpty(_customTitle)
+        ? WindowTitles.SqlEditorCaption(Number, FileName)
+        : _customTitle;
     public override string Title => $"{Caption}{(IsModified ? " *" : "")} : {_connectionLabel} : {CurrentDatabase}";
     public override string IconKey => SqlExpert.Core.Explorer.ObjectIcons.SqlEditor;
-    public override string ShortName => (Number <= 1 ? "SQL Editor" : $"SQL Editor {Number}") + (IsModified ? " *" : "");
+    public override string ShortName => DefaultShortName + (IsModified ? " *" : "");
+
+    /// <summary>Tab label without the dirty marker; the default "SQL Editor" / "SQL Editor N", or a custom name.</summary>
+    public string DefaultShortName => string.IsNullOrEmpty(_customTitle)
+        ? (Number <= 1 ? "SQL Editor" : $"SQL Editor {Number}")
+        : _customTitle;
+
+    /// <summary>Optional custom Windows-bar name; null or blank restores the default.</summary>
+    public string? CustomTitle
+    {
+        get => _customTitle;
+        set
+        {
+            var v = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+            if (v is { Length: > 80 }) v = v[..80].TrimEnd();
+            if (_customTitle == v) return;
+            _customTitle = v;
+            OnPropertyChanged();
+            RaiseTitles();
+            Shell.PersistOpenTabs(ProfileId);
+        }
+    }
     public override string ToolTip => (_filePath is null ? "" : _filePath + "\n") + $"{_connectionLabel} : {CurrentDatabase}";
     public override string CurrentDatabase => _session.CurrentDatabase ?? Database;
 
@@ -654,7 +678,8 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
         SqlText = Document.Text,
         FilePath = _filePath,
         IsModified = IsModified,
-        SelectedTab = SelectedPage == HistoryPage ? HistoryPage : EditPage
+        SelectedTab = SelectedPage == HistoryPage ? HistoryPage : EditPage,
+        CustomTitle = _customTitle
     };
 
     /// <summary>
@@ -683,6 +708,8 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
         _fileEncoding = path is null ? null : encoding ?? SqlFileText.DefaultEncoding;
         IsModified = modified;
         SelectedPage = tab.SelectedTab == HistoryPage ? HistoryPage : EditPage;
+        _customTitle = string.IsNullOrWhiteSpace(tab.CustomTitle) ? null : tab.CustomTitle.Trim();
+        if (_customTitle is { Length: > 80 }) _customTitle = _customTitle[..80].TrimEnd();
         RaiseTitles();
         StatusLine = "Reaberto da última sessão (o SQL não foi executado).";
     }

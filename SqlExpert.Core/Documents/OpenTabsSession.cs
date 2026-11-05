@@ -45,6 +45,9 @@ public sealed class SessionTab
     /// <summary>SQL Editor text differs from its file (or there is no file).</summary>
     public bool IsModified { get; set; }
 
+    /// <summary>Optional display name of a SQL Editor tab (Windows bar); null = the default "SQL Editor" / "SQL Editor N".</summary>
+    public string? CustomTitle { get; set; }
+
     /// <summary>Identity used to drop duplicates: same rules as the document keys (case-insensitive).</summary>
     [JsonIgnore]
     public string Identity => Kind switch
@@ -57,7 +60,7 @@ public sealed class SessionTab
     /// <summary>"[dbo].[Clientes] (db)" / "SQL Editor 2" for logs and status messages.</summary>
     [JsonIgnore]
     public string DisplayText => Kind == SessionTabKind.SqlEditor
-        ? WindowTitles.SqlEditorCaption(Number)
+        ? (!string.IsNullOrWhiteSpace(CustomTitle) ? CustomTitle.Trim() : WindowTitles.SqlEditorCaption(Number))
         : $"{Kind} [{Schema}].[{Name}] ({Database})";
 }
 
