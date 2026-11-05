@@ -652,14 +652,49 @@ public sealed class SqlEditorDocumentViewModel : DocumentViewModel
         return true;
     }
 
-    /// <summary>Save/Discard/Cancel prompt for unsaved text. True = go on.</summary>
+    /// <summary>Save/Discard/Cancel prompt for unsaved text. True = go on. Optional Descartar todos in a multi-tab close batch.</summary>
     private bool ConfirmDiscardOrSave(string action)
     {
         if (!IsModified || Document.TextLength == 0) return true;
-        var answer = Ask($"O texto de '{ShortName.TrimEnd(' ', '*')}' foi alterado e não foi salvo.\n\nSalvar antes de {action}?",
-            MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel,
-            new DialogLabels("Salvar", "Descartar", "Cancelar"), UnsavedChangesTitle);
-        return answer switch
+        if (Shell.DiscardAllUnsavedSqlEditors) return true;
+
+        var offerDiscardAll = action == "fechar"
+            && Shell.IsInDocumentCloseBatch
+            && Shell.DirtySqlEditorsLeftInBatch >= 2;
+        var labels = offerDiscardAll
+            ? new DialogLabels("Salvar", "Descartar", "Cancelar", Extra: "Descartar todos")
+            : new DialogLabels("Salvar", "Descartar", "Cancelar");
+        var message = $"O texto de '{ShortName.TrimEnd(' ', '*')}' foi alterado e não foi salvo.\n\nSalvar antes de {action}?";
+
+        var app = Application.Current;
+        if (app is null || !app.Dispatcher.CheckAccess())
+        {
+            // Headless / wrong thread: same Yes/No/Cancel fallback (no Extra).
+            var answer = Ask(message, MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel, labels, UnsavedChangesTitle);
+            return answer switch
+            {
+                MessageBoxResult.Yes => Save(saveAs: false),
+                MessageBoxResult.No => true,
+                _ => false
+            };
+        }
+
+        var dialog = MessageDialog.Create(message, UnsavedChangesTitle, MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Question, MessageBoxResult.Cancel, labels);
+        Window? owner = null;
+        foreach (Window w in app.Windows)
+            if (w.IsActive && w.IsVisible) { owner = w; break; }
+        owner ??= app.MainWindow is { IsVisible: true } main ? main : null;
+        if (owner is not null && !ReferenceEquals(owner, dialog)) dialog.Owner = owner;
+        else dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        dialog.ShowDialog();
+
+        if (dialog.ExtraWasClicked)
+        {
+            Shell.DiscardAllUnsavedSqlEditors = true;
+            return true;
+        }
+        return dialog.Result switch
         {
             MessageBoxResult.Yes => Save(saveAs: false),
             MessageBoxResult.No => true,

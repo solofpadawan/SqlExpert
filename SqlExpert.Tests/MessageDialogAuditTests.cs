@@ -79,8 +79,19 @@ public class MessageDialogAuditTests
         var vm = Path.Combine(AppDir(), "ViewModels");
         var editor = File.ReadAllText(Path.Combine(vm, "SqlEditorDocumentViewModel.cs"));
         Assert.Contains("UnsavedChangesTitle = \"Alterações não salvas\"", editor);
-        Assert.Contains("new DialogLabels(\"Salvar\", \"Descartar\", \"Cancelar\"), UnsavedChangesTitle", editor);
+        Assert.Contains("new DialogLabels(\"Salvar\", \"Descartar\", \"Cancelar\"", editor);
+        Assert.Contains("Extra: \"Descartar todos\"", editor);
+        Assert.Contains("UnsavedChangesTitle", editor);
         Assert.Contains("new DialogLabels(\"Gravar\", \"Descartar\", \"Cancelar\")", File.ReadAllText(Path.Combine(vm, "TableDataViewModel.cs")));
         Assert.Contains("new DialogLabels(\"Compilar\", \"Descartar\", \"Cancelar\")", File.ReadAllText(Path.Combine(vm, "ProcedureDocumentViewModel.cs")));
+    }
+
+    [Fact]
+    public void DialogLabels_SupportsExtraButtonNextToNo()
+    {
+        var d = DialogText();
+        Assert.Contains("string? Extra = null", d);
+        Assert.Contains("ExtraWasClicked", d);
+        Assert.Contains("labels?.Extra", d);
     }
 }

@@ -8,7 +8,7 @@ using SqlExpert.App.Services;
 namespace SqlExpert.App.Views;
 
 /// <summary>Button captions of a <see cref="MessageDialog"/>; null keeps the default (Sim / Não / Cancelar / OK).</summary>
-public sealed record DialogLabels(string? Yes = null, string? No = null, string? Cancel = null, string? Ok = null)
+public sealed record DialogLabels(string? Yes = null, string? No = null, string? Cancel = null, string? Ok = null, string? Extra = null)
 {
     public static DialogLabels English { get; } = new("Yes", "No", "Cancel", "OK");
 }
@@ -25,6 +25,8 @@ public sealed class MessageDialog : Window
     private readonly string? _detail;
     private readonly MessageBoxResult _escapeResult;
     private MessageBoxResult _result;
+    /// <summary>True when the optional Extra button (e.g. Descartar todos) was clicked.</summary>
+    public bool ExtraWasClicked { get; private set; }
 
     private MessageDialog(string message, string caption, MessageBoxButton buttons, MessageBoxImage image,
         MessageBoxResult defaultResult, DialogLabels? labels, string? detail)
@@ -65,6 +67,33 @@ public sealed class MessageDialog : Window
             if (kind == defaultResult) focus = b;
             buttonRow.Children.Add(b);
         }
+        if (!string.IsNullOrWhiteSpace(labels?.Extra))
+        {
+            var extra = new Button
+            {
+                Content = labels!.Extra,
+                MinWidth = 90,
+                Margin = new Thickness(6, 0, 0, 0)
+            }.WithDialogStyle();
+            extra.Click += (_, _) =>
+            {
+                ExtraWasClicked = true;
+                _result = MessageBoxResult.No;
+                DialogResult = true;
+            };
+            // Place immediately after Descartar/No: Salvar | Descartar | Descartar todos | Cancelar
+            var insertAt = buttonRow.Children.Count;
+            for (var i = 0; i < buttonRow.Children.Count; i++)
+            {
+                if (buttonRow.Children[i] is Button { Tag: MessageBoxResult.No })
+                {
+                    insertAt = i + 1;
+                    break;
+                }
+            }
+            buttonRow.Children.Insert(insertAt, extra);
+        }
+
         DockPanel.SetDock(buttonRow, Dock.Bottom);
         root.Children.Add(buttonRow);
 

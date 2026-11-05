@@ -47,23 +47,47 @@ public sealed partial class MainViewModel
     /// Closes the documents of a registration one by one (same prompts as Close), remembering each one as it closes,
     /// then saves them as that registration's open windows. False = the user cancelled a prompt (nothing saved).
     /// </summary>
-    private async Task<bool> CloseProfileDocumentsAsync(string? profileId)
+    private async Task<bool> CloseProfileDocumentsAsync(string? profileId, bool clearDiscardAllFlag = true)
     {
         if (profileId is null) return true;
         var activeKey = ActiveDocument is { } a && a.ProfileId == profileId ? a.Key : null;
         var captured = new List<(SessionTab Tab, string Key)>();
-        foreach (var doc in DocumentsOf(profileId))
+        if (clearDiscardAllFlag)
         {
-            if (!_docs.Documents.Contains(doc)) continue;
-            if (doc.HasUnsavedChanges)
-                ActiveDocument = doc;
-            if (!await doc.ConfirmCloseAsync().ConfigureAwait(true)) return false;
-            // Captured after the prompt: a SQL Editor saved to a file there is remembered with that file.
-            if (CaptureTab(doc) is { } tab) captured.Add((tab, doc.Key));
-            RemoveDocument(doc);
+            DiscardAllUnsavedSqlEditors = false;
+            IsInDocumentCloseBatch = true;
         }
-        SaveTabs(profileId, captured, activeKey);
-        return true;
+        try
+        {
+            var list = DocumentsOf(profileId).ToList();
+            for (var i = 0; i < list.Count; i++)
+            {
+                var doc = list[i];
+                if (!_docs.Documents.Contains(doc)) continue;
+                // Remaining dirty SQL Editors in this profile batch + any still open when exiting across profiles.
+                DirtySqlEditorsLeftInBatch = CountDirtySqlEditorTexts(
+                    list.Skip(i).Where(d => _docs.Documents.Contains(d)));
+                if (clearDiscardAllFlag is false)
+                    DirtySqlEditorsLeftInBatch = Math.Max(DirtySqlEditorsLeftInBatch, CountDirtySqlEditorTexts(_docs.Documents));
+                if (doc.HasUnsavedChanges)
+                    ActiveDocument = doc;
+                if (!await doc.ConfirmCloseAsync().ConfigureAwait(true)) return false;
+                // Captured after the prompt: a SQL Editor saved to a file there is remembered with that file.
+                if (CaptureTab(doc) is { } tab) captured.Add((tab, doc.Key));
+                RemoveDocument(doc);
+            }
+            SaveTabs(profileId, captured, activeKey);
+            return true;
+        }
+        finally
+        {
+            if (clearDiscardAllFlag)
+            {
+                DiscardAllUnsavedSqlEditors = false;
+                DirtySqlEditorsLeftInBatch = 0;
+                IsInDocumentCloseBatch = false;
+            }
+        }
     }
 
     /// <summary>

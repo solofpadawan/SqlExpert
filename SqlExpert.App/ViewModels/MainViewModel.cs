@@ -1153,11 +1153,22 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
     /// </summary>
     public async Task<bool> CloseAllForExitAsync()
     {
-        foreach (var profileId in ProfilesWithTabs())
-            if (!await CloseProfileDocumentsAsync(profileId).ConfigureAwait(true))
-                return false;
-        _tabsSavedForExit = true;
-        return true;
+        DiscardAllUnsavedSqlEditors = false;
+        IsInDocumentCloseBatch = true;
+        try
+        {
+            foreach (var profileId in ProfilesWithTabs())
+                if (!await CloseProfileDocumentsAsync(profileId, clearDiscardAllFlag: false).ConfigureAwait(true))
+                    return false;
+            _tabsSavedForExit = true;
+            return true;
+        }
+        finally
+        {
+            DiscardAllUnsavedSqlEditors = false;
+            DirtySqlEditorsLeftInBatch = 0;
+            IsInDocumentCloseBatch = false;
+        }
     }
 
     /// <summary>Asks for a new Windows-bar name of a SQL Editor tab (empty = restore the default).</summary>
@@ -1194,6 +1205,18 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         CommandManager.InvalidateRequerySuggested();
     }
 
+    /// <summary>True while CloseDocumentsAsync / CloseProfileDocumentsAsync / exit is looping prompts.</summary>
+    internal bool IsInDocumentCloseBatch { get; private set; }
+
+    /// <summary>Dirty SQL Editor texts still left in the current close batch (including the one being asked).</summary>
+    internal int DirtySqlEditorsLeftInBatch { get; private set; }
+
+    /// <summary>When true, remaining SQL Editor text-discard prompts in this close batch are skipped (Descartar todos).</summary>
+    internal bool DiscardAllUnsavedSqlEditors { get; set; }
+
+    internal static int CountDirtySqlEditorTexts(IEnumerable<DocumentViewModel> docs) =>
+        docs.OfType<SqlEditorDocumentViewModel>().Count(d => d.IsModified && d.Document.TextLength > 0);
+
     /// <summary>Asks about unsaved edits (activating the document first so the user sees it), then closes it.</summary>
     public async Task<bool> CloseDocumentAsync(DocumentViewModel doc)
     {
@@ -1208,10 +1231,25 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
     /// <summary>Closes each document in turn; stops (returns false) if the user cancels one.</summary>
     public async Task<bool> CloseDocumentsAsync(IReadOnlyList<DocumentViewModel> docs)
     {
-        foreach (var d in docs.ToList())
-            if (!await CloseDocumentAsync(d).ConfigureAwait(true))
-                return false;
-        return true;
+        DiscardAllUnsavedSqlEditors = false;
+        IsInDocumentCloseBatch = true;
+        try
+        {
+            var list = docs.ToList();
+            for (var i = 0; i < list.Count; i++)
+            {
+                DirtySqlEditorsLeftInBatch = CountDirtySqlEditorTexts(list.Skip(i));
+                if (!await CloseDocumentAsync(list[i]).ConfigureAwait(true))
+                    return false;
+            }
+            return true;
+        }
+        finally
+        {
+            DiscardAllUnsavedSqlEditors = false;
+            DirtySqlEditorsLeftInBatch = 0;
+            IsInDocumentCloseBatch = false;
+        }
     }
 
     private void RemoveDocument(DocumentViewModel doc)
