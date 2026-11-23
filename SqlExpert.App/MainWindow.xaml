@@ -563,10 +563,15 @@
     <Border x:Name="WindowsBar" DockPanel.Dock="Bottom" Background="{StaticResource Tab.StripBackground}" BorderBrush="{StaticResource Ui.Border}"
             BorderThickness="0,1,0,0" Padding="4,0,4,3" MinHeight="28" SnapsToDevicePixels="True"
             Visibility="{Binding ShowWindowsBar, Converter={StaticResource BoolToVis}}"
+            AllowDrop="True"
             PreviewMouseLeftButtonDown="WindowsBar_OnPreviewMouseLeftButtonDown"
             PreviewMouseMove="WindowsBar_OnPreviewMouseMove"
             PreviewMouseLeftButtonUp="WindowsBar_OnPreviewMouseLeftButtonUp"
-            LostMouseCapture="WindowsBar_OnLostMouseCapture">
+            PreviewDragOver="WindowsBar_OnPreviewDragOver"
+            PreviewDrop="WindowsBar_OnPreviewDrop"
+            PreviewDragLeave="WindowsBar_OnPreviewDragLeave"
+            GiveFeedback="WindowsBar_OnGiveFeedback"
+            QueryContinueDrag="WindowsBar_OnQueryContinueDrag">
       <Grid x:Name="WindowsBarHost">
       <ItemsControl x:Name="WindowsBarTabs" ItemsSource="{Binding Documents}" Focusable="False">
         <ItemsControl.ItemsPanel>
@@ -577,8 +582,11 @@
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <Button Style="{StaticResource WindowsBarTab}" ToolTip="{Binding ToolTip}"
+                    AllowDrop="True"
                     Command="{Binding Shell.ActivateDocumentCommand}" CommandParameter="{Binding}"
-                    MouseUp="WindowsBarTab_OnMouseUp">
+                    MouseUp="WindowsBarTab_OnMouseUp"
+                    PreviewDragOver="WindowsBar_OnPreviewDragOver"
+                    PreviewDrop="WindowsBar_OnPreviewDrop">
               <StackPanel Orientation="Horizontal">
                 <views:IconImage Margin="0,0,4,0" VerticalAlignment="Center"
                                  Icon="{Binding IconKey, Mode=OneWay, Converter={StaticResource IconKeyToImage}}"/>
