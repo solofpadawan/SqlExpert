@@ -27,7 +27,6 @@ public partial class MainWindow : Window
     private bool _tabDragging;
     private bool _tabDragResetting;
     private bool _tabDragInDoDragDrop;
-    private int _tabDragLastLoggedInsert = int.MinValue;
 
     /// <summary>Off-screen verification only: skip placement restore (which would Maximize onto the user's screen).</summary>
     internal static bool SuppressVisibleDisplay;
@@ -328,7 +327,6 @@ public partial class MainWindow : Window
         _tabDragStart = PositionOnBar(e);
         _tabDragLastPos = _tabDragStart;
         _tabDragging = false;
-        TabDragLog.Write($"down doc={doc!.ShortName} src={vm.Documents.IndexOf(doc)} pos={Fmt(_tabDragStart)} count={vm.Documents.Count}");
     }
 
     private void WindowsBar_OnPreviewMouseMove(object sender, MouseEventArgs e)
@@ -360,12 +358,11 @@ public partial class MainWindow : Window
     /// </summary>
     private void StartDoDragDrop(Point pos)
     {
-        if (_tabDragDoc is null || DataContext is not MainViewModel vm) return;
+        if (_tabDragDoc is null) return;
 
         _tabDragging = true;
         _tabDragInDoDragDrop = true;
         _tabDragLastPos = pos;
-        _tabDragLastLoggedInsert = int.MinValue;
         if (_tabDragButton is not null)
         {
             _tabDragSavedCommand = _tabDragButton.Command;
@@ -373,17 +370,10 @@ public partial class MainWindow : Window
             _tabDragButton.Opacity = 0.55;
         }
 
-        var bounds = GetTabBounds();
-        TabDragLog.Write($"dnd-start doc={_tabDragDoc.ShortName} src={vm.Documents.IndexOf(_tabDragDoc)} pos={Fmt(pos)} {FormatBounds(bounds)}");
         try
         {
             var data = new DataObject(TabDragDataFormat, _tabDragDoc);
             DragDrop.DoDragDrop(WindowsBar, data, DragDropEffects.Move);
-            TabDragLog.Write("dnd-return");
-        }
-        catch (Exception ex)
-        {
-            TabDragLog.Write($"dnd-ex {ex.GetType().Name}: {ex.Message}");
         }
         finally
         {
@@ -406,7 +396,6 @@ public partial class MainWindow : Window
         var pos = e.GetPosition(WindowsBarHost);
         _tabDragLastPos = pos;
         UpdateDropMarker(pos);
-        LogDragPosition("over", pos);
     }
 
     private void WindowsBar_OnPreviewDrop(object sender, DragEventArgs e)
@@ -421,7 +410,6 @@ public partial class MainWindow : Window
         e.Effects = DragDropEffects.Move;
         e.Handled = true;
         var pos = e.GetPosition(WindowsBarHost);
-        TabDragLog.Write($"drop pos={Fmt(pos)}");
         CompleteTabDrop(pos);
     }
 
@@ -432,7 +420,6 @@ public partial class MainWindow : Window
         if (p.X < -4 || p.Y < -4 || p.X > WindowsBar.ActualWidth + 4 || p.Y > WindowsBar.ActualHeight + 4)
         {
             WindowsBarDropMarker.Visibility = Visibility.Collapsed;
-            TabDragLog.Write($"leave pos={Fmt(p)} (outside bar)");
         }
         e.Handled = true;
     }
@@ -450,7 +437,6 @@ public partial class MainWindow : Window
         if (e.EscapePressed)
         {
             e.Action = DragAction.Cancel;
-            TabDragLog.Write("cancel Escape");
         }
     }
 
@@ -461,30 +447,20 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainViewModel vm || _tabDragDoc is null)
         {
-            TabDragLog.Write("complete skipped (no doc or vm)");
             ResetTabDrag();
             return;
         }
 
         var bounds = GetTabBounds();
         var sourceIndex = vm.Documents.IndexOf(_tabDragDoc);
-        var sameCollection = ReferenceEquals(vm.Documents, WindowsBarTabs.ItemsSource);
         var insert = bounds.Count == 0
             ? -1
             : TabReorder.InsertBeforeIndex(bounds, pos.X, pos.Y);
         var dest = insert < 0 ? null : TabReorder.MoveDestination(sourceIndex, insert, vm.Documents.Count);
-        TabDragLog.Write(
-            $"complete src={sourceIndex} insert={insert} dest={(dest.HasValue ? dest.Value.ToString() : "null")} " +
-            $"pos={Fmt(pos)} sameCollection={sameCollection} {FormatBounds(bounds)}");
         var doc = _tabDragDoc;
         ResetTabDrag();
         if (dest is int index)
-        {
-            var ok = vm.ReorderDocument(doc, index);
-            TabDragLog.Write($"moved={ok} order=[{string.Join(", ", vm.Documents.Select(d => d.ShortName))}]");
-        }
-        else
-            TabDragLog.Write("moved=False (no-op or missing bounds)");
+            vm.ReorderDocument(doc, index);
     }
 
     private void CancelTabDrag() => ResetTabDrag();
@@ -505,7 +481,6 @@ public partial class MainWindow : Window
             _tabDragButton = null;
             _tabDragDoc = null;
             _tabDragging = false;
-            _tabDragLastLoggedInsert = int.MinValue;
             WindowsBarDropMarker.Visibility = Visibility.Collapsed;
             WindowsBar.Cursor = null;
             if (WindowsBar.IsMouseCaptured) WindowsBar.ReleaseMouseCapture();
@@ -544,18 +519,6 @@ public partial class MainWindow : Window
         WindowsBarDropMarker.Visibility = Visibility.Visible;
     }
 
-    private void LogDragPosition(string ev, Point pos)
-    {
-        if (DataContext is not MainViewModel vm || _tabDragDoc is null) return;
-        var bounds = GetTabBounds();
-        var source = vm.Documents.IndexOf(_tabDragDoc);
-        var insert = bounds.Count == 0 ? -1 : TabReorder.InsertBeforeIndex(bounds, pos.X, pos.Y);
-        if (insert == _tabDragLastLoggedInsert) return;
-        _tabDragLastLoggedInsert = insert;
-        var dest = insert < 0 ? null : TabReorder.MoveDestination(source, insert, vm.Documents.Count);
-        TabDragLog.Write($"{ev} pos={Fmt(pos)} src={source} insert={insert} dest={(dest.HasValue ? dest.Value.ToString() : "null")} {FormatBounds(bounds)}");
-    }
-
     private IReadOnlyList<TabReorder.TabBounds> GetTabBounds()
     {
         var list = new List<TabReorder.TabBounds>(WindowsBarTabs.Items.Count);
@@ -571,15 +534,6 @@ public partial class MainWindow : Window
             list.Add(new TabReorder.TabBounds(topLeft.X, topLeft.Y, size.Width, size.Height));
         }
         return list;
-    }
-
-    private static string Fmt(Point p) => $"{p.X:0.0},{p.Y:0.0}";
-
-    private static string FormatBounds(IReadOnlyList<TabReorder.TabBounds> bounds)
-    {
-        if (bounds.Count == 0) return "bounds=0";
-        var parts = bounds.Select((b, i) => $"{i}:{b.X:0.0},{b.Y:0.0} {b.Width:0.0}x{b.Height:0.0}");
-        return "bounds=" + bounds.Count + " [" + string.Join(" | ", parts) + "]";
     }
 
     private static bool TryGetWindowsBarTab(object? source, MainViewModel vm, out Button? button, out DocumentViewModel? doc)
