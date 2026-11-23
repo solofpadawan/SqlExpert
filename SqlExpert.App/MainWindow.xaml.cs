@@ -20,11 +20,31 @@ public partial class MainWindow : Window
     private DocumentViewModel? _tabDragDoc;
     private Button? _tabDragButton;
     private Point _tabDragStart;
+    private Point _tabDragLastPos;
     private bool _tabDragging;
+    private bool _tabDragResetting;
+
+    /// <summary>Off-screen verification only: skip placement restore (which would Maximize onto the user's screen).</summary>
+    internal static bool SuppressVisibleDisplay;
+
+    internal static void SetSuppressVisibleDisplay(bool value) => SuppressVisibleDisplay = value;
+
+    /// <summary>Used by the off-screen verification console: RaiseEvent cannot fake the device position or button state.</summary>
+    internal Point? TabDragPositionOverride;
+    internal MouseButtonState? TabDragLeftButtonOverride;
+
+    internal void SetTabDragTestOverrides(Point? position, MouseButtonState? leftButton)
+    {
+        TabDragPositionOverride = position;
+        TabDragLeftButtonOverride = leftButton;
+    }
 
     public MainWindow()
     {
         InitializeComponent();
+        // The tab Button may mark MouseLeftButtonUp as handled; still complete a drag if one is in progress.
+        WindowsBar.AddHandler(MouseLeftButtonUpEvent, new MouseButtonEventHandler(WindowsBar_OnMouseLeftButtonUp), handledEventsToo: true);
+        AddHandler(PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler(WindowsBar_OnPreviewMouseLeftButtonUp), handledEventsToo: true);
         DataContextChanged += OnDataContextChanged;
         ApplyStartupPlacement();
         StateChanged += (_, _) => { if (WindowState != WindowState.Minimized) _lastShownState = WindowState; };
@@ -115,6 +135,17 @@ public partial class MainWindow : Window
 
     private void ApplyStartupPlacement()
     {
+        if (SuppressVisibleDisplay)
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            WindowState = WindowState.Normal;
+            Left = -20000;
+            Top = -20000;
+            ShowInTaskbar = false;
+            ShowActivated = false;
+            Visibility = Visibility.Hidden;
+            return;
+        }
         var restored = WindowPlacementLogic.Restore(UiSettings.Instance.MainWindowPlacement, Desktop());
         if (restored is null)
         {
@@ -143,6 +174,7 @@ public partial class MainWindow : Window
 
     private void SavePlacement()
     {
+        if (SuppressVisibleDisplay) return;
         try
         {
             var normal = WindowState == WindowState.Normal ? new Rect(Left, Top, ActualWidth, ActualHeight) : RestoreBounds;
@@ -280,47 +312,74 @@ public partial class MainWindow : Window
         }
     }
 
+    private Point PositionOnBar(MouseEventArgs e) => TabDragPositionOverride ?? e.GetPosition(WindowsBarHost);
+
+    private MouseButtonState LeftButtonOf(MouseEventArgs e) => TabDragLeftButtonOverride ?? e.LeftButton;
+
     private void WindowsBar_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount != 1 || e.ChangedButton != MouseButton.Left) return;
+        if (e.ClickCount > 1 || e.ChangedButton != MouseButton.Left) return;
         if (DataContext is not MainViewModel vm || vm.Documents.Count < 2) return;
-        if (!TryGetWindowsBarTab(e.OriginalSource, vm, out var button, out var doc)) return;
+        if (!TryGetWindowsBarTab(e.OriginalSource, vm, out var button, out var doc) && !TryGetWindowsBarTab(e.Source, vm, out button, out doc)) return;
         _tabDragDoc = doc;
         _tabDragButton = button;
-        _tabDragStart = e.GetPosition(WindowsBarHost);
+        _tabDragStart = PositionOnBar(e);
+        _tabDragLastPos = _tabDragStart;
         _tabDragging = false;
     }
 
     private void WindowsBar_OnPreviewMouseMove(object sender, MouseEventArgs e)
     {
-        if (_tabDragDoc is null || e.LeftButton != MouseButtonState.Pressed)
-        {
-            if (_tabDragging) CancelTabDrag();
-            return;
-        }
+        if (_tabDragDoc is null) return;
 
-        var pos = e.GetPosition(WindowsBarHost);
+        var pos = PositionOnBar(e);
+        var left = LeftButtonOf(e);
+
         if (!_tabDragging)
         {
+            // A candidate click: do not start a drag unless the button is still down.
+            if (left != MouseButtonState.Pressed) return;
             if (Math.Abs(pos.X - _tabDragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
                 Math.Abs(pos.Y - _tabDragStart.Y) < SystemParameters.MinimumVerticalDragDistance)
                 return;
-            _tabDragging = true;
-            WindowsBar.CaptureMouse();
-            if (_tabDragButton is not null) _tabDragButton.Opacity = 0.55;
-            WindowsBar.Cursor = Cursors.SizeWE;
+            BeginTabDrag(pos);
+        }
+        else if (left != MouseButtonState.Pressed)
+        {
+            // WPF often raises a Move with LeftButton already Released before (or instead of)
+            // MouseLeftButtonUp reaching this element. Cancelling here dropped the reorder on release.
+            _tabDragLastPos = pos;
+            CompleteTabDrop(pos);
+            e.Handled = true;
+            return;
         }
 
+        _tabDragLastPos = pos;
         UpdateDropMarker(pos);
         e.Handled = true;
     }
 
-    private void WindowsBar_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    private void BeginTabDrag(Point pos)
+    {
+        _tabDragging = true;
+        _tabDragLastPos = pos;
+        Mouse.Capture(WindowsBar, CaptureMode.Element);
+        if (_tabDragButton is not null) _tabDragButton.Opacity = 0.55;
+        WindowsBar.Cursor = Cursors.SizeWE;
+    }
+
+    private void WindowsBar_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) =>
+        HandleTabDragMouseUp(e);
+
+    private void WindowsBar_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e) =>
+        HandleTabDragMouseUp(e);
+
+    private void HandleTabDragMouseUp(MouseButtonEventArgs e)
     {
         if (_tabDragDoc is null) return;
         if (_tabDragging)
         {
-            CompleteTabDrop(e.GetPosition(WindowsBarHost));
+            CompleteTabDrop(PositionOnBar(e));
             e.Handled = true;
         }
         else
@@ -329,7 +388,12 @@ public partial class MainWindow : Window
 
     private void WindowsBar_OnLostMouseCapture(object sender, MouseEventArgs e)
     {
-        if (_tabDragging) CancelTabDrag();
+        if (!_tabDragging || _tabDragResetting) return;
+        // Capture was lost after the button was released and Up did not reach us: commit the drop.
+        if (LeftButtonOf(e) != MouseButtonState.Pressed)
+            CompleteTabDrop(_tabDragLastPos);
+        else
+            CancelTabDrag();
     }
 
     private void CompleteTabDrop(Point pos)
@@ -342,7 +406,9 @@ public partial class MainWindow : Window
 
         var bounds = GetTabBounds();
         var sourceIndex = vm.Documents.IndexOf(_tabDragDoc);
-        var insert = TabReorder.InsertBeforeIndex(bounds, pos.X, pos.Y);
+        var insert = bounds.Count == 0
+            ? sourceIndex
+            : TabReorder.InsertBeforeIndex(bounds, pos.X, pos.Y);
         var dest = TabReorder.MoveDestination(sourceIndex, insert, vm.Documents.Count);
         var doc = _tabDragDoc;
         ResetTabDrag();
@@ -354,14 +420,23 @@ public partial class MainWindow : Window
 
     private void ResetTabDrag()
     {
-        var wasCapturing = WindowsBar.IsMouseCaptured;
-        if (_tabDragButton is not null) _tabDragButton.Opacity = 1;
-        _tabDragButton = null;
-        _tabDragDoc = null;
-        _tabDragging = false;
-        WindowsBarDropMarker.Visibility = Visibility.Collapsed;
-        WindowsBar.Cursor = null;
-        if (wasCapturing) WindowsBar.ReleaseMouseCapture();
+        if (_tabDragResetting) return;
+        _tabDragResetting = true;
+        try
+        {
+            var wasCapturing = WindowsBar.IsMouseCaptured;
+            if (_tabDragButton is not null) _tabDragButton.Opacity = 1;
+            _tabDragButton = null;
+            _tabDragDoc = null;
+            _tabDragging = false;
+            WindowsBarDropMarker.Visibility = Visibility.Collapsed;
+            WindowsBar.Cursor = null;
+            if (wasCapturing) WindowsBar.ReleaseMouseCapture();
+        }
+        finally
+        {
+            _tabDragResetting = false;
+        }
     }
 
     private void UpdateDropMarker(Point pos)
