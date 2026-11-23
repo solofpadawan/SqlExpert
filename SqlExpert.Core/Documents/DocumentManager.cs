@@ -77,6 +77,16 @@ public sealed class DocumentManager<TDoc> where TDoc : class
     /// <summary>Snapshot of all open documents.</summary>
     public IReadOnlyList<TDoc> All() => Documents.ToList();
 
+    /// <summary>Moves an open document to <paramref name="newIndex"/> without changing the active document.</summary>
+    public bool Move(TDoc doc, int newIndex)
+    {
+        var oldIndex = Documents.IndexOf(doc);
+        if (oldIndex < 0 || newIndex < 0 || newIndex >= Documents.Count || oldIndex == newIndex)
+            return false;
+        Documents.Move(oldIndex, newIndex);
+        return true;
+    }
+
     /// <summary>Activates the next (<paramref name="step"/> = 1) or previous (-1) document, wrapping around.</summary>
     public TDoc? Cycle(int step)
     {

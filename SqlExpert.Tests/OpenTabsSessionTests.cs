@@ -52,6 +52,25 @@ public class OpenTabsSessionTests
     }
 
     [Fact]
+    public void SaveAndLoad_PreservesReorderedTabList()
+    {
+        var store = new OpenTabsSessionStore(TempDir());
+        var s = Sample(ProfileA);
+        var first = s.Tabs[0];
+        s.Tabs.RemoveAt(0);
+        s.Tabs.Add(first);
+        s.ActiveIndex = 1;
+        store.Save(s);
+
+        var loaded = store.Load(ProfileA)!;
+        Assert.Equal(new[] { SessionTabKind.Procedure, SessionTabKind.SqlEditor, SessionTabKind.Table }, loaded.Tabs.Select(t => t.Kind));
+        Assert.Equal("Customer", loaded.Tabs[2].Name);
+        Assert.Equal("usp_Totals", loaded.Tabs[0].Name);
+        Assert.Equal(1, loaded.ActiveIndex);
+        Assert.Equal("select 1;\r\n-- não executado", loaded.Tabs[1].SqlText);
+    }
+
+    [Fact]
     public void File_IsReadableJsonWithKindNamesAndNoPassword()
     {
         var store = new OpenTabsSessionStore(TempDir());

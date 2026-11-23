@@ -108,6 +108,38 @@ public class DocumentManagerTests
     }
 
     [Fact]
+    public void Move_ReordersAndKeepsActive()
+    {
+        var m = Make();
+        var (a, _) = m.OpenOrActivate("a", () => new Doc("a"));
+        var (b, _) = m.OpenOrActivate("b", () => new Doc("b"));
+        var (c, _) = m.OpenOrActivate("c", () => new Doc("c"));
+        Assert.Same(c, m.Active);
+
+        Assert.True(m.Move(a, 2));
+        Assert.Equal(new[] { b, c, a }, m.Documents);
+        Assert.Same(c, m.Active);
+
+        Assert.True(m.Move(c, 0));
+        Assert.Equal(new[] { c, b, a }, m.Documents);
+        Assert.Same(c, m.Active);
+    }
+
+    [Fact]
+    public void Move_NoOpOrInvalid_ReturnsFalse()
+    {
+        var m = Make();
+        var (a, _) = m.OpenOrActivate("a", () => new Doc("a"));
+        var (b, _) = m.OpenOrActivate("b", () => new Doc("b"));
+        Assert.False(m.Move(a, 0));
+        Assert.False(m.Move(a, -1));
+        Assert.False(m.Move(a, 2));
+        Assert.False(m.Move(new Doc("x"), 0));
+        Assert.Equal(new[] { a, b }, m.Documents);
+        Assert.Same(b, m.Active);
+    }
+
+    [Fact]
     public void Activate_UnknownDocument_Throws()
         => Assert.Throws<InvalidOperationException>(() => Make().Activate(new Doc("x")));
 

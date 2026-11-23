@@ -1260,6 +1260,17 @@ public sealed partial class MainViewModel : INotifyPropertyChanged
         CommandManager.InvalidateRequerySuggested();
     }
 
+    /// <summary>
+    /// Moves a Windows-bar tab to <paramref name="newIndex"/> and saves that registration open-windows order.
+    /// The active document stays the same (only its position may change).
+    /// </summary>
+    internal bool ReorderDocument(DocumentViewModel doc, int newIndex)
+    {
+        if (!_docs.Move(doc, newIndex)) return false;
+        PersistOpenTabs(doc.ProfileId);
+        return true;
+    }
+
     /// <summary>Opens the table editor document, or activates it when that table is already open.</summary>
     private async Task<TableDocumentViewModel?> OpenTableDocumentAsync(string database, string schema, string table)
     {

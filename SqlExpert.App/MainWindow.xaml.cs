@@ -6,6 +6,7 @@ using System.Windows.Media;
 using SqlExpert.App.Services;
 using SqlExpert.App.ViewModels;
 using SqlExpert.App.Views;
+using SqlExpert.Core.Documents;
 using SqlExpert.Core.Models;
 using SqlExpert.Core.Services;
 
@@ -15,6 +16,11 @@ public partial class MainWindow : Window
 {
     private GridLength _explorerWidth = new(280);
     private MainViewModel? _vm;
+
+    private DocumentViewModel? _tabDragDoc;
+    private Button? _tabDragButton;
+    private Point _tabDragStart;
+    private bool _tabDragging;
 
     public MainWindow()
     {
@@ -274,6 +280,172 @@ public partial class MainWindow : Window
         }
     }
 
+    private void WindowsBar_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 1 || e.ChangedButton != MouseButton.Left) return;
+        if (DataContext is not MainViewModel vm || vm.Documents.Count < 2) return;
+        if (!TryGetWindowsBarTab(e.OriginalSource, vm, out var button, out var doc)) return;
+        _tabDragDoc = doc;
+        _tabDragButton = button;
+        _tabDragStart = e.GetPosition(WindowsBarHost);
+        _tabDragging = false;
+    }
+
+    private void WindowsBar_OnPreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_tabDragDoc is null || e.LeftButton != MouseButtonState.Pressed)
+        {
+            if (_tabDragging) CancelTabDrag();
+            return;
+        }
+
+        var pos = e.GetPosition(WindowsBarHost);
+        if (!_tabDragging)
+        {
+            if (Math.Abs(pos.X - _tabDragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                Math.Abs(pos.Y - _tabDragStart.Y) < SystemParameters.MinimumVerticalDragDistance)
+                return;
+            _tabDragging = true;
+            WindowsBar.CaptureMouse();
+            if (_tabDragButton is not null) _tabDragButton.Opacity = 0.55;
+            WindowsBar.Cursor = Cursors.SizeWE;
+        }
+
+        UpdateDropMarker(pos);
+        e.Handled = true;
+    }
+
+    private void WindowsBar_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_tabDragDoc is null) return;
+        if (_tabDragging)
+        {
+            CompleteTabDrop(e.GetPosition(WindowsBarHost));
+            e.Handled = true;
+        }
+        else
+            ResetTabDrag();
+    }
+
+    private void WindowsBar_OnLostMouseCapture(object sender, MouseEventArgs e)
+    {
+        if (_tabDragging) CancelTabDrag();
+    }
+
+    private void CompleteTabDrop(Point pos)
+    {
+        if (DataContext is not MainViewModel vm || _tabDragDoc is null)
+        {
+            ResetTabDrag();
+            return;
+        }
+
+        var bounds = GetTabBounds();
+        var sourceIndex = vm.Documents.IndexOf(_tabDragDoc);
+        var insert = TabReorder.InsertBeforeIndex(bounds, pos.X, pos.Y);
+        var dest = TabReorder.MoveDestination(sourceIndex, insert, vm.Documents.Count);
+        var doc = _tabDragDoc;
+        ResetTabDrag();
+        if (dest is int index)
+            vm.ReorderDocument(doc, index);
+    }
+
+    private void CancelTabDrag() => ResetTabDrag();
+
+    private void ResetTabDrag()
+    {
+        var wasCapturing = WindowsBar.IsMouseCaptured;
+        if (_tabDragButton is not null) _tabDragButton.Opacity = 1;
+        _tabDragButton = null;
+        _tabDragDoc = null;
+        _tabDragging = false;
+        WindowsBarDropMarker.Visibility = Visibility.Collapsed;
+        WindowsBar.Cursor = null;
+        if (wasCapturing) WindowsBar.ReleaseMouseCapture();
+    }
+
+    private void UpdateDropMarker(Point pos)
+    {
+        var bounds = GetTabBounds();
+        if (bounds.Count == 0)
+        {
+            WindowsBarDropMarker.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var insert = TabReorder.InsertBeforeIndex(bounds, pos.X, pos.Y);
+        TabReorder.TabBounds slot;
+        double x;
+        if (insert >= bounds.Count)
+        {
+            slot = bounds[^1];
+            x = slot.Right;
+        }
+        else
+        {
+            slot = bounds[insert];
+            x = slot.X;
+        }
+
+        WindowsBarDropMarker.Height = Math.Max(2, slot.Height);
+        WindowsBarDropMarker.Margin = new Thickness(Math.Max(0, x - 1), slot.Y, 0, 0);
+        WindowsBarDropMarker.Visibility = Visibility.Visible;
+    }
+
+    private IReadOnlyList<TabReorder.TabBounds> GetTabBounds()
+    {
+        var list = new List<TabReorder.TabBounds>(WindowsBarTabs.Items.Count);
+        for (var i = 0; i < WindowsBarTabs.Items.Count; i++)
+        {
+            if (WindowsBarTabs.ItemContainerGenerator.ContainerFromIndex(i) is not FrameworkElement container)
+                continue;
+            var button = FindDescendant<Button>(container) ?? container;
+            var size = button.RenderSize;
+            if (size.Width <= 0 || size.Height <= 0) continue;
+            var topLeft = button.TranslatePoint(new Point(0, 0), WindowsBarHost);
+            list.Add(new TabReorder.TabBounds(topLeft.X, topLeft.Y, size.Width, size.Height));
+        }
+        return list;
+    }
+
+    private static bool TryGetWindowsBarTab(object? source, MainViewModel vm, out Button? button, out DocumentViewModel? doc)
+    {
+        button = FindAncestor<Button>(source as DependencyObject);
+        doc = button?.DataContext as DocumentViewModel;
+        if (doc is null || !vm.Documents.Contains(doc))
+        {
+            button = null;
+            doc = null;
+            return false;
+        }
+        return true;
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? d) where T : DependencyObject
+    {
+        while (d is not null)
+        {
+            if (d is T match) return match;
+            d = d is Visual or System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(d)
+                : LogicalTreeHelper.GetParent(d);
+        }
+        return null;
+    }
+
+    private static T? FindDescendant<T>(DependencyObject d) where T : DependencyObject
+    {
+        var n = VisualTreeHelper.GetChildrenCount(d);
+        for (var i = 0; i < n; i++)
+        {
+            var child = VisualTreeHelper.GetChild(d, i);
+            if (child is T match) return match;
+            if (FindDescendant<T>(child) is { } found) return found;
+        }
+        return null;
+    }
+
+
     private const string DocumentMenuTag = "doc-item";
 
     /// <summary>Appends one checkable item per open document (checked = active) to the Windows menu.</summary>
@@ -303,9 +475,15 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Ctrl+Tab / Ctrl+Shift+Tab cycle documents, Ctrl+F4 closes the active one.</summary>
+    /// <summary>Ctrl+Tab / Ctrl+Shift+Tab cycle documents, Ctrl+F4 closes the active one. Esc cancels a tab drag.</summary>
     private void Window_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (_tabDragging && e.Key == Key.Escape)
+        {
+            CancelTabDrag();
+            e.Handled = true;
+            return;
+        }
         if (DataContext is not MainViewModel vm || (Keyboard.Modifiers & ModifierKeys.Control) == 0) return;
         if (e.Key == Key.Tab && vm.Documents.Count > 1)
         {
